@@ -1,21 +1,17 @@
 package com.example.demoappchat.presentation.auth
 
-
-import androidx.compose.foundation.Image
+import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Email
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -24,9 +20,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.example.demoappchat.ui.theme.EmergencyRed
+import com.example.demoappchat.ui.theme.*
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LoginScreen(
     onNavigateToMain: () -> Unit,
@@ -41,174 +36,410 @@ fun LoginScreen(
     var name by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
 
-    // Navegar si el usuario ya está autenticado
     LaunchedEffect(currentUser) {
         if (currentUser != null) {
             onNavigateToMain()
         }
     }
 
-    // Mostrar errores
-    uiState.error?.let { error ->
-        LaunchedEffect(error) {
-            // Aquí podrías mostrar un SnackBar
-        }
-    }
-
-    Column(
+    Box(
         modifier = Modifier
             .fillMaxSize()
-            .padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+            .background(Color.White)
     ) {
-        // Logo y título
-        Icon(
-            painter = painterResource(id = android.R.drawable.ic_dialog_alert),
-            contentDescription = "Logo",
-            modifier = Modifier.size(80.dp),
-            tint = EmergencyRed
-        )
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Spacer(modifier = Modifier.height(60.dp))
 
-        Spacer(modifier = Modifier.height(16.dp))
+            // Logo simple y clean
+            CleanLogo()
 
-        Text(
-            text = "SecurityChat",
-            fontSize = 32.sp,
-            fontWeight = FontWeight.Bold,
-            color = EmergencyRed
-        )
+            Spacer(modifier = Modifier.height(48.dp))
 
-        Text(
-            text = "Chat de seguridad por proximidad",
-            fontSize = 16.sp,
-            color = Color.Gray,
-            textAlign = TextAlign.Center
-        )
-
-        Spacer(modifier = Modifier.height(32.dp))
-
-        // Título del formulario
-        Text(
-            text = if (isLogin) "Iniciar Sesión" else "Crear Cuenta",
-            fontSize = 24.sp,
-            fontWeight = FontWeight.Bold
-        )
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // Campo nombre (solo en registro)
-        if (!isLogin) {
-            OutlinedTextField(
-                value = name,
-                onValueChange = { name = it },
-                label = { Text("Nombre completo") },
-                leadingIcon = {
-                    Icon(Icons.Default.Person, contentDescription = null)
-                },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true
+            // Título
+            Text(
+                text = if (isLogin) "Bienvenido de vuelta" else "Crear una cuenta",
+                fontSize = 28.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.Black,
+                textAlign = TextAlign.Center
             )
-            Spacer(modifier = Modifier.height(16.dp))
-        }
 
-        // Campo email
-        OutlinedTextField(
-            value = email,
-            onValueChange = { email = it },
-            label = { Text("Email") },
-            leadingIcon = {
-                Icon(Icons.Default.Email, contentDescription = null)
-            },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true
-        )
+            Spacer(modifier = Modifier.height(8.dp))
 
-        Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = if (isLogin) "Ingresa a tu cuenta segura" else "Únete a nuestra red segura",
+                fontSize = 16.sp,
+                color = Color.Gray,
+                textAlign = TextAlign.Center
+            )
 
-        // Campo contraseña
-        OutlinedTextField(
-            value = password,
-            onValueChange = { password = it },
-            label = { Text("Contraseña") },
-            leadingIcon = {
-                Icon(Icons.Default.Lock, contentDescription = null)
-            },
-            trailingIcon = {
-                IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                    Icon(
-                        if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                        contentDescription = if (passwordVisible) "Ocultar contraseña" else "Mostrar contraseña"
+            Spacer(modifier = Modifier.height(40.dp))
+
+            // Formulario
+            Column(
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                // Campo nombre (solo registro)
+                if (!isLogin) {
+                    CleanTextField(
+                        value = name,
+                        onValueChange = { name = it },
+                        placeholder = "Nombre completo",
+                        icon = Icons.Default.Person
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+
+                // Email
+                CleanTextField(
+                    value = email,
+                    onValueChange = { email = it },
+                    placeholder = "Correo electrónico",
+                    icon = Icons.Default.Email,
+                    keyboardType = KeyboardType.Email
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Password
+                CleanPasswordField(
+                    value = password,
+                    onValueChange = { password = it },
+                    placeholder = "Contraseña",
+                    passwordVisible = passwordVisible,
+                    onPasswordVisibilityChange = { passwordVisible = !passwordVisible }
+                )
+
+                Spacer(modifier = Modifier.height(32.dp))
+
+                // Botón principal
+                CleanButton(
+                    text = if (isLogin) "Iniciar Sesión" else "Crear Cuenta",
+                    isLoading = uiState.isLoading,
+                    enabled = email.isNotBlank() && password.isNotBlank() && (isLogin || name.isNotBlank()),
+                    onClick = {
+                        if (isLogin) {
+                            viewModel.signIn(email, password)
+                        } else {
+                            viewModel.signUp(email, password, name)
+                        }
+                    }
+                )
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // Divider
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Divider(
+                        modifier = Modifier.weight(1f),
+                        color = Color.Gray.copy(alpha = 0.3f)
+                    )
+                    Text(
+                        text = "O",
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                        color = Color.Gray,
+                        fontSize = 14.sp
+                    )
+                    Divider(
+                        modifier = Modifier.weight(1f),
+                        color = Color.Gray.copy(alpha = 0.3f)
                     )
                 }
-            },
-            visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true
-        )
 
-        Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(24.dp))
 
-        // Botón principal
-        Button(
-            onClick = {
-                if (isLogin) {
-                    viewModel.signIn(email, password)
-                } else {
-                    viewModel.signUp(email, password, name)
+                // Botones sociales
+                SocialLoginButtons()
+
+                Spacer(modifier = Modifier.height(32.dp))
+
+                // Cambiar modo
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Text(
+                        text = if (isLogin) "¿No tienes cuenta? " else "¿Ya tienes cuenta? ",
+                        color = Color.Gray,
+                        fontSize = 14.sp
+                    )
+                    Text(
+                        text = if (isLogin) "Registrarse" else "Iniciar Sesión",
+                        color = PrimaryBlue,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.clickable {
+                            isLogin = !isLogin
+                            viewModel.clearError()
+                        }
+                    )
                 }
-            },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(50.dp),
-            enabled = !uiState.isLoading && email.isNotBlank() && password.isNotBlank() && (isLogin || name.isNotBlank()),
-            colors = ButtonDefaults.buttonColors(containerColor = EmergencyRed)
-        ) {
-            if (uiState.isLoading) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(20.dp),
-                    color = Color.White
-                )
-            } else {
-                Text(
-                    text = if (isLogin) "Iniciar Sesión" else "Crear Cuenta",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold
-                )
             }
+
+            // Error
+            uiState.error?.let { error ->
+                Spacer(modifier = Modifier.height(16.dp))
+                CleanErrorCard(error = error)
+            }
+        }
+    }
+}
+
+@Composable
+fun CleanLogo() {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        // Logo circular simple
+        Box(
+            modifier = Modifier
+                .size(80.dp)
+                .background(
+                    color = PrimaryBlue,
+                    shape = RoundedCornerShape(20.dp)
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                Icons.Default.Security,
+                contentDescription = "Logo",
+                modifier = Modifier.size(36.dp),
+                tint = Color.White
+            )
         }
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Cambiar entre login y registro
-        TextButton(
-            onClick = {
-                isLogin = !isLogin
-                viewModel.clearError()
-            }
-        ) {
-            Text(
-                text = if (isLogin) "¿No tienes cuenta? Crear una" else "¿Ya tienes cuenta? Iniciar sesión",
-                color = EmergencyRed
-            )
-        }
+        Text(
+            text = "SafeVoice",
+            fontSize = 24.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color.Black
+        )
+    }
+}
 
-        // Mostrar error
-        uiState.error?.let { error ->
-            Spacer(modifier = Modifier.height(16.dp))
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = Color.Red.copy(alpha = 0.1f))
-            ) {
-                Text(
-                    text = error,
-                    modifier = Modifier.padding(16.dp),
-                    color = Color.Red,
-                    textAlign = TextAlign.Center
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun CleanTextField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    placeholder: String,
+    icon: ImageVector,
+    keyboardType: KeyboardType = KeyboardType.Text
+) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        placeholder = {
+            Text(
+                text = placeholder,
+                color = Color.Gray.copy(alpha = 0.7f)
+            )
+        },
+        leadingIcon = {
+            Icon(
+                icon,
+                contentDescription = null,
+                tint = Color.Gray.copy(alpha = 0.6f),
+                modifier = Modifier.size(20.dp)
+            )
+        },
+        modifier = Modifier.fillMaxWidth(),
+        singleLine = true,
+        keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedTextColor = Color.Black,
+            unfocusedTextColor = Color.Black,
+            focusedBorderColor = PrimaryBlue,
+            unfocusedBorderColor = Color.Gray.copy(alpha = 0.3f),
+            cursorColor = PrimaryBlue
+        ),
+        shape = RoundedCornerShape(12.dp)
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun CleanPasswordField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    placeholder: String,
+    passwordVisible: Boolean,
+    onPasswordVisibilityChange: () -> Unit
+) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        placeholder = {
+            Text(
+                text = placeholder,
+                color = Color.Gray.copy(alpha = 0.7f)
+            )
+        },
+        leadingIcon = {
+            Icon(
+                Icons.Default.Lock,
+                contentDescription = null,
+                tint = Color.Gray.copy(alpha = 0.6f),
+                modifier = Modifier.size(20.dp)
+            )
+        },
+        trailingIcon = {
+            IconButton(onClick = onPasswordVisibilityChange) {
+                Icon(
+                    if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                    contentDescription = if (passwordVisible) "Ocultar contraseña" else "Mostrar contraseña",
+                    tint = Color.Gray.copy(alpha = 0.6f),
+                    modifier = Modifier.size(20.dp)
                 )
             }
+        },
+        visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+        modifier = Modifier.fillMaxWidth(),
+        singleLine = true,
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedTextColor = Color.Black,
+            unfocusedTextColor = Color.Black,
+            focusedBorderColor = PrimaryBlue,
+            unfocusedBorderColor = Color.Gray.copy(alpha = 0.3f),
+            cursorColor = PrimaryBlue
+        ),
+        shape = RoundedCornerShape(12.dp)
+    )
+}
+
+@Composable
+fun CleanButton(
+    text: String,
+    isLoading: Boolean,
+    enabled: Boolean,
+    onClick: () -> Unit
+) {
+    Button(
+        onClick = onClick,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(52.dp),
+        enabled = enabled && !isLoading,
+        colors = ButtonDefaults.buttonColors(
+            containerColor = PrimaryBlue,
+            disabledContainerColor = PrimaryBlue.copy(alpha = 0.5f)
+        ),
+        shape = RoundedCornerShape(12.dp),
+        elevation = ButtonDefaults.elevatedButtonElevation(0.dp)
+    ) {
+        if (isLoading) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(20.dp),
+                color = Color.White,
+                strokeWidth = 2.dp
+            )
+        } else {
+            Text(
+                text = text,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Medium,
+                color = Color.White
+            )
+        }
+    }
+}
+
+@Composable
+fun SocialLoginButtons() {
+    Column(
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        // Google
+        OutlinedButton(
+            onClick = { /* TODO: Google login */ },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(48.dp),
+            colors = ButtonDefaults.outlinedButtonColors(
+                containerColor = Color.Transparent
+            ),
+            border = BorderStroke(1.dp, Color.Gray.copy(alpha = 0.3f)),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("G", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.Red)
+                Spacer(modifier = Modifier.width(12.dp))
+                Text(
+                    "Continuar con Google",
+                    color = Color.Black,
+                    fontSize = 14.sp
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Apple
+        OutlinedButton(
+            onClick = { /* TODO: Apple login */ },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(48.dp),
+            colors = ButtonDefaults.outlinedButtonColors(
+                containerColor = Color.Transparent
+            ),
+            border = BorderStroke(1.dp, Color.Gray.copy(alpha = 0.3f)),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("🍎", fontSize = 18.sp, color = Color.Black)
+                Spacer(modifier = Modifier.width(12.dp))
+                Text(
+                    "Continuar con Apple",
+                    color = Color.Black,
+                    fontSize = 14.sp
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun CleanErrorCard(error: String) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = Color.Red.copy(alpha = 0.1f)
+        ),
+        shape = RoundedCornerShape(12.dp),
+        elevation = CardDefaults.cardElevation(0.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                Icons.Default.Error,
+                contentDescription = null,
+                tint = Color.Red,
+                modifier = Modifier.size(20.dp)
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Text(
+                text = error,
+                color = Color.Red,
+                fontSize = 14.sp
+            )
         }
     }
 }
