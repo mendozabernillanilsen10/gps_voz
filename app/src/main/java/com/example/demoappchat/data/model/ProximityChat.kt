@@ -36,12 +36,16 @@ data class ProximityChat(
         )
     }
 
+//    fun getDistanceText(userLat: Double, userLng: Double): String {
+//        val distance = calculateDistance(latitude, longitude, userLat, userLng)
+//        return when {
+//            distance < 1000 -> "${distance.toInt()}m"
+//            else -> "${"%.1f".format(distance / 1000)}km"
+//        }
+//    }
+
     fun getDistanceText(userLat: Double, userLng: Double): String {
-        val distance = calculateDistance(latitude, longitude, userLat, userLng)
-        return when {
-            distance < 1000 -> "${distance.toInt()}m"
-            else -> "${"%.1f".format(distance / 1000)}km"
-        }
+        return "–" // o "N/A", "No disponible", "Sin calcular", etc.
     }
 
     private fun calculateDistance(lat1: Double, lng1: Double, lat2: Double, lng2: Double): Double {

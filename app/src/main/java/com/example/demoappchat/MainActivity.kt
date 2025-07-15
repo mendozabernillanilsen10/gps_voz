@@ -1,6 +1,7 @@
 package com.example.demoappchat
 
 import android.os.Bundle
+import android.window.SplashScreen
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
@@ -16,11 +17,10 @@ import com.example.demoappchat.presentation.auth.AuthViewModel
 import com.example.demoappchat.presentation.auth.LoginScreen
 import com.example.demoappchat.presentation.chat.ChatScreen
 import com.example.demoappchat.presentation.main.MainScreen
+import com.example.demoappchat.presentation.splash.ModernSplashScreen
 import com.example.demoappchat.ui.theme.SecurityChatTheme
 import dagger.hilt.android.AndroidEntryPoint
-import androidx.compose.runtime.Composable
 import com.google.firebase.FirebaseApp
-
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -34,7 +34,7 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    SecurityChatApp()
+                    SafeVoiceApp()
                 }
             }
         }
@@ -42,47 +42,55 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun SecurityChatApp() {
+fun SafeVoiceApp() {
     val navController = rememberNavController()
     val authViewModel: AuthViewModel = hiltViewModel()
     val currentUser by authViewModel.currentUser.collectAsState()
 
-    NavHost(
-        navController = navController,
-        startDestination = if (currentUser != null) "main" else "login"
-    ) {
-        composable("login") {
-            LoginScreen(
-                onNavigateToMain = {
-                    navController.navigate("main") {
-                        popUpTo("login") { inclusive = true }
-                    }
-                }
-            )
-        }
+    var showSplash by remember { mutableStateOf(true) }
 
-        composable("main") {
-            MainScreen(
-                onNavigateToChat = { chatId ->
-                    navController.navigate("chat/$chatId")
-                },
-                onSignOut = {
-                    authViewModel.signOut()
-                    navController.navigate("login") {
-                        popUpTo("main") { inclusive = true }
+    if (showSplash) {
+        ModernSplashScreen(
+            onSplashFinished = { showSplash = false }
+        )
+    } else {
+        NavHost(
+            navController = navController,
+            startDestination = if (currentUser != null) "main" else "login"
+        ) {
+            composable("login") {
+                LoginScreen(
+                    onNavigateToMain = {
+                        navController.navigate("main") {
+                            popUpTo("login") { inclusive = true }
+                        }
                     }
-                }
-            )
-        }
+                )
+            }
 
-        composable("chat/{chatId}") { backStackEntry ->
-            val chatId = backStackEntry.arguments?.getString("chatId") ?: ""
-            ChatScreen(
-                chatId = chatId,
-                onNavigateBack = {
-                    navController.popBackStack()
-                }
-            )
+            composable("main") {
+                MainScreen(
+                    onNavigateToChat = { chatId ->
+                        navController.navigate("chat/$chatId")
+                    },
+                    onSignOut = {
+                        authViewModel.signOut()
+                        navController.navigate("login") {
+                            popUpTo("main") { inclusive = true }
+                        }
+                    }
+                )
+            }
+
+            composable("chat/{chatId}") { backStackEntry ->
+                val chatId = backStackEntry.arguments?.getString("chatId") ?: ""
+                ChatScreen(
+                    chatId = chatId,
+                    onNavigateBack = {
+                        navController.popBackStack()
+                    }
+                )
+            }
         }
     }
 }

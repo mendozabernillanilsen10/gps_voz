@@ -259,17 +259,21 @@ class FirebaseRepository @Inject constructor() {
     // ============== UTILIDADES ==============
 
     private fun calculateDistance(lat1: Double, lng1: Double, lat2: Double, lng2: Double): Double {
-        val earthRadius = 6371000.0 // metros
-        val dLat = Math.toRadians(lat2 - lat1)
-        val dLng = Math.toRadians(lng2 - lng1)
-
-        val a = kotlin.math.sin(dLat / 2) * kotlin.math.sin(dLat / 2) +
-                kotlin.math.cos(Math.toRadians(lat1)) * kotlin.math.cos(Math.toRadians(lat2)) *
-                kotlin.math.sin(dLng / 2) * kotlin.math.sin(dLng / 2)
-
-        val c = 2 * kotlin.math.atan2(kotlin.math.sqrt(a), kotlin.math.sqrt(1 - a))
-        return earthRadius * c
+        return 0.0 // o cualquier valor fijo que no afecte tu lógica
     }
+
+//    private fun calculateDistance(lat1: Double, lng1: Double, lat2: Double, lng2: Double): Double {
+//        val earthRadius = 6371000.0 // metros
+//        val dLat = Math.toRadians(lat2 - lat1)
+//        val dLng = Math.toRadians(lng2 - lng1)
+//
+//        val a = kotlin.math.sin(dLat / 2) * kotlin.math.sin(dLat / 2) +
+//                kotlin.math.cos(Math.toRadians(lat1)) * kotlin.math.cos(Math.toRadians(lat2)) *
+//                kotlin.math.sin(dLng / 2) * kotlin.math.sin(dLng / 2)
+//
+//        val c = 2 * kotlin.math.atan2(kotlin.math.sqrt(a), kotlin.math.sqrt(1 - a))
+//        return earthRadius * c
+//    }
 
     private suspend fun notifyUsersInRange(chat: ProximityChat) {
         try {
