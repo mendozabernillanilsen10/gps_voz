@@ -36,6 +36,8 @@ import com.example.demoappchat.utils.LocationHelper
 fun MainScreen(
     onNavigateToChat: (String) -> Unit,
     onSignOut: () -> Unit,
+    onVoiceServiceToggle: (Boolean) -> Unit = {}, // Nuevo parámetro
+    isVoiceServiceEnabled: Boolean = false, // Nuevo parámetro
     viewModel: MainViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
@@ -89,7 +91,7 @@ fun MainScreen(
             TopAppBar(
                 title = {
                     Text(
-                        "SecurityChat",
+                        "SafeVoice", // Cambié el nombre
                         fontWeight = FontWeight.Bold,
                         color = Color.White
                     )
@@ -98,6 +100,17 @@ fun MainScreen(
                     containerColor = EmergencyRed
                 ),
                 actions = {
+                    // Indicador de voz activa
+                    if (isVoiceServiceEnabled) {
+                        Icon(
+                            Icons.Default.Mic,
+                            contentDescription = "Voz activa",
+                            tint = Color.White,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                    }
+
                     Box {
                         IconButton(onClick = { showMenu = true }) {
                             Icon(
@@ -196,6 +209,12 @@ fun MainScreen(
                     }
                 }
 
+                // Panel de control de voz
+                VoiceControlPanel(
+                    onVoiceServiceToggle = onVoiceServiceToggle,
+                    isVoiceServiceEnabled = isVoiceServiceEnabled
+                )
+
                 // Lista de chats cercanos
                 if (nearbyChats.isEmpty()) {
                     EmptyStateContent()
@@ -261,6 +280,130 @@ fun MainScreen(
                 showJoinDialog = null
             }
         )
+    }
+}
+
+// Nuevo componente: Panel de Control de Voz
+@Composable
+fun VoiceControlPanel(
+    onVoiceServiceToggle: (Boolean) -> Unit,
+    isVoiceServiceEnabled: Boolean
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isVoiceServiceEnabled)
+                SafetyGreen.copy(alpha = 0.1f) else
+                Color.Gray.copy(alpha = 0.1f)
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.RecordVoiceOver,
+                            contentDescription = null,
+                            tint = if (isVoiceServiceEnabled) SafetyGreen else Color.Gray,
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Control por Voz",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = if (isVoiceServiceEnabled) "🎤 Escuchando comandos de emergencia" else "Desactivado",
+                        fontSize = 12.sp,
+                        color = if (isVoiceServiceEnabled) SafetyGreen else Color.Gray
+                    )
+                }
+
+                Switch(
+                    checked = isVoiceServiceEnabled,
+                    onCheckedChange = onVoiceServiceToggle,
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = SafetyGreen,
+                        checkedTrackColor = SafetyGreen.copy(alpha = 0.5f)
+                    )
+                )
+            }
+
+            if (isVoiceServiceEnabled) {
+                Spacer(modifier = Modifier.height(12.dp))
+
+                HorizontalDivider(color = SafetyGreen.copy(alpha = 0.3f))
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Comandos disponibles
+                Text(
+                    text = "🗣️ Comandos de activación:",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = Color.Gray
+                )
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    listOf("óyeme", "saa", "alerta", "ayuda").forEach { command ->
+                        Card(
+                            colors = CardDefaults.cardColors(
+                                containerColor = SafetyGreen.copy(alpha = 0.2f)
+                            ),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text(
+                                text = "\"$command\"",
+                                fontSize = 11.sp,
+                                color = SafetyGreen,
+                                fontWeight = FontWeight.Medium,
+                                modifier = Modifier.padding(6.dp),
+                                maxLines = 1
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Default.Info,
+                        contentDescription = null,
+                        tint = Color.Gray,
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "Al detectar un comando, se enviará automáticamente una alerta de emergencia al chat más cercano",
+                        fontSize = 10.sp,
+                        color = Color.Gray,
+                        lineHeight = 12.sp
+                    )
+                }
+            }
+        }
     }
 }
 

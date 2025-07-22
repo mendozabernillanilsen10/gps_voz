@@ -50,17 +50,18 @@ fun LoginScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(24.dp),
+                .padding(24.dp)
+                .verticalScroll(rememberScrollState()), // Para hacer scroll si el contenido es muy largo
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Spacer(modifier = Modifier.height(60.dp))
+            Spacer(modifier = Modifier.height(40.dp)) // Reducido para más espacio
 
             // Logo simple y clean
             CleanLogo()
 
-            Spacer(modifier = Modifier.height(48.dp))
+            Spacer(modifier = Modifier.height(32.dp))
 
-            // Título
+            // Título más prominente
             Text(
                 text = if (isLogin) "Bienvenido de vuelta" else "Crear una cuenta",
                 fontSize = 28.sp,
@@ -78,7 +79,7 @@ fun LoginScreen(
                 textAlign = TextAlign.Center
             )
 
-            Spacer(modifier = Modifier.height(40.dp))
+            Spacer(modifier = Modifier.height(32.dp))
 
             // Formulario
             Column(
@@ -115,9 +116,9 @@ fun LoginScreen(
                     onPasswordVisibilityChange = { passwordVisible = !passwordVisible }
                 )
 
-                Spacer(modifier = Modifier.height(32.dp))
+                Spacer(modifier = Modifier.height(24.dp))
 
-                // Botón principal
+                // Botón principal más prominente
                 CleanButton(
                     text = if (isLogin) "Iniciar Sesión" else "Crear Cuenta",
                     isLoading = uiState.isLoading,
@@ -131,14 +132,49 @@ fun LoginScreen(
                     }
                 )
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(20.dp))
+
+                // Cambiar modo - MÁS VISIBLE
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = PrimaryBlue.copy(alpha = 0.1f)
+                    ),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp)
+                            .clickable {
+                                isLogin = !isLogin
+                                viewModel.clearError()
+                            },
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = if (isLogin) "¿No tienes cuenta? " else "¿Ya tienes cuenta? ",
+                            color = Color.Gray,
+                            fontSize = 15.sp
+                        )
+                        Text(
+                            text = if (isLogin) "Crear Cuenta" else "Iniciar Sesión",
+                            color = PrimaryBlue,
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
 
                 // Divider
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Divider(
+                    HorizontalDivider(
                         modifier = Modifier.weight(1f),
                         color = Color.Gray.copy(alpha = 0.3f)
                     )
@@ -148,47 +184,27 @@ fun LoginScreen(
                         color = Color.Gray,
                         fontSize = 14.sp
                     )
-                    Divider(
+                    HorizontalDivider(
                         modifier = Modifier.weight(1f),
                         color = Color.Gray.copy(alpha = 0.3f)
                     )
                 }
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(20.dp))
 
                 // Botones sociales
                 SocialLoginButtons()
 
-                Spacer(modifier = Modifier.height(32.dp))
-
-                // Cambiar modo
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    Text(
-                        text = if (isLogin) "¿No tienes cuenta? " else "¿Ya tienes cuenta? ",
-                        color = Color.Gray,
-                        fontSize = 14.sp
-                    )
-                    Text(
-                        text = if (isLogin) "Registrarse" else "Iniciar Sesión",
-                        color = PrimaryBlue,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Medium,
-                        modifier = Modifier.clickable {
-                            isLogin = !isLogin
-                            viewModel.clearError()
-                        }
-                    )
-                }
+                Spacer(modifier = Modifier.height(16.dp))
             }
 
             // Error
             uiState.error?.let { error ->
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(8.dp))
                 CleanErrorCard(error = error)
             }
+
+            Spacer(modifier = Modifier.height(20.dp))
         }
     }
 }
@@ -198,18 +214,20 @@ fun CleanLogo() {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Logo circular simple
+        // Logo circular con gradiente
         Box(
             modifier = Modifier
                 .size(80.dp)
                 .background(
-                    color = PrimaryBlue,
+                    brush = androidx.compose.ui.graphics.Brush.linearGradient(
+                        colors = listOf(PrimaryBlue, SpyBlue)
+                    ),
                     shape = RoundedCornerShape(20.dp)
                 ),
             contentAlignment = Alignment.Center
         ) {
             Icon(
-                Icons.Default.Security,
+                Icons.Default.RecordVoiceOver,
                 contentDescription = "Logo",
                 modifier = Modifier.size(36.dp),
                 tint = Color.White
@@ -220,9 +238,16 @@ fun CleanLogo() {
 
         Text(
             text = "SafeVoice",
-            fontSize = 24.sp,
+            fontSize = 26.sp,
             fontWeight = FontWeight.Bold,
             color = Color.Black
+        )
+
+        Text(
+            text = "Tu asistente de seguridad",
+            fontSize = 12.sp,
+            color = Color.Gray,
+            fontWeight = FontWeight.Medium
         )
     }
 }
@@ -329,14 +354,17 @@ fun CleanButton(
         onClick = onClick,
         modifier = Modifier
             .fillMaxWidth()
-            .height(52.dp),
+            .height(56.dp), // Aumentado para más prominencia
         enabled = enabled && !isLoading,
         colors = ButtonDefaults.buttonColors(
             containerColor = PrimaryBlue,
             disabledContainerColor = PrimaryBlue.copy(alpha = 0.5f)
         ),
         shape = RoundedCornerShape(12.dp),
-        elevation = ButtonDefaults.elevatedButtonElevation(0.dp)
+        elevation = ButtonDefaults.elevatedButtonElevation(
+            defaultElevation = 2.dp,
+            pressedElevation = 4.dp
+        )
     ) {
         if (isLoading) {
             CircularProgressIndicator(
@@ -347,8 +375,8 @@ fun CleanButton(
         } else {
             Text(
                 text = text,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Medium,
+                fontSize = 17.sp, // Aumentado
+                fontWeight = FontWeight.Bold, // Más bold
                 color = Color.White
             )
         }
@@ -422,7 +450,7 @@ fun CleanErrorCard(error: String) {
             containerColor = Color.Red.copy(alpha = 0.1f)
         ),
         shape = RoundedCornerShape(12.dp),
-        elevation = CardDefaults.cardElevation(0.dp)
+        elevation = CardDefaults.cardElevation(2.dp)
     ) {
         Row(
             modifier = Modifier.padding(16.dp),
