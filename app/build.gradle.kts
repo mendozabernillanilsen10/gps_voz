@@ -23,6 +23,11 @@ android {
         vectorDrawables {
             useSupportLibrary = true
         }
+
+        // 🆕 Configuración NDK para Vosk - SINTAXIS CORRECTA
+        ndk {
+            abiFilters.addAll(listOf("arm64-v8a", "armeabi-v7a", "x86", "x86_64"))
+        }
     }
 
     buildTypes {
@@ -55,6 +60,10 @@ android {
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
+        }
+        // 🆕 Configuración para librerías nativas de Vosk
+        jniLibs {
+            useLegacyPackaging = true
         }
     }
 }
@@ -105,6 +114,16 @@ dependencies {
     // Utilidades
     implementation(libs.accompanist.permissions)
     implementation(libs.coil.compose)
+
+    // 🆕 Vosk Speech Recognition - VERSION ESPECÍFICA
+    implementation("com.alphacephei:vosk-android:0.3.47")
+
+    // 🆕 JNA para Vosk (CRÍTICO)
+    implementation("net.java.dev.jna:jna:5.13.0@aar")
+
+    // Background Services y Work Manager
+    implementation(libs.androidx.work.runtime.ktx)
+    implementation(libs.androidx.work.runtime)
 
     // Testing
     testImplementation(libs.junit)

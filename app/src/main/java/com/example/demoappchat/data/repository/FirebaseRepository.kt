@@ -1,12 +1,11 @@
 package com.example.demoappchat.data.repository
 
-
 import android.util.Log
+import com.example.demoappchat.data.VoiceServicePreferences
 import com.example.demoappchat.data.model.*
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.*
 import com.google.firebase.storage.FirebaseStorage
-
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.tasks.await
@@ -14,7 +13,9 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
-class FirebaseRepository @Inject constructor() {
+class FirebaseRepository @Inject constructor(
+    private val preferences: VoiceServicePreferences // Agregar esta inyección
+) {
 
     private val auth = FirebaseAuth.getInstance()
     private val database = FirebaseDatabase.getInstance()
@@ -256,24 +257,142 @@ class FirebaseRepository @Inject constructor() {
         return messagesFlow
     }
 
-    // ============== UTILIDADES ==============
+    // ============== ALERTAS DE EMERGENCIA ==============
 
-    private fun calculateDistance(lat1: Double, lng1: Double, lat2: Double, lng2: Double): Double {
-        return 0.0 // o cualquier valor fijo que no afecte tu lógica
+    suspend fun sendEmergencyAlert(command: String, radiusMeters: Int): Result<String> {
+        return try {
+            val currentUserId = auth.currentUser?.uid ?: throw Exception("User not authenticated")
+            val userSnapshot = usersRef.child(currentUserId).get().await()
+            val currentUser = userSnapshot.getValue(User::class.java) ?: throw Exception("User not found")
+
+            // Crear mensaje de emergencia automático
+            val emergencyMessage = createEmergencyMessage(command, currentUser)
+
+            // Encontrar chat más cercano activo
+            val nearestChat = findNearestActiveChat(currentUser.latitude, currentUser.longitude, radiusMeters)
+
+            if (nearestChat != null) {
+                // Enviar mensaje al chat existente
+                sendMessageToChat(nearestChat.id, emergencyMessage)
+
+                // Enviar ubicación actual si está configurado
+                if (preferences.autoSendLocation) {
+                    sendLocationMessage(nearestChat.id, currentUser)
+                }
+
+                Result.success(nearestChat.id)
+            } else {
+                // Crear nuevo chat de emergencia automático
+                val emergencyChat = createEmergencyChat(currentUser, command)
+                val chatId = createProximityChat(emergencyChat).getOrThrow()
+
+                // Enviar mensaje inicial
+                sendMessageToChat(chatId, emergencyMessage)
+
+                // Enviar ubicación si está configurado
+                if (preferences.autoSendLocation) {
+                    sendLocationMessage(chatId, currentUser)
+                }
+
+                Result.success(chatId)
+            }
+
+        } catch (e: Exception) {
+            Log.e("FirebaseRepo", "Error sending emergency alert", e)
+            Result.failure(e)
+        }
     }
 
-//    private fun calculateDistance(lat1: Double, lng1: Double, lat2: Double, lng2: Double): Double {
-//        val earthRadius = 6371000.0 // metros
-//        val dLat = Math.toRadians(lat2 - lat1)
-//        val dLng = Math.toRadians(lng2 - lng1)
-//
-//        val a = kotlin.math.sin(dLat / 2) * kotlin.math.sin(dLat / 2) +
-//                kotlin.math.cos(Math.toRadians(lat1)) * kotlin.math.cos(Math.toRadians(lat2)) *
-//                kotlin.math.sin(dLng / 2) * kotlin.math.sin(dLng / 2)
-//
-//        val c = 2 * kotlin.math.atan2(kotlin.math.sqrt(a), kotlin.math.sqrt(1 - a))
-//        return earthRadius * c
-//    }
+    private fun createEmergencyMessage(command: String, user: User): ChatMessage {
+        return ChatMessage(
+            userId = user.id,
+            userName = user.name,
+            userPhotoUrl = user.photoUrl,
+            messageType = MessageType.SYSTEM,
+            content = "🚨 ALERTA ACTIVADA POR VOZ: \"$command\" - ${formatTimestamp(System.currentTimeMillis())}",
+            timestamp = System.currentTimeMillis()
+        )
+    }
+
+    private suspend fun findNearestActiveChat(latitude: Double, longitude: Double, radius: Int): ProximityChat? {
+        return try {
+            val snapshot = chatsRef.orderByChild("isActive").equalTo(true).get().await()
+
+            snapshot.children.mapNotNull { chatSnapshot ->
+                chatSnapshot.getValue(ProximityChat::class.java)
+            }.filter { chat ->
+                val distance = calculateDistance(latitude, longitude, chat.latitude, chat.longitude)
+                distance <= radius && chat.category == "emergency"
+            }.minByOrNull { chat ->
+                calculateDistance(latitude, longitude, chat.latitude, chat.longitude)
+            }
+
+        } catch (e: Exception) {
+            Log.e("FirebaseRepo", "Error finding nearest chat", e)
+            null
+        }
+    }
+
+    private fun createEmergencyChat(user: User, command: String): ProximityChat {
+        return ProximityChat(
+            creatorId = user.id,
+            creatorName = user.name,
+            title = "🚨 Alerta por Voz",
+            description = "Activada automáticamente por comando: \"$command\"",
+            latitude = user.latitude,
+            longitude = user.longitude,
+            radius = 300, // Radio pequeño para emergencias
+            pin = generateEmergencyPin(),
+            category = "emergency",
+            createdAt = System.currentTimeMillis(),
+            isActive = true,
+            participantsCount = 1,
+            lastActivity = System.currentTimeMillis()
+        )
+    }
+
+    private suspend fun sendMessageToChat(chatId: String, message: ChatMessage) {
+        val messageWithChatId = message.copy(chatId = chatId)
+        sendMessage(messageWithChatId)
+    }
+
+    private suspend fun sendLocationMessage(chatId: String, user: User) {
+        val locationMessage = ChatMessage(
+            chatId = chatId,
+            userId = user.id,
+            userName = user.name,
+            userPhotoUrl = user.photoUrl,
+            messageType = MessageType.LOCATION,
+            content = "📍 Ubicación actual: ${user.latitude}, ${user.longitude}",
+            timestamp = System.currentTimeMillis()
+        )
+        sendMessage(locationMessage)
+    }
+
+    private fun generateEmergencyPin(): String {
+        return (1000..9999).random().toString()
+    }
+
+    private fun formatTimestamp(timestamp: Long): String {
+        val formatter = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault())
+        return formatter.format(java.util.Date(timestamp))
+    }
+
+    // ============== UTILIDADES ==============
+
+    // Habilitar cálculo real de distancia
+    private fun calculateDistance(lat1: Double, lng1: Double, lat2: Double, lng2: Double): Double {
+        val earthRadius = 6371000.0 // metros
+        val dLat = Math.toRadians(lat2 - lat1)
+        val dLng = Math.toRadians(lng2 - lng1)
+
+        val a = kotlin.math.sin(dLat / 2) * kotlin.math.sin(dLat / 2) +
+                kotlin.math.cos(Math.toRadians(lat1)) * kotlin.math.cos(Math.toRadians(lat2)) *
+                kotlin.math.sin(dLng / 2) * kotlin.math.sin(dLng / 2)
+
+        val c = 2 * kotlin.math.atan2(kotlin.math.sqrt(a), kotlin.math.sqrt(1 - a))
+        return earthRadius * c
+    }
 
     private suspend fun notifyUsersInRange(chat: ProximityChat) {
         try {
