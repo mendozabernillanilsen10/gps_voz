@@ -5,6 +5,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
 import android.os.Build
+import android.util.Log
 import com.google.firebase.FirebaseApp
 import dagger.hilt.android.HiltAndroidApp
 import org.vosk.LibVosk
@@ -15,6 +16,8 @@ import java.io.IOException
 
 @HiltAndroidApp
 class MyApplication : Application() {
+
+    private var isVoskInitialized = false
 
     override fun onCreate() {
         super.onCreate()
@@ -28,10 +31,12 @@ class MyApplication : Application() {
         // Crear canales de notificación
         createNotificationChannels()
 
-        // Extraer modelo de Vosk en segundo plano
-        Thread {
-            extractVoskModel()
-        }.start()
+        // Extraer modelo de Vosk en segundo plano (solo si Vosk se inicializó)
+        if (isVoskInitialized) {
+            Thread {
+                extractVoskModel()
+            }.start()
+        }
     }
 
     private fun initializeVosk() {
@@ -45,8 +50,12 @@ class MyApplication : Application() {
                 modelDir.mkdirs()
             }
 
+            isVoskInitialized = true
+            Log.d("MyApplication", "✅ Vosk initialized successfully")
+
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.e("MyApplication", "❌ Error initializing Vosk", e)
+            isVoskInitialized = false
         }
     }
 
@@ -56,29 +65,71 @@ class MyApplication : Application() {
             if (!modelDir.exists()) {
                 modelDir.mkdirs()
 
-                // Lista de archivos del modelo que necesitas copiar desde assets
+                // ✅ Lista actualizada basada en TU modelo actual
                 val modelFiles = listOf(
+                    // Directorio am/
                     "am/final.mdl",
-                    "graph/HCLG.fst",
-                    "graph/phones.txt",
-                    "graph/words.txt",
+
+                    // Directorio conf/
+                    "conf/mfcc.conf",
+                    "conf/model.conf",
+
+                    // Directorio graph/
+                    "graph/disambig_tid.int",
+                    "graph/Gr.fst",
+                    "graph/HCLr.fst",
+
+                    // Directorio ivector/
                     "ivector/final.dubm",
                     "ivector/final.ie",
                     "ivector/final.mat",
                     "ivector/global_cmvn.stats",
                     "ivector/online_cmvn.conf",
-                    "ivector/splice.conf",
-                    "conf/mfcc.conf",
-                    "conf/model.conf"
+                    "ivector/splice.conf"
                 )
 
                 // Copiar archivos del modelo desde assets
+                var copiedFiles = 0
                 for (file in modelFiles) {
-                    copyAssetFile("vosk-model/$file", File(modelDir, file))
+                    try {
+                        copyAssetFile("vosk-model/$file", File(modelDir, file))
+                        copiedFiles++
+                        Log.d("MyApplication", "✅ Copied: $file")
+                    } catch (e: IOException) {
+                        Log.w("MyApplication", "⚠️ Could not copy: $file", e)
+                    }
                 }
+
+                // Copiar carpeta phones si existe
+                try {
+                    copyPhonesDirectory(modelDir)
+                } catch (e: Exception) {
+                    Log.w("MyApplication", "⚠️ Could not copy phones directory", e)
+                }
+
+                Log.d("MyApplication", "✅ Vosk model extraction completed. Files copied: $copiedFiles/${modelFiles.size}")
+            } else {
+                Log.d("MyApplication", "✅ Vosk model already exists")
             }
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.e("MyApplication", "❌ Error extracting Vosk model", e)
+        }
+    }
+
+    private fun copyPhonesDirectory(modelDir: File) {
+        try {
+            val phonesDir = File(modelDir, "graph/phones")
+            phonesDir.mkdirs()
+
+            // Listar archivos en la carpeta phones
+            val phoneFiles = assets.list("vosk-model/graph/phones") ?: return
+
+            for (phoneFile in phoneFiles) {
+                copyAssetFile("vosk-model/graph/phones/$phoneFile", File(phonesDir, phoneFile))
+                Log.d("MyApplication", "✅ Copied phone file: $phoneFile")
+            }
+        } catch (e: Exception) {
+            Log.w("MyApplication", "⚠️ Error copying phones directory", e)
         }
     }
 
@@ -92,7 +143,7 @@ class MyApplication : Application() {
                 }
             }
         } catch (e: IOException) {
-            e.printStackTrace()
+            throw e // Re-throw para manejar en el método padre
         }
     }
 
