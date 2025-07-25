@@ -121,9 +121,18 @@ dependencies {
     // 🆕 JNA para Vosk (CRÍTICO)
     implementation("net.java.dev.jna:jna:5.13.0@aar")
 
+
+    implementation ( "androidx.camera:camera-camera2:1.3.1")
+    implementation ("androidx.camera:camera-lifecycle:1.3.1")
+    implementation ("androidx.camera:camera-view:1.3.1")
+    implementation ("androidx.camera:camera-video:1.3.1")
+    implementation ("androidx.media3:media3-exoplayer:1.2.1")
+    implementation ("androidx.media3:media3-ui:1.2.1")
+    implementation ("androidx.media3:media3-common:1.2.1")
     // Background Services y Work Manager
     implementation(libs.androidx.work.runtime.ktx)
     implementation(libs.androidx.work.runtime)
+    implementation( "com.google.accompanist:accompanist-permissions:0.32.0")
 
     // Testing
     testImplementation(libs.junit)

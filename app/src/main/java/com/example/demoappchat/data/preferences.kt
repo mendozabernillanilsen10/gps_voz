@@ -22,6 +22,7 @@ class VoiceServicePreferences @Inject constructor(
         private const val KEY_EMERGENCY_RADIUS = "emergency_radius"
         private const val KEY_AUTO_SEND_LOCATION = "auto_send_location"
         private const val KEY_DISCRETE_MODE = "discrete_mode"
+        private const val KEY_CURRENT_CHAT_ID = "current_chat_id"
     }
 
     var isVoiceServiceEnabled: Boolean
@@ -43,4 +44,8 @@ class VoiceServicePreferences @Inject constructor(
     var discreteMode: Boolean
         get() = prefs.getBoolean(KEY_DISCRETE_MODE, true)
         set(value) = prefs.edit().putBoolean(KEY_DISCRETE_MODE, value).apply()
+
+    var currentChatId: String?
+        get() = prefs.getString(KEY_CURRENT_CHAT_ID, null)
+        set(value) = prefs.edit().putString(KEY_CURRENT_CHAT_ID, value).apply()
 }

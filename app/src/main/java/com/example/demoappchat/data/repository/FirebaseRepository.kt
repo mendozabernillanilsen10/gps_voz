@@ -14,7 +14,7 @@ import javax.inject.Singleton
 
 @Singleton
 class FirebaseRepository @Inject constructor(
-    private val preferences: VoiceServicePreferences // Agregar esta inyección
+    private val preferences: VoiceServicePreferences
 ) {
 
     private val auth = FirebaseAuth.getInstance()
@@ -257,48 +257,101 @@ class FirebaseRepository @Inject constructor(
         return messagesFlow
     }
 
-    // ============== ALERTAS DE EMERGENCIA ==============
+    // ============== SUBIDA DE ARCHIVOS Y MENSAJES MULTIMEDIA ==============
 
-    suspend fun sendEmergencyAlert(command: String, radiusMeters: Int): Result<String> {
+    suspend fun uploadMediaFile(file: java.io.File, mediaType: String, chatId: String? = null): String {
         return try {
-            val currentUserId = auth.currentUser?.uid ?: throw Exception("User not authenticated")
-            val userSnapshot = usersRef.child(currentUserId).get().await()
-            val currentUser = userSnapshot.getValue(User::class.java) ?: throw Exception("User not found")
+            val timestamp = System.currentTimeMillis()
+            val userId = auth.currentUser?.uid ?: throw Exception("Usuario no autenticado")
+            val fileName = "${mediaType}_$timestamp.${if (mediaType == "audio") "mp3" else "mp4"}"
 
-            // Crear mensaje de emergencia automático
-            val emergencyMessage = createEmergencyMessage(command, currentUser)
-
-            // Encontrar chat más cercano activo
-            val nearestChat = findNearestActiveChat(currentUser.latitude, currentUser.longitude, radiusMeters)
-
-            if (nearestChat != null) {
-                // Enviar mensaje al chat existente
-                sendMessageToChat(nearestChat.id, emergencyMessage)
-
-                // Enviar ubicación actual si está configurado
-                if (preferences.autoSendLocation) {
-                    sendLocationMessage(nearestChat.id, currentUser)
-                }
-
-                Result.success(nearestChat.id)
-            } else {
-                // Crear nuevo chat de emergencia automático
-                val emergencyChat = createEmergencyChat(currentUser, command)
-                val chatId = createProximityChat(emergencyChat).getOrThrow()
-
-                // Enviar mensaje inicial
-                sendMessageToChat(chatId, emergencyMessage)
-
-                // Enviar ubicación si está configurado
-                if (preferences.autoSendLocation) {
-                    sendLocationMessage(chatId, currentUser)
-                }
-
-                Result.success(chatId)
+            // ✅ USAR RUTA PERMITIDA SEGÚN EL CONTEXTO
+            val path = when {
+                // Si hay chatId, usar chat_media (para archivos del chat)
+                !chatId.isNullOrEmpty() -> "chat_media/$chatId/$fileName"
+                // Si es audio personal, usar user_audio
+                mediaType == "audio" -> "user_audio/$userId/$fileName"
+                // Para otros archivos temporales, usar temp
+                else -> "temp/$userId/$fileName"
             }
 
+            val storageRef = storage.reference.child(path)
+
+            Log.d("FirebaseRepo", "Subiendo archivo a ruta: $path")
+
+            val uploadTask = storageRef.putFile(android.net.Uri.fromFile(file))
+            val downloadUrl = uploadTask.await().storage.downloadUrl.await()
+
+            Log.d("FirebaseRepo", "Archivo subido exitosamente: $downloadUrl")
+            downloadUrl.toString()
+
         } catch (e: Exception) {
-            Log.e("FirebaseRepo", "Error sending emergency alert", e)
+            Log.e("FirebaseRepo", "Error subiendo archivo", e)
+            throw e
+        }
+    }
+
+    suspend fun sendMediaMessage(
+        chatId: String,
+        mediaUrl: String,
+        messageType: String,
+        content: String = ""
+    ) {
+        try {
+            val currentUser = _currentUser.value ?: throw Exception("Usuario no autenticado")
+
+            val message = ChatMessage(
+                chatId = chatId,
+                userId = currentUser.id,
+                userName = currentUser.name,
+                userPhotoUrl = currentUser.photoUrl,
+                messageType = if (messageType == "AUDIO") MessageType.AUDIO else MessageType.VIDEO,
+                content = content,
+                mediaUrl = mediaUrl,
+                timestamp = System.currentTimeMillis()
+            )
+
+            sendMessage(message)
+
+            // Actualizar última actividad del chat
+            chatsRef.child(chatId).child("lastActivity").setValue(System.currentTimeMillis())
+
+        } catch (e: Exception) {
+            Log.e("FirebaseRepo", "Error enviando mensaje multimedia", e)
+            throw e
+        }
+    }
+
+    // ============== ALERTAS DE EMERGENCIA ==============
+
+    suspend fun sendEmergencyAlert(command: String, radius: Int, recordingType: String = "AUDIO"): Result<String> {
+        return try {
+            val currentUser = _currentUser.value ?: throw Exception("Usuario no autenticado")
+
+            // Buscar chat de emergencia cercano o crear uno nuevo
+            val nearestChat = findNearestActiveChat(currentUser.latitude, currentUser.longitude, radius)
+            val chatId = nearestChat?.id ?: createNewEmergencyChat(currentUser, command)
+
+            // Enviar mensaje de alerta
+            val alertMessage = ChatMessage(
+                chatId = chatId,
+                userId = currentUser.id,
+                userName = currentUser.name,
+                userPhotoUrl = currentUser.photoUrl,
+                messageType = MessageType.TEXT,
+                content = "🚨 ALERTA ACTIVADA: \"$command\" - Grabando: $recordingType",
+                timestamp = System.currentTimeMillis()
+            )
+
+            sendMessage(alertMessage)
+
+            // Actualizar preferencias con el chat actual
+            preferences.currentChatId = chatId
+
+            Result.success(chatId)
+
+        } catch (e: Exception) {
+            Log.e("FirebaseRepo", "Error enviando alerta de emergencia", e)
             Result.failure(e)
         }
     }
@@ -369,6 +422,19 @@ class FirebaseRepository @Inject constructor(
         sendMessage(locationMessage)
     }
 
+    private suspend fun createNewEmergencyChat(user: User, command: String): String {
+        val chat = createEmergencyChat(user, command)
+        val chatId = chatsRef.push().key ?: throw Exception("Error generando ID de chat")
+
+        val chatWithId = chat.copy(id = chatId)
+        chatsRef.child(chatId).setValue(chatWithId.toMap()).await()
+
+        // Agregar usuario como participante
+        participantsRef.child(chatId).child(user.id).setValue(true).await()
+
+        return chatId
+    }
+
     private fun generateEmergencyPin(): String {
         return (1000..9999).random().toString()
     }
@@ -380,7 +446,6 @@ class FirebaseRepository @Inject constructor(
 
     // ============== UTILIDADES ==============
 
-    // Habilitar cálculo real de distancia
     private fun calculateDistance(lat1: Double, lng1: Double, lat2: Double, lng2: Double): Double {
         val earthRadius = 6371000.0 // metros
         val dLat = Math.toRadians(lat2 - lat1)
@@ -408,7 +473,6 @@ class FirebaseRepository @Inject constructor(
                         )
 
                         if (distance <= chat.radius) {
-                            // Aquí enviarías la notificación push
                             Log.d("FirebaseRepo", "Notifying user ${it.name} about chat ${chat.title}")
                         }
                     }
