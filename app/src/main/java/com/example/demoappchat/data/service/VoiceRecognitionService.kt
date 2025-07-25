@@ -1,6 +1,7 @@
 package com.example.demoappchat.data.service
 
 import android.Manifest
+import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -10,8 +11,10 @@ import android.content.pm.PackageManager
 import android.media.AudioFormat
 import android.media.AudioRecord
 import android.media.MediaRecorder
+import android.media.CamcorderProfile
 import android.os.IBinder
 import android.os.PowerManager
+import android.util.Log
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
 import com.example.demoappchat.MainActivity
@@ -29,6 +32,8 @@ import org.vosk.LogLevel
 import org.vosk.Model
 import org.vosk.Recognizer
 import java.io.File
+import java.text.SimpleDateFormat
+import java.util.*
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -45,9 +50,19 @@ class VoiceRecognitionService : Service() {
     private var model: Model? = null
     private var isListening = false
     private var wakeLock: PowerManager.WakeLock? = null
+    
+    // Variables para grabación de audio/video
+    private var mediaRecorder: MediaRecorder? = null
+    private var isRecording = false
+    private var currentRecordingFile: File? = null
+    private var recordingType: RecordingType = RecordingType.NONE
 
     // CoroutineScope para manejar operaciones suspendidas
     private val serviceScope = CoroutineScope(Dispatchers.IO)
+
+    enum class RecordingType {
+        NONE, AUDIO, VIDEO
+    }
 
     override fun onCreate() {
         super.onCreate()
@@ -66,6 +81,13 @@ class VoiceRecognitionService : Service() {
                 stopListening()
                 preferences.isVoiceServiceEnabled = false
                 stopSelf()
+            }
+            ACTION_START_RECORDING -> {
+                val type = intent.getStringExtra(EXTRA_RECORDING_TYPE) ?: "AUDIO"
+                startRecording(if (type == "VIDEO") RecordingType.VIDEO else RecordingType.AUDIO)
+            }
+            ACTION_STOP_RECORDING -> {
+                stopRecording()
             }
             else -> {
                 startForeground(NOTIFICATION_ID, createNotification())
@@ -167,32 +189,180 @@ class VoiceRecognitionService : Service() {
     }
 
     private fun triggerEmergencyAction(recognizedText: String) {
+        Log.d("VoiceService", "Comando detectado: $recognizedText")
+
+        // Verificar si hay chat activo
+        val currentChatId = preferences.currentChatId
+        if (currentChatId.isNullOrEmpty()) {
+            // Mostrar notificación de advertencia
+            val warningNotification = NotificationCompat.Builder(this, MyApplication.VOICE_CHANNEL_ID)
+                .setContentTitle("SafeVoice: No estás en un grupo")
+                .setContentText("Únete a un chat para activar la grabación por voz.")
+                .setSmallIcon(android.R.drawable.ic_dialog_alert)
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setAutoCancel(true)
+                .build()
+            val notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+            notificationManager.notify(EMERGENCY_NOTIFICATION_ID + 1, warningNotification)
+            return
+        }
+
+        // Determinar tipo de grabación según el comando
+        val recordingType = when {
+            recognizedText.contains("grabar audio") || recognizedText.contains("audio") -> RecordingType.AUDIO
+            recognizedText.contains("grabar video") || recognizedText.contains("video") || recognizedText.contains("cámara") -> RecordingType.VIDEO
+            else -> RecordingType.AUDIO // Por defecto grabar audio
+        }
+
+        // Iniciar grabación
+        startRecording(recordingType)
+
         if (preferences.discreteMode) {
             // Modo discreto: sin notificaciones visibles
-            sendSilentEmergencyAlert(recognizedText)
+            sendSilentEmergencyAlert(recognizedText, recordingType)
         } else {
             // Modo normal: con notificaciones
-            sendEmergencyAlert(recognizedText)
+            sendEmergencyAlert(recognizedText, recordingType)
         }
     }
 
-    private fun sendSilentEmergencyAlert(command: String) {
-        // Usar CoroutineScope para llamar función suspend
+    private fun startRecording(type: RecordingType) {
+        if (isRecording) {
+            stopRecording()
+        }
+        
+        try {
+            when (type) {
+                RecordingType.AUDIO -> startAudioRecording()
+                RecordingType.VIDEO -> startVideoRecording()
+                RecordingType.NONE -> return
+            }
+            
+            recordingType = type
+            isRecording = true
+            
+            // Actualizar notificación
+            updateNotification()
+            
+            Log.d("VoiceService", "Grabación iniciada: ${type.name}")
+            
+        } catch (e: Exception) {
+            Log.e("VoiceService", "Error iniciando grabación", e)
+        }
+    }
+
+    private fun startAudioRecording() {
+        val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
+        val fileName = "audio_$timestamp.mp3"
+        currentRecordingFile = File(getExternalFilesDir(null), fileName)
+        
+        mediaRecorder = MediaRecorder().apply {
+            setAudioSource(MediaRecorder.AudioSource.MIC)
+            setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
+            setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
+            setOutputFile(currentRecordingFile?.absolutePath)
+            
+            try {
+                prepare()
+                start()
+            } catch (e: Exception) {
+                Log.e("VoiceService", "Error preparando grabación de audio", e)
+            }
+        }
+    }
+
+    private fun startVideoRecording() {
+        val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
+        val fileName = "video_$timestamp.mp4"
+        currentRecordingFile = File(getExternalFilesDir(null), fileName)
+        
+        mediaRecorder = MediaRecorder().apply {
+            setAudioSource(MediaRecorder.AudioSource.MIC)
+            setVideoSource(MediaRecorder.VideoSource.CAMERA)
+            setProfile(CamcorderProfile.get(CamcorderProfile.QUALITY_HIGH))
+            setOutputFile(currentRecordingFile?.absolutePath)
+            
+            try {
+                prepare()
+                start()
+            } catch (e: Exception) {
+                Log.e("VoiceService", "Error preparando grabación de video", e)
+            }
+        }
+    }
+
+    private fun stopRecording() {
+        if (!isRecording) return
+        
+        try {
+            mediaRecorder?.apply {
+                stop()
+                release()
+            }
+            mediaRecorder = null
+            
+            isRecording = false
+            
+            // Subir archivo a Firebase Storage
+            currentRecordingFile?.let { file ->
+                uploadFileToFirebase(file, recordingType)
+            }
+            
+            currentRecordingFile = null
+            recordingType = RecordingType.NONE
+            
+            // Actualizar notificación
+            updateNotification()
+            
+            Log.d("VoiceService", "Grabación detenida")
+            
+        } catch (e: Exception) {
+            Log.e("VoiceService", "Error deteniendo grabación", e)
+        }
+    }
+
+    // En VoiceRecognitionService.kt, actualiza este método:
+    private fun uploadFileToFirebase(file: File, type: RecordingType) {
         serviceScope.launch {
             try {
-                repository.sendEmergencyAlert(command, preferences.emergencyRadius)
+                val chatId = preferences.currentChatId ?: return@launch
+                val mediaType = if (type == RecordingType.AUDIO) "audio" else "video"
+
+                // ✅ USAR EL REPOSITORY INYECTADO
+                val downloadUrl = repository.uploadMediaFile(file, mediaType, chatId)
+
+                // Enviar mensaje al chat con el archivo
+                repository.sendMediaMessage(
+                    chatId = chatId,
+                    mediaUrl = downloadUrl,
+                    messageType = if (type == RecordingType.AUDIO) "AUDIO" else "VIDEO",
+                    content = "Grabación automática: ${type.name.lowercase()}"
+                )
+
+                Log.d("VoiceService", "Archivo subido exitosamente: $downloadUrl")
+
+            } catch (e: Exception) {
+                Log.e("VoiceService", "Error subiendo archivo", e)
+            }
+        }
+    }
+
+    private fun sendSilentEmergencyAlert(command: String, type: RecordingType) {
+        serviceScope.launch {
+            try {
+                repository.sendEmergencyAlert(command, preferences.emergencyRadius, type.name)
             } catch (e: Exception) {
                 e.printStackTrace()
             }
         }
     }
 
-    private fun sendEmergencyAlert(command: String) {
+    private fun sendEmergencyAlert(command: String, type: RecordingType) {
         // Mostrar notificación de emergencia
         val emergencyNotification = NotificationCompat.Builder(this, MyApplication.EMERGENCY_CHANNEL_ID)
             .setContentTitle("🚨 Alerta Activada")
-            .setContentText("Comando: \"$command\" detectado")
-            .setSmallIcon(android.R.drawable.ic_dialog_alert) // Usar icono del sistema
+            .setContentText("Comando: \"$command\" - Grabando: ${type.name}")
+            .setSmallIcon(android.R.drawable.ic_dialog_alert)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
             .build()
@@ -200,18 +370,43 @@ class VoiceRecognitionService : Service() {
         val notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
         notificationManager.notify(EMERGENCY_NOTIFICATION_ID, emergencyNotification)
 
-        sendSilentEmergencyAlert(command)
+        sendSilentEmergencyAlert(command, type)
     }
 
-    private fun createNotification() = NotificationCompat.Builder(this, MyApplication.VOICE_CHANNEL_ID)
-        .setContentTitle("SafeVoice Escuchando")
-        .setContentText("Comandos: ${preferences.activationCommands.joinToString(", ")}")
-        .setSmallIcon(android.R.drawable.ic_btn_speak_now) // Usar icono del sistema
-        .setPriority(NotificationCompat.PRIORITY_LOW)
-        .setOngoing(true)
-        .addAction(createStopAction())
-        .setContentIntent(createMainActivityIntent())
-        .build()
+    // Refuerzo la creación de la notificación foreground
+    private fun createNotification(): Notification {
+        val channelId = MyApplication.VOICE_CHANNEL_ID
+        val notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                channelId,
+                "SafeVoice Servicio de Voz",
+                NotificationManager.IMPORTANCE_LOW
+            )
+            notificationManager.createNotificationChannel(channel)
+        }
+        return NotificationCompat.Builder(this, channelId)
+            .setContentTitle("SafeVoice Escuchando")
+            .setContentText(getNotificationText())
+            .setSmallIcon(android.R.drawable.ic_btn_speak_now)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setOngoing(true)
+            .addAction(createStopAction())
+            .setContentIntent(createMainActivityIntent())
+            .build()
+    }
+
+    private fun getNotificationText(): String {
+        return when {
+            isRecording -> "Grabando: ${recordingType.name.lowercase()}"
+            else -> "Comandos: ${preferences.activationCommands.joinToString(", ")}"
+        }
+    }
+
+    private fun updateNotification() {
+        val notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+        notificationManager.notify(NOTIFICATION_ID, createNotification())
+    }
 
     private fun createStopAction(): NotificationCompat.Action {
         val stopIntent = Intent(this, VoiceRecognitionService::class.java).apply {
@@ -222,7 +417,7 @@ class VoiceRecognitionService : Service() {
         )
 
         return NotificationCompat.Action(
-            android.R.drawable.ic_media_pause, // Usar icono del sistema
+            android.R.drawable.ic_media_pause,
             "Detener",
             stopPendingIntent
         )
@@ -238,6 +433,7 @@ class VoiceRecognitionService : Service() {
     override fun onDestroy() {
         super.onDestroy()
         stopListening()
+        stopRecording()
         recognizer?.close()
         model?.close()
         wakeLock?.release()
@@ -248,6 +444,9 @@ class VoiceRecognitionService : Service() {
     companion object {
         const val ACTION_START_LISTENING = "com.example.demoappchat.START_LISTENING"
         const val ACTION_STOP_LISTENING = "com.example.demoappchat.STOP_LISTENING"
+        const val ACTION_START_RECORDING = "com.example.demoappchat.START_RECORDING"
+        const val ACTION_STOP_RECORDING = "com.example.demoappchat.STOP_RECORDING"
+        const val EXTRA_RECORDING_TYPE = "recording_type"
 
         private const val NOTIFICATION_ID = 1001
         private const val EMERGENCY_NOTIFICATION_ID = 1002
