@@ -3,7 +3,10 @@ package com.example.demoappchat
 import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.os.Build
 import android.util.Log
 import com.google.firebase.FirebaseApp
@@ -18,6 +21,17 @@ import java.io.IOException
 class MyApplication : Application() {
 
     private var isVoskInitialized = false
+    
+    private val modelExtractionReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action == "com.example.demoappchat.EXTRACT_VOSK_MODEL") {
+                Log.d("MyApplication", "🔄 Recibida solicitud de extracción de modelo")
+                Thread {
+                    extractVoskModel()
+                }.start()
+            }
+        }
+    }
 
     override fun onCreate() {
         super.onCreate()
@@ -25,18 +39,20 @@ class MyApplication : Application() {
         // Inicializar Firebase
         FirebaseApp.initializeApp(this)
 
-        // Inicializar Vosk
-        initializeVosk()
+        // Registrar receptor para extracción de modelo
+        registerReceiver(modelExtractionReceiver, IntentFilter("com.example.demoappchat.EXTRACT_VOSK_MODEL"))
 
         // Crear canales de notificación
         createNotificationChannels()
 
-        // Extraer modelo de Vosk en segundo plano (solo si Vosk se inicializó)
-        if (isVoskInitialized) {
-            Thread {
+        // Inicializar Vosk y extraer modelo en background
+        Thread {
+            initializeVosk()
+            if (isVoskInitialized) {
+                Log.d("MyApplication", "🔄 Iniciando extracción del modelo en background...")
                 extractVoskModel()
-            }.start()
-        }
+            }
+        }.start()
     }
 
     private fun initializeVosk() {
@@ -60,9 +76,19 @@ class MyApplication : Application() {
     }
 
     private fun extractVoskModel() {
-        try {
-            val modelDir = File(filesDir, "vosk-models/spanish")
-            if (!modelDir.exists()) {
+        synchronized(this) {
+            try {
+                val modelDir = File(filesDir, "vosk-models/spanish")
+                Log.d("MyApplication", "🔍 Verificando modelo en: ${modelDir.absolutePath}")
+                
+                // Verificar si ya existe y está completo
+                if (modelDir.exists() && isModelComplete(modelDir)) {
+                    Log.d("MyApplication", "✅ Modelo Vosk ya está completo")
+                    return
+                }
+                
+                // Si no existe o está incompleto, extraer
+                Log.d("MyApplication", "📦 Extrayendo modelo Vosk...")
                 modelDir.mkdirs()
 
                 // ✅ Lista actualizada basada en TU modelo actual
@@ -94,9 +120,9 @@ class MyApplication : Application() {
                     try {
                         copyAssetFile("vosk-model/$file", File(modelDir, file))
                         copiedFiles++
-                        Log.d("MyApplication", "✅ Copied: $file")
+                        Log.d("MyApplication", "✅ Copiado: $file")
                     } catch (e: IOException) {
-                        Log.w("MyApplication", "⚠️ Could not copy: $file", e)
+                        Log.e("MyApplication", "❌ No se pudo copiar: $file", e)
                     }
                 }
 
@@ -104,15 +130,49 @@ class MyApplication : Application() {
                 try {
                     copyPhonesDirectory(modelDir)
                 } catch (e: Exception) {
-                    Log.w("MyApplication", "⚠️ Could not copy phones directory", e)
+                    Log.w("MyApplication", "⚠️ No se pudo copiar directorio phones", e)
                 }
 
-                Log.d("MyApplication", "✅ Vosk model extraction completed. Files copied: $copiedFiles/${modelFiles.size}")
-            } else {
-                Log.d("MyApplication", "✅ Vosk model already exists")
+                Log.d("MyApplication", "✅ Extracción del modelo completada. Archivos copiados: $copiedFiles/${modelFiles.size}")
+                
+                // Verificar extracción
+                if (isModelComplete(modelDir)) {
+                    Log.d("MyApplication", "🎉 Modelo Vosk extraído y verificado correctamente")
+                } else {
+                    Log.e("MyApplication", "❌ Extracción incompleta del modelo")
+                }
+                
+            } catch (e: Exception) {
+                Log.e("MyApplication", "❌ Error extrayendo modelo Vosk", e)
             }
+        }
+    }
+    
+    private fun isModelComplete(modelDir: File): Boolean {
+        val requiredFiles = listOf(
+            "am/final.mdl",
+            "conf/mfcc.conf", 
+            "conf/model.conf",
+            "graph/Gr.fst",
+            "graph/HCLr.fst"
+        )
+        
+        for (file in requiredFiles) {
+            val fileObj = File(modelDir, file)
+            if (!fileObj.exists() || fileObj.length() == 0L) {
+                Log.w("MyApplication", "Archivo faltante o vacío: $file")
+                return false
+            }
+        }
+        return true
+    }
+    
+    override fun onTerminate() {
+        super.onTerminate()
+        try {
+            unregisterReceiver(modelExtractionReceiver)
         } catch (e: Exception) {
-            Log.e("MyApplication", "❌ Error extracting Vosk model", e)
+            // Ignorar errores al desregistrar
         }
     }
 
@@ -196,5 +256,17 @@ class MyApplication : Application() {
         const val VOICE_CHANNEL_ID = "voice_recognition_channel"
         const val EMERGENCY_CHANNEL_ID = "emergency_alerts_channel"
         const val CHAT_CHANNEL_ID = "chat_messages_channel"
+        
+        private var instance: MyApplication? = null
+        
+        fun getInstance(): MyApplication? = instance
+        
+        fun forceModelExtraction() {
+            instance?.extractVoskModel()
+        }
+    }
+    
+    init {
+        instance = this
     }
 }

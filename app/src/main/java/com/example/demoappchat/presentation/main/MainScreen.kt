@@ -15,6 +15,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -29,7 +30,6 @@ import com.example.demoappchat.data.model.ProximityChat
 import com.example.demoappchat.presentation.components.CreateChatDialog
 import com.example.demoappchat.presentation.components.JoinChatDialog
 import com.example.demoappchat.presentation.components.LocationPermissionDialog
-import com.example.demoappchat.presentation.components.VoiceCommandsSetup
 import com.example.demoappchat.ui.theme.EmergencyRed
 import com.example.demoappchat.ui.theme.SafetyGreen
 import com.example.demoappchat.ui.theme.WarningOrange
@@ -40,14 +40,14 @@ import com.example.demoappchat.utils.LocationHelper
 fun MainScreen(
     onNavigateToChat: (String) -> Unit,
     onSignOut: () -> Unit,
-    onVoiceServiceToggle: (Boolean) -> Unit = {},
-    isVoiceServiceEnabled: Boolean = false,
+    onNavigateToSettings: () -> Unit = {},
     viewModel: MainViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
     val nearbyChats by viewModel.nearbyChats.collectAsState()
     val currentUser by viewModel.currentUser.collectAsState()
+    val isVoiceServiceEnabled by viewModel.isVoiceServiceEnabled.collectAsState()
     val currentLocation by viewModel.currentLocation.collectAsState()
 
     var showCreateDialog by remember { mutableStateOf(false) }
@@ -67,10 +67,29 @@ fun MainScreen(
         )
     )
 
+    // Permisos de audio para reconocimiento de voz
+    val audioPermissions = rememberMultiplePermissionsState(
+        permissions = listOf(
+            Manifest.permission.RECORD_AUDIO
+        )
+    )
+
     // Solicitar permisos al iniciar
     LaunchedEffect(Unit) {
         if (!locationPermissions.allPermissionsGranted) {
             locationPermissions.launchMultiplePermissionRequest()
+        }
+    }
+
+    // Estado para recordar si el usuario intentó activar el servicio
+    var userTriedToEnable by remember { mutableStateOf(false) }
+
+    // Habilitar servicio de voz automáticamente cuando se concedan permisos de audio
+    LaunchedEffect(audioPermissions.allPermissionsGranted, userTriedToEnable) {
+        if (audioPermissions.allPermissionsGranted && userTriedToEnable && !isVoiceServiceEnabled) {
+            // Activar el servicio automáticamente después de obtener permisos
+            viewModel.toggleVoiceService(true)
+            userTriedToEnable = false
         }
     }
 
@@ -106,43 +125,39 @@ fun MainScreen(
                             "SafeVoice",
                             fontWeight = FontWeight.Bold,
                             color = Color.White,
-                            fontSize = 20.sp
+                            fontSize = 22.sp
                         )
-
-                        // Indicador de estado de voz mejorado
-                        if (isVoiceServiceEnabled) {
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Surface(
-                                shape = RoundedCornerShape(12.dp),
-                                color = SafetyGreen,
-                                modifier = Modifier.padding(4.dp)
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(
-                                        Icons.Default.Mic,
-                                        contentDescription = "Voz activa",
-                                        tint = Color.White,
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text(
-                                        "ACTIVO",
-                                        color = Color.White,
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
-                            }
-                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = EmergencyRed
+                    containerColor = Color(0xFF1877F2) // Facebook blue
                 ),
                 actions = {
+                    // Voice status indicator
+                    if (isVoiceServiceEnabled) {
+                        Surface(
+                            shape = CircleShape,
+                            color = Color(0xFF42C85F), // WhatsApp green
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.Mic,
+                                contentDescription = "Voz activa",
+                                tint = Color.White,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                    }
+                    
+                    IconButton(onClick = { onNavigateToSettings() }) {
+                        Icon(
+                            Icons.Default.Settings,
+                            contentDescription = "Configuración",
+                            tint = Color.White
+                        )
+                    }
+                    
                     Box {
                         IconButton(onClick = { showMenu = true }) {
                             Icon(
@@ -157,13 +172,12 @@ fun MainScreen(
                             onDismissRequest = { showMenu = false }
                         ) {
                             DropdownMenuItem(
-                                text = { Text("Configuración") },
+                                text = { Text("Perfil") },
                                 onClick = {
                                     showMenu = false
-                                    // TODO: Abrir configuración
                                 },
                                 leadingIcon = {
-                                    Icon(Icons.Default.Settings, contentDescription = null)
+                                    Icon(Icons.Default.Person, contentDescription = null)
                                 }
                             )
                             DropdownMenuItem(
@@ -211,118 +225,243 @@ fun MainScreen(
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                // Header con información del usuario mejorado
+                // Header con información del usuario modernizado
                 item {
                     currentUser?.let { user ->
                         Card(
                             modifier = Modifier.fillMaxWidth(),
                             colors = CardDefaults.cardColors(
-                                containerColor = SafetyGreen.copy(alpha = 0.1f)
+                                containerColor = Color.White
                             ),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-                            shape = RoundedCornerShape(16.dp)
+                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                            shape = RoundedCornerShape(20.dp)
                         ) {
-                            Row(
-                                modifier = Modifier.padding(20.dp),
-                                verticalAlignment = Alignment.CenterVertically
+                            Column(
+                                modifier = Modifier.padding(24.dp)
                             ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(60.dp)
-                                        .background(
-                                            SafetyGreen,
-                                            CircleShape
-                                        ),
-                                    contentAlignment = Alignment.Center
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Text(
-                                        text = user.name.firstOrNull()?.toString()?.uppercase() ?: "U",
-                                        color = Color.White,
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 24.sp
-                                    )
-                                }
-
-                                Spacer(modifier = Modifier.width(16.dp))
-
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = "¡Hola, ${user.name}!",
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 20.sp,
-                                        color = Color.Black
-                                    )
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically
+                                    // Avatar mejorado con gradiente simulado
+                                    Box(
+                                        modifier = Modifier.size(56.dp),
+                                        contentAlignment = Alignment.Center
                                     ) {
-                                        Icon(
-                                            Icons.Default.LocationOn,
-                                            contentDescription = null,
-                                            tint = SafetyGreen,
-                                            modifier = Modifier.size(16.dp)
-                                        )
-                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Surface(
+                                            shape = CircleShape,
+                                            color = EmergencyRed,
+                                            modifier = Modifier.size(56.dp)
+                                        ) {
+                                            Box(contentAlignment = Alignment.Center) {
+                                                Text(
+                                                    text = user.name.firstOrNull()?.toString()?.uppercase() ?: "U",
+                                                    color = Color.White,
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontSize = 20.sp
+                                                )
+                                            }
+                                        }
+                                    }
+
+                                    Spacer(modifier = Modifier.width(16.dp))
+
+                                    Column(modifier = Modifier.weight(1f)) {
                                         Text(
-                                            text = "Ubicación activa",
-                                            color = SafetyGreen,
+                                            text = "Hola, ${user.name}",
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 22.sp,
+                                            color = Color.Black
+                                        )
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Text(
+                                            text = "Sistema de emergencias activo",
+                                            color = Color.Gray,
                                             fontSize = 14.sp,
                                             fontWeight = FontWeight.Medium
                                         )
                                     }
-                                    Text(
-                                        text = "${nearbyChats.size} chats cercanos disponibles",
-                                        color = Color.Gray,
-                                        fontSize = 14.sp
-                                    )
+                                }
+                                
+                                Spacer(modifier = Modifier.height(20.dp))
+                                
+                                // Stats row
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                                ) {
+                                    // Ubicación
+                                    Surface(
+                                        modifier = Modifier.weight(1f),
+                                        shape = RoundedCornerShape(12.dp),
+                                        color = SafetyGreen.copy(alpha = 0.1f)
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(12.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Icon(
+                                                Icons.Default.LocationOn,
+                                                contentDescription = null,
+                                                tint = SafetyGreen,
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Text(
+                                                text = "Ubicación OK",
+                                                color = SafetyGreen,
+                                                fontSize = 13.sp,
+                                                fontWeight = FontWeight.Medium
+                                            )
+                                        }
+                                    }
+                                    
+                                    // Chats disponibles
+                                    Surface(
+                                        modifier = Modifier.weight(1f),
+                                        shape = RoundedCornerShape(12.dp),
+                                        color = EmergencyRed.copy(alpha = 0.1f)
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(12.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Icon(
+                                                Icons.Default.Person,
+                                                contentDescription = null,
+                                                tint = EmergencyRed,
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Text(
+                                                text = "${nearbyChats.size} Chats",
+                                                color = EmergencyRed,
+                                                fontSize = 13.sp,
+                                                fontWeight = FontWeight.Medium
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }
                     }
                 }
 
-                // Panel de control de voz mejorado
+                // Estado del servicio de voz simplificado
                 item {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-                        shape = RoundedCornerShape(16.dp)
-                    ) {
-                        VoiceCommandsSetup(
-                            onCommandsConfigured = { commands ->
-                                // Aquí se configurarían los comandos en las preferencias
-                            },
-                            isServiceEnabled = isVoiceServiceEnabled,
-                            isRecording = isRecording, // Si tienes lógica para grabación, úsala aquí
-                            recordingType = recordingType,
-                            onServiceToggle = onVoiceServiceToggle,
-                            onDiscreteModeToggle = { discrete ->
-                                discreteMode = discrete
-                                // Aquí puedes guardar en preferencias si lo deseas
-                            },
-                            discreteMode = discreteMode
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (isVoiceServiceEnabled) SafetyGreen.copy(alpha = 0.1f) else Color.White
                         )
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(20.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    Icons.Default.Mic,
+                                    contentDescription = "Servicio de voz",
+                                    tint = if (isVoiceServiceEnabled) SafetyGreen else Color.Gray,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Column {
+                                    Text(
+                                        text = "Detección de Voz",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 16.sp,
+                                        color = Color.Black
+                                    )
+                                    Text(
+                                        text = when {
+                                            isVoiceServiceEnabled -> "Escuchando comandos de emergencia"
+                                            !audioPermissions.allPermissionsGranted -> "Permisos de micrófono requeridos"
+                                            else -> "Toca para activar"
+                                        },
+                                        fontSize = 14.sp,
+                                        color = when {
+                                            isVoiceServiceEnabled -> SafetyGreen
+                                            !audioPermissions.allPermissionsGranted -> WarningOrange
+                                            else -> Color.Gray
+                                        }
+                                    )
+                                }
+                            }
+                            
+                            Switch(
+                                checked = isVoiceServiceEnabled,
+                                onCheckedChange = { enabled ->
+                                    if (enabled && !audioPermissions.allPermissionsGranted) {
+                                        // Marcar que el usuario intentó activar y solicitar permisos
+                                        userTriedToEnable = true
+                                        audioPermissions.launchMultiplePermissionRequest()
+                                    } else {
+                                        viewModel.toggleVoiceService(enabled)
+                                    }
+                                },
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = Color.White,
+                                    checkedTrackColor = SafetyGreen,
+                                    uncheckedThumbColor = Color.White,
+                                    uncheckedTrackColor = Color.Gray
+                                )
+                            )
+                        }
                     }
                 }
 
-                // Sección de chats cercanos
+                // Section divider
+                item {
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+                
+                // Chats section header
+                if (nearbyChats.isNotEmpty()) {
+                    item {
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            color = Color.White
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "Chats de Emergencia",
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF1C1E21)
+                                )
+                                
+                                Text(
+                                    text = "${nearbyChats.size} activos",
+                                    fontSize = 14.sp,
+                                    color = Color(0xFF65676B)
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Chat items
                 if (nearbyChats.isEmpty()) {
                     item {
                         EmptyStateContent()
                     }
                 } else {
-                    item {
-                        Text(
-                            text = "Chats de Seguridad Cercanos",
-                            fontSize = 22.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.Black,
-                            modifier = Modifier.padding(vertical = 8.dp)
-                        )
-                    }
-
                     items(nearbyChats) { chat ->
-                        ChatCard(
+                        ModernChatCard(
                             chat = chat,
                             userLocation = currentLocation,
                             onClick = { showJoinDialog = chat }
@@ -372,240 +511,242 @@ fun MainScreen(
 }
 
 @Composable
-fun ChatCard(
+fun ModernChatCard(
     chat: ProximityChat,
     userLocation: android.location.Location?,
     onClick: () -> Unit
 ) {
-    Card(
+    Surface(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onClick() },
-        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White)
+        color = Color.White
     ) {
         Column(
-            modifier = Modifier.padding(20.dp)
+            modifier = Modifier.padding(16.dp)
         ) {
+            // Header with profile-like structure
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Creator avatar
+                Surface(
+                    shape = CircleShape,
+                    color = when (chat.category) {
+                        "emergency" -> Color(0xFFDC3545)
+                        "security" -> Color(0xFFFF6B35)
+                        else -> Color(0xFF1877F2)
+                    },
+                    modifier = Modifier.size(40.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(
+                            text = chat.creatorName.firstOrNull()?.toString()?.uppercase() ?: "?",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp
+                        )
+                    }
+                }
+                
+                Spacer(modifier = Modifier.width(12.dp))
+                
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = chat.creatorName,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 15.sp,
+                        color = Color(0xFF1C1E21)
+                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = when (chat.category) {
+                                "emergency" -> "🚨 Emergencia"
+                                "security" -> "🔒 Seguridad"
+                                else -> "💬 General"
+                            },
+                            fontSize = 13.sp,
+                            color = Color(0xFF65676B)
+                        )
+                        Text(
+                            text = " • ",
+                            fontSize = 13.sp,
+                            color = Color(0xFF65676B)
+                        )
+                        Text(
+                            text = userLocation?.let {
+                                chat.getDistanceText(it.latitude, it.longitude)
+                            } ?: "Calculando...",
+                            fontSize = 13.sp,
+                            color = Color(0xFF65676B)
+                        )
+                    }
+                }
+                
+                // Join button
+                Surface(
+                    onClick = onClick,
+                    shape = RoundedCornerShape(6.dp),
+                    color = Color(0xFF1877F2)
+                ) {
+                    Text(
+                        text = "Unirse",
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
+                        color = Color.White,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            // Post content
+            Text(
+                text = chat.title,
+                fontWeight = FontWeight.Normal,
+                fontSize = 16.sp,
+                color = Color(0xFF1C1E21),
+                lineHeight = 20.sp
+            )
+            
+            if (chat.description.isNotBlank()) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = chat.description,
+                    fontSize = 14.sp,
+                    color = Color(0xFF65676B),
+                    lineHeight = 18.sp,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            // Engagement stats
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Top
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    // Título con icono de categoría
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Surface(
-                            shape = CircleShape,
-                            color = when (chat.category) {
-                                "emergency" -> EmergencyRed.copy(alpha = 0.1f)
-                                "security" -> WarningOrange.copy(alpha = 0.1f)
-                                else -> Color.Gray.copy(alpha = 0.1f)
-                            },
-                            modifier = Modifier.size(32.dp)
-                        ) {
-                            Icon(
-                                Icons.Default.Warning,
-                                contentDescription = null,
-                                tint = when (chat.category) {
-                                    "emergency" -> EmergencyRed
-                                    "security" -> WarningOrange
-                                    else -> Color.Gray
-                                },
-                                modifier = Modifier
-                                    .size(32.dp)
-                                    .padding(6.dp)
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.width(12.dp))
-
-                        Text(
-                            text = chat.title,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 18.sp,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            color = Color.Black
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    Text(
-                        text = chat.description,
-                        color = Color.Gray,
-                        fontSize = 14.sp,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                        lineHeight = 20.sp
-                    )
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    // Información adicional en chips
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Surface(
-                            shape = RoundedCornerShape(20.dp),
-                            color = Color.Gray.copy(alpha = 0.1f)
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    Icons.Default.LocationOn,
-                                    contentDescription = null,
-                                    tint = Color.Gray,
-                                    modifier = Modifier.size(14.dp)
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(
-                                    text = userLocation?.let {
-                                        chat.getDistanceText(it.latitude, it.longitude)
-                                    } ?: "Calculando...",
-                                    color = Color.Gray,
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Medium
-                                )
-                            }
-                        }
-
-                        Surface(
-                            shape = RoundedCornerShape(20.dp),
-                            color = SafetyGreen.copy(alpha = 0.1f)
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    Icons.Default.Person,
-                                    contentDescription = null,
-                                    tint = SafetyGreen,
-                                    modifier = Modifier.size(14.dp)
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(
-                                    text = "${chat.participantsCount}",
-                                    color = SafetyGreen,
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    Text(
-                        text = "Creado por ${chat.creatorName}",
-                        color = Color.Gray,
-                        fontSize = 12.sp,
-                        fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
-                    )
-                }
-
-                Spacer(modifier = Modifier.width(16.dp))
-
-                // Botón de unirse mejorado
-                Button(
-                    onClick = onClick,
-                    colors = ButtonDefaults.buttonColors(containerColor = EmergencyRed),
-                    shape = RoundedCornerShape(12.dp),
-                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp),
-                    modifier = Modifier.height(40.dp)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
-                        Icons.Default.Add,
+                        Icons.Default.Person,
                         contentDescription = null,
-                        tint = Color.White,
+                        tint = Color(0xFF65676B),
                         modifier = Modifier.size(16.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = "Unirse",
-                        fontSize = 14.sp,
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold
+                        text = "${chat.participantsCount} participantes",
+                        fontSize = 13.sp,
+                        color = Color(0xFF65676B)
                     )
                 }
+                
+                Text(
+                    text = "Hace ${((System.currentTimeMillis() - chat.createdAt) / (1000 * 60)).toInt()}min",
+                    fontSize = 13.sp,
+                    color = Color(0xFF65676B)
+                )
             }
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            // Divider
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(0.5.dp)
+                    .background(Color(0xFFDADADA))
+            )
         }
     }
 }
 
 @Composable
 fun EmptyStateContent() {
-    Card(
+    Surface(
         modifier = Modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White)
+        color = Color.White
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(40.dp),
+                .padding(32.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Surface(
-                shape = CircleShape,
-                color = Color.Gray.copy(alpha = 0.1f),
-                modifier = Modifier.size(100.dp)
+            // Modern empty illustration
+            Box(
+                modifier = Modifier.size(100.dp),
+                contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    Icons.Default.LocationOn,
-                    contentDescription = null,
-                    modifier = Modifier
-                        .size(100.dp)
-                        .padding(20.dp),
-                    tint = Color.Gray
-                )
+                Surface(
+                    shape = CircleShape,
+                    color = Color(0xFFF0F2F5),
+                    modifier = Modifier.size(100.dp)
+                ) {
+                    Icon(
+                        Icons.Default.Forum,
+                        contentDescription = null,
+                        modifier = Modifier
+                            .size(100.dp)
+                            .padding(24.dp),
+                        tint = Color(0xFF65676B)
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(24.dp))
 
             Text(
-                text = "No hay chats cercanos",
-                fontSize = 22.sp,
+                text = "No hay chats en tu área",
+                fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color.Black,
+                color = Color(0xFF1C1E21),
                 textAlign = TextAlign.Center
             )
 
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = "Sé el primero en crear un chat de seguridad en tu área",
+                text = "Crea el primer chat de emergencia en tu zona y conecta con personas cercanas",
                 fontSize = 16.sp,
-                color = Color.Gray,
+                color = Color(0xFF65676B),
                 textAlign = TextAlign.Center,
-                lineHeight = 24.sp
+                lineHeight = 22.sp
             )
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            Row(
-                verticalAlignment = Alignment.CenterVertically
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = Color(0xFF1877F2)
             ) {
-                Icon(
-                    Icons.Default.Add,
-                    contentDescription = null,
-                    tint = EmergencyRed,
-                    modifier = Modifier.size(20.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "Presiona el botón + para crear un chat",
-                    fontSize = 14.sp,
-                    color = EmergencyRed,
-                    fontWeight = FontWeight.Medium
-                )
+                Row(
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Default.Add,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Crear primer chat",
+                        fontSize = 16.sp,
+                        color = Color.White,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
             }
         }
     }

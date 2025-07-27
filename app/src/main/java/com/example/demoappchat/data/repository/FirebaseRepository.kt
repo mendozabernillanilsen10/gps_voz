@@ -1,7 +1,7 @@
 package com.example.demoappchat.data.repository
 
 import android.util.Log
-import com.example.demoappchat.data.VoiceServicePreferences
+import com.example.demoappchat.data.UserPreferences
 import com.example.demoappchat.data.model.*
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.*
@@ -14,7 +14,7 @@ import javax.inject.Singleton
 
 @Singleton
 class FirebaseRepository @Inject constructor(
-    private val preferences: VoiceServicePreferences
+    private val preferences: UserPreferences
 ) {
 
     private val auth = FirebaseAuth.getInstance()
@@ -346,7 +346,7 @@ class FirebaseRepository @Inject constructor(
             sendMessage(alertMessage)
 
             // Actualizar preferencias con el chat actual
-            preferences.currentChatId = chatId
+            preferences.setCurrentChatId(chatId)
 
             Result.success(chatId)
 
@@ -391,7 +391,7 @@ class FirebaseRepository @Inject constructor(
             creatorId = user.id,
             creatorName = user.name,
             title = "🚨 Alerta por Voz",
-            description = "Activada automáticamente por comando: \"$command\"",
+            description = "Activada automáticamente por  : \"$command\"",
             latitude = user.latitude,
             longitude = user.longitude,
             radius = 300, // Radio pequeño para emergencias
@@ -461,7 +461,10 @@ class FirebaseRepository @Inject constructor(
 
     private suspend fun notifyUsersInRange(chat: ProximityChat) {
         try {
+            Log.d("FirebaseRepo", "🚨 NOTIFICACIÓN POLICIAL: Nuevo chat '${chat.title}' creado")
+            
             val snapshot = usersRef.orderByChild("isActive").equalTo(true).get().await()
+            var notifiedUsers = 0
 
             snapshot.children.forEach { userSnapshot ->
                 val user = userSnapshot.getValue(User::class.java)
@@ -473,13 +476,65 @@ class FirebaseRepository @Inject constructor(
                         )
 
                         if (distance <= chat.radius) {
-                            Log.d("FirebaseRepo", "Notifying user ${it.name} about chat ${chat.title}")
+                            // Enviar notificación push
+                            sendPushNotification(
+                                user = it,
+                                chat = chat,
+                                distance = distance
+                            )
+                            notifiedUsers++
+                            
+                            Log.d("FirebaseRepo", "📡 Usuario ${it.name} notificado - Distancia: ${String.format("%.0f", distance)}m")
                         }
                     }
                 }
             }
+            
+            Log.d("FirebaseRepo", "✅ Total usuarios notificados: $notifiedUsers")
+            
         } catch (e: Exception) {
-            Log.e("FirebaseRepo", "Error notifying users", e)
+            Log.e("FirebaseRepo", "❌ Error crítico notificando usuarios", e)
+        }
+    }
+
+    private suspend fun sendPushNotification(user: User, chat: ProximityChat, distance: Double) {
+        try {
+            if (user.fcmToken.isNotEmpty()) {
+                // Preparar datos de la notificación
+                val notificationData = mapOf(
+                    "title" to "🚨 ALERTA POLICIAL - Nuevo Chat de Seguridad",
+                    "body" to "${chat.title} - ${String.format("%.0f", distance)}m de distancia",
+                    "chatId" to chat.id,
+                    "chatTitle" to chat.title,
+                    "creatorName" to chat.creatorName,
+                    "distance" to distance.toString(),
+                    "category" to chat.category,
+                    "type" to "proximity_chat_alert"
+                )
+
+                // Enviar usando Firebase Cloud Messaging
+                sendFCMNotification(user.fcmToken, notificationData)
+                
+                Log.d("FirebaseRepo", "🔔 Push notification enviada a ${user.name}")
+            } else {
+                Log.w("FirebaseRepo", "⚠️ Usuario ${user.name} sin token FCM")
+            }
+        } catch (e: Exception) {
+            Log.e("FirebaseRepo", "❌ Error enviando push notification", e)
+        }
+    }
+
+    private suspend fun sendFCMNotification(token: String, data: Map<String, String>) {
+        try {
+            // Por ahora solo log - implementaremos FCM más adelante
+            Log.d("FirebaseRepo", "🚀 FCM Token: ${token.take(20)}...")
+            Log.d("FirebaseRepo", "📨 Notification data: $data")
+            
+            // TODO: Implementar Firebase Cloud Functions para envío de notificaciones
+            // O usar Firebase Admin SDK desde el backend
+            
+        } catch (e: Exception) {
+            Log.e("FirebaseRepo", "❌ Error en FCM", e)
         }
     }
 }

