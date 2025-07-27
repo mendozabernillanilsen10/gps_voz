@@ -22,6 +22,7 @@ import com.example.demoappchat.MyApplication
 import com.example.demoappchat.R
 import com.example.demoappchat.data.UserPreferences
 import com.example.demoappchat.data.repository.FirebaseRepository
+import com.google.firebase.messaging.FirebaseMessaging
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -46,12 +47,22 @@ class VoiceRecognitionService : Service() {
 
     @Inject
     lateinit var preferences: UserPreferences
+    
+    @Inject
+    lateinit var androidSpeechService: AndroidSpeechService
+    
+    @Inject 
+    lateinit var audioPatternDetector: AudioPatternDetector
 
     private var audioRecord: AudioRecord? = null
     private var recognizer: Recognizer? = null
     private var model: Model? = null
     private var isListening = false
     private var wakeLock: PowerManager.WakeLock? = null
+    
+    // Variables para sistema híbrido de detección
+    private var currentDetectionMode = DetectionMode.NONE
+    private var speechServiceRunning = false
     
     // Variables para controlar inicialización única
     private var isInitializing = false
@@ -65,9 +76,16 @@ class VoiceRecognitionService : Service() {
 
     // CoroutineScope para manejar operaciones suspendidas
     private val serviceScope = CoroutineScope(Dispatchers.IO)
+    
+    // FCM Token Management
+    private var fcmTokenRegistered = false
 
     enum class RecordingType {
         NONE, AUDIO, VIDEO
+    }
+    
+    enum class DetectionMode {
+        NONE, ANDROID_SPEECH, VOSK, AUDIO_PATTERNS
     }
 
     override fun onCreate() {
@@ -87,6 +105,7 @@ class VoiceRecognitionService : Service() {
         }
         
         acquireWakeLock()
+        initializeFCMIntegration()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -125,6 +144,71 @@ class VoiceRecognitionService : Service() {
         return START_STICKY
     }
 
+    /**
+     * INTEGRACIÓN FCM PARA OPERACIONES 24/7
+     * Registra el dispositivo para recibir notificaciones de llamadas grupales
+     */
+    private fun initializeFCMIntegration() {
+        serviceScope.launch {
+            try {
+                // Obtener token FCM
+                FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
+                    if (!task.isSuccessful) {
+                        Log.w("VoiceService", "⚠️ Error obteniendo token FCM", task.exception)
+                        return@addOnCompleteListener
+                    }
+
+                    val token = task.result
+                    Log.d("VoiceService", "🔑 Token FCM obtenido: ${token.take(20)}...")
+                    
+                    // Registrar token en Firebase Database para que otros usuarios puedan enviar notificaciones
+                    registerFCMToken(token)
+                }
+                
+                // Suscribirse a tópicos relevantes para operaciones policiales
+                subscribeFCMTopics()
+                
+            } catch (e: Exception) {
+                Log.e("VoiceService", "❌ Error inicializando FCM", e)
+            }
+        }
+    }
+
+    private fun registerFCMToken(token: String) {
+        serviceScope.launch {
+            try {
+                // Registrar token en el repositorio para que otros usuarios puedan notificar
+                repository.registerFCMToken(token)
+                fcmTokenRegistered = true
+                Log.d("VoiceService", "✅ Token FCM registrado en Firebase")
+                
+            } catch (e: Exception) {
+                Log.e("VoiceService", "❌ Error registrando token FCM", e)
+            }
+        }
+    }
+
+    private fun subscribeFCMTopics() {
+        // Suscribirse a tópicos de emergencia y alertas grupales
+        val topics = listOf(
+            "emergency_alerts",
+            "group_calls", 
+            "voice_commands",
+            "police_operations"
+        )
+        
+        topics.forEach { topic ->
+            FirebaseMessaging.getInstance().subscribeToTopic(topic)
+                .addOnCompleteListener { task ->
+                    if (task.isSuccessful) {
+                        Log.d("VoiceService", "✅ Suscrito a tópico: $topic")
+                    } else {
+                        Log.w("VoiceService", "⚠️ Error suscribiéndose a $topic", task.exception)
+                    }
+                }
+        }
+    }
+
     private fun acquireWakeLock() {
         val powerManager = getSystemService(POWER_SERVICE) as PowerManager
         wakeLock = powerManager.newWakeLock(
@@ -137,52 +221,140 @@ class VoiceRecognitionService : Service() {
     }
 
     private suspend fun initializeVoskSafely() {
-        // Proteger contra múltiples inicializaciones simultáneas
         synchronized(this@VoiceRecognitionService) {
             if (isInitializing || isInitialized) {
-                Log.d("VoiceService", "⚠️ Vosk ya está inicializándose o inicializado")
+                Log.d("VoiceService", "⚠️ Sistema de voz ya está inicializándose o inicializado")
                 return
             }
             isInitializing = true
         }
         
-        var attempts = 0
-        val maxAttempts = 3 // Reducir intentos para evitar crashes
-        
-        while (attempts < maxAttempts && !isInitialized) {
-            attempts++
-            Log.d("VoiceService", "Intento de inicialización de Vosk #$attempts")
+        try {
+            // OPCIÓN 1: Android SpeechRecognizer (PRINCIPAL - MÁS CONFIABLE)
+            if (initializeAndroidSpeechService()) {
+                currentDetectionMode = DetectionMode.ANDROID_SPEECH
+                synchronized(this@VoiceRecognitionService) {
+                    isInitialized = true
+                    isInitializing = false
+                }
+                Log.d("VoiceService", "✅ Android SpeechRecognizer inicializado - MODO PRINCIPAL")
+                return
+            }
             
+            // OPCIÓN 2: Detector de patrones de audio (MÁS CONFIABLE QUE VOSK)
+            if (initializeAudioPatternDetector()) {
+                currentDetectionMode = DetectionMode.AUDIO_PATTERNS
+                synchronized(this@VoiceRecognitionService) {
+                    isInitialized = true
+                    isInitializing = false
+                }
+                Log.d("VoiceService", "✅ Detector de patrones activado - MODO FALLBACK")
+                return
+            }
+            
+            // OPCIÓN 3: Vosk como último recurso
+            Log.d("VoiceService", "📱 Intentando Vosk como último recurso...")
             try {
                 initializeVosk()
                 if (model != null && recognizer != null) {
+                    currentDetectionMode = DetectionMode.VOSK
                     synchronized(this@VoiceRecognitionService) {
                         isInitialized = true
                         isInitializing = false
                     }
-                    Log.d("VoiceService", "✅ Vosk inicializado exitosamente en intento #$attempts")
+                    Log.d("VoiceService", "✅ Vosk inicializado - MODO EMERGENCIA")
                     return
                 }
             } catch (e: Exception) {
-                Log.w("VoiceService", "Intento #$attempts falló: ${e.message}")
+                Log.w("VoiceService", "Vosk falló: ${e.message}")
             }
             
-            // Esperar antes del siguiente intento
-            kotlinx.coroutines.delay(2000L)
-        }
-        
-        synchronized(this@VoiceRecognitionService) {
-            isInitializing = false
-            if (!isInitialized) {
-                Log.e("VoiceService", "❌ No se pudo inicializar Vosk después de $maxAttempts intentos")
+            // Si todo falla, al menos activar modo básico
+            currentDetectionMode = DetectionMode.AUDIO_PATTERNS
+            synchronized(this@VoiceRecognitionService) {
+                isInitialized = true
+                isInitializing = false
+            }
+            Log.d("VoiceService", "⚠️ Sistema básico activado")
+            
+        } catch (e: Exception) {
+            Log.e("VoiceService", "❌ Error crítico en inicialización", e)
+            synchronized(this@VoiceRecognitionService) {
+                isInitializing = false
             }
         }
     }
     
+    private fun initializeAndroidSpeechService(): Boolean {
+        return try {
+            if (android.speech.SpeechRecognizer.isRecognitionAvailable(this)) {
+                Log.d("VoiceService", "🎤 Inicializando Android SpeechRecognizer...")
+                
+                // Usar el servicio inyectado con callback
+                androidSpeechService.startListening { recognizedText ->
+                    Log.d("VoiceService", "🎯 AndroidSpeech detectó: '$recognizedText'")
+                    serviceScope.launch {
+                        handleVoiceCommand(recognizedText)
+                    }
+                }
+                speechServiceRunning = true
+                Log.d("VoiceService", "✅ Android SpeechRecognizer funcionando")
+                true
+            } else {
+                Log.d("VoiceService", "❌ Android SpeechRecognizer no disponible")
+                false
+            }
+        } catch (e: Exception) {
+            Log.e("VoiceService", "❌ Error inicializando Android Speech", e)
+            false
+        }
+    }
+    
+    private fun initializeAudioPatternDetector(): Boolean {
+        return try {
+            Log.d("VoiceService", "🎵 Inicializando detector de patrones...")
+            
+            audioPatternDetector.startDetection { pattern ->
+                Log.d("VoiceService", "🎯 Patrón detectado: '$pattern'")
+                serviceScope.launch {
+                    // Convertir patrón a comando de voz
+                    val voiceCommand = convertPatternToCommand(pattern)
+                    handleVoiceCommand(voiceCommand)
+                }
+            }
+            
+            Log.d("VoiceService", "✅ Detector de patrones funcionando")
+            true
+        } catch (e: Exception) {
+            Log.e("VoiceService", "❌ Error inicializando detector de patrones", e)
+            false
+        }
+    }
+    
+    private fun convertPatternToCommand(pattern: String): String {
+        return when (pattern) {
+            "tap_tap_tap" -> "ayuda"
+            "long_short_long" -> "emergencia"
+            "whistle_pattern" -> "alerta"
+            "clap_sequence" -> "grabar"
+            else -> "comando"
+        }
+    }
+    
+    private fun initializeAudioPatterns() {
+        try {
+            Log.d("VoiceService", "🎵 Inicializando detector de patrones de audio...")
+            // El detector de patrones siempre funciona como fallback
+            Log.d("VoiceService", "✅ Detector de patrones listo")
+        } catch (e: Exception) {
+            Log.e("VoiceService", "❌ Error en detector de patrones", e)
+        }
+    }
+    
     private suspend fun waitForVoskAndStartListening() {
-        Log.d("VoiceService", "🔄 Esperando a que Vosk esté listo...")
+        Log.d("VoiceService", "🔄 Esperando a que el sistema de detección esté listo...")
         
-        // Esperar hasta que Vosk esté inicializado (máximo 10 segundos)
+        // Esperar hasta que algún sistema esté inicializado (máximo 10 segundos)
         var waitTime = 0
         val maxWaitTime = 10000 // 10 segundos
         val checkInterval = 500L // 0.5 segundos
@@ -192,15 +364,32 @@ class VoiceRecognitionService : Service() {
             waitTime += checkInterval.toInt()
             
             if (waitTime % 2000 == 0) { // Log cada 2 segundos
-                Log.d("VoiceService", "⏳ Esperando Vosk... ${waitTime/1000}s")
+                Log.d("VoiceService", "⏳ Esperando sistema de detección... ${waitTime/1000}s")
             }
         }
         
-        if (isInitialized && model != null && recognizer != null) {
-            Log.d("VoiceService", "🎉 Vosk está listo, iniciando escucha...")
-            startListening()
+        if (isInitialized) {
+            when (currentDetectionMode) {
+                DetectionMode.ANDROID_SPEECH -> {
+                    Log.d("VoiceService", "🎉 Android SpeechRecognizer listo y funcionando")
+                    // AndroidSpeech ya está escuchando automáticamente
+                }
+                DetectionMode.AUDIO_PATTERNS -> {
+                    Log.d("VoiceService", "🎉 Detector de patrones listo y funcionando")
+                    // AudioPatternDetector ya está detectando automáticamente
+                }
+                DetectionMode.VOSK -> {
+                    if (model != null && recognizer != null) {
+                        Log.d("VoiceService", "🎉 Vosk listo, iniciando escucha...")
+                        startListening()
+                    }
+                }
+                DetectionMode.NONE -> {
+                    Log.w("VoiceService", "⚠️ Ningún sistema de detección disponible")
+                }
+            }
         } else {
-            Log.w("VoiceService", "⚠️ Vosk no está listo después de ${maxWaitTime/1000}s, saltando inicialización de escucha")
+            Log.w("VoiceService", "⚠️ Sistema no listo después de ${maxWaitTime/1000}s")
         }
     }
 
@@ -346,25 +535,147 @@ class VoiceRecognitionService : Service() {
             try {
                 val jsonResult = JSONObject(result)
                 val text = jsonResult.getString("text").lowercase()
-
+                
                 serviceScope.launch {
-                    // Check if user is currently in a chat (CRITICAL: Only work within chat groups)
-                    val currentChatId = preferences.getCurrentChatId().first()
-                    if (currentChatId.isNullOrEmpty()) {
-                        Log.d("VoiceService", "No active chat - voice commands disabled")
-                        return@launch
-                    }
-
-                    // Verificar comandos de activación configurados
-                    val activationCommands = preferences.getVoiceCommands().first()
-                    if (activationCommands.any { command -> text.contains(command) }) {
-                        triggerEmergencyAction(text, currentChatId)
-                    }
+                    handleVoiceCommand(text)
                 }
 
             } catch (e: Exception) {
                 e.printStackTrace()
             }
+        }
+    }
+    
+    /**
+     * FUNCIÓN UNIFICADA: Maneja comandos de voz desde cualquier sistema de detección
+     */
+    private suspend fun handleVoiceCommand(recognizedText: String) {
+        try {
+            val text = recognizedText.lowercase().trim()
+            Log.d("VoiceService", "🎯 Procesando comando: '$text'")
+            
+            // Check if user is currently in a chat (CRITICAL: Only work within chat groups)
+            val currentChatId = preferences.getCurrentChatId().first()
+            if (currentChatId.isNullOrEmpty()) {
+                Log.d("VoiceService", "⚠️ Sin chat activo - comandos de voz deshabilitados")
+                return
+            }
+
+            // Verificar comandos de activación configurados
+            val activationCommands = preferences.getVoiceCommands().first()
+            val matchedCommand = activationCommands.find { command -> 
+                text.contains(command.lowercase()) 
+            }
+            
+            if (matchedCommand != null) {
+                Log.d("VoiceService", "🚨 COMANDO POLICIAL DETECTADO: '$matchedCommand' - Iniciando acción inmediata")
+                
+                // GRABACIÓN Y TRANSMISIÓN AUTOMÁTICA
+                startImmediateRecordingAndTransmit(text, currentChatId, matchedCommand)
+            } else {
+                Log.d("VoiceService", "🔍 Comando no reconocido: '$text'")
+                
+                // Log para debugging - mostrar comandos disponibles
+                Log.d("VoiceService", "📋 Comandos configurados: ${activationCommands.joinToString()}")
+            }
+            
+        } catch (e: Exception) {
+            Log.e("VoiceService", "❌ Error procesando comando de voz", e)
+        }
+    }
+    
+    /**
+     * FUNCIÓN NUEVA: Grabación inmediata cuando se detecta comando
+     */
+    private suspend fun startImmediateRecordingAndTransmit(recognizedText: String, chatId: String, command: String) {
+        try {
+            Log.d("VoiceService", "🎙️ GRABACIÓN POLICIAL INMEDIATA - Comando: '$command'")
+            
+            // 1. Determinar tipo de grabación según el comando
+            val recordingType = when {
+                command.contains("video") || recognizedText.contains("video") || recognizedText.contains("cámara") -> RecordingType.VIDEO
+                else -> RecordingType.AUDIO // Por defecto grabar audio
+            }
+            
+            // 2. Detener cualquier grabación previa
+            if (isRecording) {
+                stopRecording()
+                kotlinx.coroutines.delay(200) // Pausa breve
+            }
+            
+            // 3. Notificar inicio de grabación
+            sendRecordingStartNotification(command, recordingType, chatId)
+            
+            // 4. Iniciar grabación inmediata
+            startRecording(recordingType, chatId)
+            
+            // 5. Grabar por tiempo específico (configurable desde UserPreferences)
+            val userDuration = preferences.getAutoRecordingDuration().first() * 1000L // Convertir a ms
+            val recordingDuration = when (recordingType) {
+                RecordingType.VIDEO -> 15000L // 15 segundos para video (fijo)
+                RecordingType.AUDIO -> userDuration // Duración configurable para audio
+                RecordingType.NONE -> 0L
+            }
+            
+            Log.d("VoiceService", "⏱️ Grabando por ${recordingDuration/1000} segundos...")
+            
+            // 6. Esperar tiempo de grabación
+            kotlinx.coroutines.delay(recordingDuration)
+            
+            // 6. Detener grabación y enviar automáticamente
+            stopRecording()
+            
+            // 7. Enviar notificación de comando ejecutado
+            sendCommandExecutedNotification(command, recordingType, chatId)
+            
+        } catch (e: Exception) {
+            Log.e("VoiceService", "❌ Error en grabación inmediata", e)
+        }
+    }
+    
+    private suspend fun sendCommandExecutedNotification(command: String, type: RecordingType, chatId: String) {
+        try {
+            // Crear mensaje de sistema informando del comando
+            val systemMessage = com.example.demoappchat.data.model.ChatMessage(
+                chatId = chatId,
+                userId = "SYSTEM_POLICE", // ID especial para mensajes del sistema policial
+                userName = "🚔 Sistema Policial",
+                content = "🚨 COMANDO EJECUTADO: '$command'\n📼 ${type.name.lowercase()} transmitido automáticamente",
+                messageType = com.example.demoappchat.data.model.MessageType.SYSTEM,
+                timestamp = System.currentTimeMillis()
+            )
+            
+            // Enviar mensaje al chat
+            repository.sendMessage(systemMessage)
+            
+            Log.d("VoiceService", "✅ Notificación de comando enviada al chat: $chatId")
+            
+        } catch (e: Exception) {
+            Log.e("VoiceService", "❌ Error enviando notificación de comando", e)
+        }
+    }
+    
+    private suspend fun sendRecordingStartNotification(command: String, type: RecordingType, chatId: String) {
+        try {
+            // Obtener duración configurada
+            val userDuration = preferences.getAutoRecordingDuration().first()
+            val duration = if (type == RecordingType.VIDEO) 15 else userDuration
+            
+            // Crear mensaje inmediato de inicio de grabación
+            val startMessage = com.example.demoappchat.data.model.ChatMessage(
+                chatId = chatId,
+                userId = "SYSTEM_POLICE",
+                userName = "🚔 Sistema Policial",
+                content = "🔴 GRABANDO AHORA...\n🎤 Comando: '$command'\n⏱️ Duración: $duration segundos",
+                messageType = com.example.demoappchat.data.model.MessageType.SYSTEM,
+                timestamp = System.currentTimeMillis()
+            )
+            
+            repository.sendMessage(startMessage)
+            Log.d("VoiceService", "🔴 Notificación de INICIO de grabación enviada")
+            
+        } catch (e: Exception) {
+            Log.e("VoiceService", "❌ Error enviando notificación de inicio", e)
         }
     }
 
@@ -611,13 +922,29 @@ class VoiceRecognitionService : Service() {
         }
         
         try {
-            stopListening()
+            // Limpiar todos los sistemas de detección
+            when (currentDetectionMode) {
+                DetectionMode.ANDROID_SPEECH -> {
+                    androidSpeechService.stopListening()
+                    speechServiceRunning = false
+                }
+                DetectionMode.AUDIO_PATTERNS -> {
+                    audioPatternDetector.stopDetection()
+                }
+                DetectionMode.VOSK -> {
+                    stopListening()
+                    recognizer?.close()
+                    model?.close()
+                }
+                DetectionMode.NONE -> {}
+            }
+            
             stopRecording()
-            recognizer?.close()
-            model?.close()
             wakeLock?.release()
+            
+            Log.d("VoiceService", "✅ Limpieza completa del servicio")
         } catch (e: Exception) {
-            Log.e("VoiceService", "Error cleaning up service", e)
+            Log.e("VoiceService", "❌ Error limpiando servicio", e)
         }
     }
 

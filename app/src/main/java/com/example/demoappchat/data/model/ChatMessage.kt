@@ -10,9 +10,23 @@ data class ChatMessage(
     val content: String = "",
     val mediaUrl: String? = null,
     val timestamp: Long = 0L,
-    val isDeleted: Boolean = false,
+    var isDeleted: Boolean = false, // var para Firebase
     val replyTo: String? = null
 ) {
+    // Constructor vacío requerido por Firebase
+    constructor() : this(
+        id = "",
+        chatId = "",
+        userId = "",
+        userName = "",
+        userPhotoUrl = "",
+        messageType = MessageType.TEXT,
+        content = "",
+        mediaUrl = null,
+        timestamp = 0L,
+        isDeleted = false,
+        replyTo = null
+    )
     fun toMap(): Map<String, Any> {
         return mapOf(
             "id" to id,

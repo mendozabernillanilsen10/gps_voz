@@ -50,6 +50,7 @@ import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
 import com.example.demoappchat.presentation.components.*
+import com.example.demoappchat.presentation.recording.RecordingViewModel
 import com.example.demoappchat.ui.theme.Gray600
 import com.example.demoappchat.ui.theme.Gray900
 import com.example.demoappchat.ui.theme.MessageBackground
@@ -57,14 +58,17 @@ import com.example.demoappchat.presentation.chat.VideoCallActivity
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
+
 fun ChatScreen(
     chatId: String,
     onNavigateBack: () -> Unit,
-    viewModel: ChatViewModel = hiltViewModel()
+    viewModel: ChatViewModel = hiltViewModel(),
+    recordingViewModel: RecordingViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val messages by viewModel.messages.collectAsState()
     val currentUser by viewModel.currentUser.collectAsState()
+    val recordingState by recordingViewModel.recordingState.collectAsState()
 
     var messageText by remember { mutableStateOf("") }
     val listState = rememberLazyListState()
@@ -76,6 +80,10 @@ fun ChatScreen(
     var showVideoRecorder by remember { mutableStateOf(false) }
     var showAudioRecorder by remember { mutableStateOf(false) }
     var showVideoPlayer by remember { mutableStateOf<Uri?>(null) }
+
+    // Estados para paginación
+    var isLoadingMoreMessages by remember { mutableStateOf(false) }
+    var canLoadMore by remember { mutableStateOf(true) }
 
     // Funciones para lanzar captura
     fun startVideoRecording() {
@@ -114,18 +122,35 @@ fun ChatScreen(
             listState.animateScrollToItem(messages.size - 1)
         }
     }
-    
+
+    // Detectar scroll hacia arriba para cargar más mensajes
+    LaunchedEffect(listState) {
+        snapshotFlow {
+            listState.firstVisibleItemIndex == 0 &&
+                    listState.firstVisibleItemScrollOffset == 0 &&
+                    messages.isNotEmpty()
+        }.collect { shouldLoadMore ->
+            if (shouldLoadMore && canLoadMore && !isLoadingMoreMessages) {
+                isLoadingMoreMessages = true
+                // Aquí llamarías a viewModel.loadMoreMessages()
+                // Por ahora simulo la carga
+                kotlinx.coroutines.delay(1000)
+                isLoadingMoreMessages = false
+            }
+        }
+    }
+
     // Set current chat ID for voice service
     LaunchedEffect(chatId) {
         viewModel.setCurrentChatId(chatId)
     }
-    
+
     DisposableEffect(Unit) {
         onDispose {
             viewModel.clearCurrentChatId()
         }
     }
-    
+
     // Helper function for video calls
     fun startVideoCall(context: android.content.Context, chatId: String, participantName: String) {
         val intent = Intent(context, VideoCallActivity::class.java).apply {
@@ -139,18 +164,21 @@ fun ChatScreen(
     Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
             topBar = {
-
                 ModernChatTopBar(
                     chatTitle = uiState.currentChat?.title ?: "Chat",
                     participantCount = uiState.currentChat?.participantsCount ?: 0,
                     chatId = chatId,
                     onNavigateBack = onNavigateBack,
-                    onVideoCall = { 
-                        // Start video call
+                    onVideoCall = {
+                        // Iniciar videollamada grupal con notificaciones FCM
+                        viewModel.startGroupVideoCall(chatId)
+                        // También abrir la actividad de videollamada
                         startVideoCall(context, chatId, uiState.currentChat?.title ?: "Chat")
                     },
                     onVoiceCall = {
-                        // Start voice call
+                        // Iniciar llamada de audio grupal con notificaciones FCM
+                        viewModel.startGroupAudioCall(chatId)
+                        // También abrir la actividad de videollamada (solo audio)
                         startVideoCall(context, chatId, uiState.currentChat?.title ?: "Chat")
                     }
                 )
@@ -176,7 +204,7 @@ fun ChatScreen(
                     .fillMaxSize()
                     .background(MessageBackground)
             ) {
-                if (messages.isEmpty()) {
+                if (messages.isEmpty() && !uiState.isLoading) {
                     ModernEmptyChatContent(
                         modifier = Modifier
                             .fillMaxSize()
@@ -189,24 +217,108 @@ fun ChatScreen(
                             .fillMaxSize()
                             .padding(paddingValues),
                         contentPadding = PaddingValues(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        reverseLayout = false
                     ) {
+                        // Indicador de carga al inicio (mensajes más antiguos)
+                        if (isLoadingMoreMessages) {
+                            item {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(16.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(24.dp),
+                                        color = PrimaryBlue,
+                                        strokeWidth = 2.dp
+                                    )
+                                }
+                            }
+                        }
+
                         items(
                             items = messages,
                             key = { it.id }
                         ) { message ->
                             ModernMessageBubble(
                                 message = message,
-                                isOwnMessage = message.userId == currentUser?.id
+                                isOwnMessage = message.userId == currentUser?.id,
+                                onVideoClick = { uri ->
+                                    showVideoPlayer = uri
+                                },
+                                onImageClick = { uri ->
+                                    // Implementar visualizador de imágenes
+                                }
                             )
                         }
                     }
+                }
+
+                // Indicador de grabación mejorado (mejor posicionado)
+                AnimatedVisibility(
+                    visible = recordingState.isRecording,
+                    enter = slideInVertically(
+                        initialOffsetY = { -it },
+                        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy)
+                    ) + fadeIn(),
+                    exit = slideOutVertically(
+                        targetOffsetY = { -it },
+                        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy)
+                    ) + fadeOut(),
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .padding(
+                            top = paddingValues.calculateTopPadding() + 16.dp,
+                            start = 16.dp,
+                            end = 16.dp
+                        )
+                ) {
+                    RecordingIndicator(
+                        isRecording = recordingState.isRecording,
+                        recordingTime = recordingState.recordingTime,
+                        recordingType = recordingState.recordingType
+                    )
+                }
+
+                // Indicador de micrófono mejorado (mejor posicionado y más discreto)
+                AnimatedVisibility(
+                    visible = recordingState.isListening && !recordingState.isRecording,
+                    enter = scaleIn(
+                        initialScale = 0.3f,
+                        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy)
+                    ) + fadeIn(),
+                    exit = scaleOut(
+                        targetScale = 0.3f,
+                        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy)
+                    ) + fadeOut(),
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(
+                            top = paddingValues.calculateTopPadding() + 16.dp,
+                            end = 16.dp
+                        )
+                ) {
+                    FloatingMicIndicator(
+                        isListening = recordingState.isListening
+                    )
                 }
             }
         }
 
         // Media options overlay
-        if (showMediaOptions) {
+        AnimatedVisibility(
+            visible = showMediaOptions,
+            enter = fadeIn() + slideInVertically(
+                initialOffsetY = { it },
+                animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy)
+            ),
+            exit = fadeOut() + slideOutVertically(
+                targetOffsetY = { it },
+                animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy)
+            )
+        ) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -226,8 +338,12 @@ fun ChatScreen(
             }
         }
 
-        // Loading overlay
-        if (isUploading) {
+        // Loading overlay mejorado
+        AnimatedVisibility(
+            visible = isUploading,
+            enter = fadeIn(),
+            exit = fadeOut()
+        ) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -237,7 +353,8 @@ fun ChatScreen(
                 Card(
                     modifier = Modifier.padding(32.dp),
                     shape = RoundedCornerShape(20.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White)
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
                 ) {
                     Column(
                         modifier = Modifier.padding(32.dp),
@@ -287,6 +404,131 @@ fun ChatScreen(
             )
         }
     }
+}
+
+// Componente mejorado para el indicador de micrófono
+@Composable
+fun FloatingMicIndicator(
+    isListening: Boolean,
+    modifier: Modifier = Modifier
+) {
+    val infiniteTransition = rememberInfiniteTransition(label = "mic_pulse")
+    val scale by infiniteTransition.animateFloat(
+        initialValue = 1f,
+        targetValue = 1.2f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1000, easing = EaseInOut),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "mic_scale"
+    )
+
+    val alpha by infiniteTransition.animateFloat(
+        initialValue = 0.6f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1000, easing = EaseInOut),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "mic_alpha"
+    )
+
+    if (isListening) {
+        Card(
+            modifier = modifier
+                .size(56.dp)
+                .scale(scale),
+            shape = CircleShape,
+            colors = CardDefaults.cardColors(
+                containerColor = SafetyGreen.copy(alpha = alpha)
+            ),
+            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        ) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    Icons.Filled.Mic,
+                    contentDescription = "Escuchando",
+                    modifier = Modifier.size(24.dp),
+                    tint = Color.White
+                )
+            }
+        }
+    }
+}
+
+// Componente mejorado para el indicador de grabación
+@Composable
+fun RecordingIndicator(
+    isRecording: Boolean,
+    recordingTime: Long,
+    recordingType: String,
+    modifier: Modifier = Modifier
+) {
+    if (isRecording) {
+        Card(
+            modifier = modifier,
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = EmergencyRed
+            ),
+            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                // Punto pulsante
+                val infiniteTransition = rememberInfiniteTransition(label = "recording_pulse")
+                val alpha by infiniteTransition.animateFloat(
+                    initialValue = 1f,
+                    targetValue = 0.3f,
+                    animationSpec = infiniteRepeatable(
+                        animation = tween(500),
+                        repeatMode = RepeatMode.Reverse
+                    ),
+                    label = "recording_alpha"
+                )
+
+                Box(
+                    modifier = Modifier
+                        .size(8.dp)
+                        .background(
+                            Color.White.copy(alpha = alpha),
+                            CircleShape
+                        )
+                )
+
+                Text(
+                    text = when (recordingType) {
+                        "audio" -> "Grabando audio"
+                        "video" -> "Grabando video"
+                        else -> "Grabando"
+                    },
+                    color = Color.White,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium
+                )
+
+                Text(
+                    text = formatRecordingTime(recordingTime),
+                    color = Color.White.copy(alpha = 0.9f),
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Normal
+                )
+            }
+        }
+    }
+}
+
+private fun formatRecordingTime(timeInMillis: Long): String {
+    val seconds = timeInMillis / 1000
+    val minutes = seconds / 60
+    val remainingSeconds = seconds % 60
+    return String.format("%02d:%02d", minutes, remainingSeconds)
 }
 
 

@@ -533,11 +533,41 @@ fun AudioTransmissionSettings(
             
             Spacer(modifier = Modifier.height(8.dp))
             
+            // Botones de acceso rápido para distancias comunes
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                val commonDistances = listOf(1f, 5f, 10f, 25f, 50f, 100f)
+                commonDistances.forEach { distance ->
+                    val isSelected = radius == distance
+                    FilterChip(
+                        onClick = { onRadiusChange(distance) },
+                        label = { 
+                            Text(
+                                text = "${distance.toInt()}km",
+                                fontSize = 12.sp
+                            ) 
+                        },
+                        selected = isSelected,
+                        modifier = Modifier.weight(1f),
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = Color(0xFF1877F2),
+                            selectedLabelColor = Color.White,
+                            containerColor = Color(0xFFE4E6EA),
+                            labelColor = Color(0xFF65676B)
+                        )
+                    )
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
             Slider(
                 value = radius,
                 onValueChange = onRadiusChange,
-                valueRange = 1f..4f,
-                steps = 2,
+                valueRange = 1f..100f,
+                steps = 98, // 99 pasos para tener valores enteros de 1 a 100
                 colors = SliderDefaults.colors(
                     thumbColor = Color(0xFF1877F2),
                     activeTrackColor = Color(0xFF1877F2),
@@ -555,10 +585,40 @@ fun AudioTransmissionSettings(
                     color = Color(0xFF65676B)
                 )
                 Text(
-                    text = "4 km",
+                    text = "100 km",
                     fontSize = 12.sp,
                     color = Color(0xFF65676B)
                 )
+            }
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            // Descripción informativa
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = Color(0xFFF0F2F5)
+                ),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Info,
+                        contentDescription = null,
+                        tint = Color(0xFF1877F2),
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Radio actual: ${radius.toInt()} km. Los agentes dentro de este rango recibirán alertas automáticamente.",
+                        fontSize = 12.sp,
+                        color = Color(0xFF65676B),
+                        lineHeight = 16.sp
+                    )
+                }
             }
         }
         

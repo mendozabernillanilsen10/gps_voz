@@ -1,13 +1,15 @@
-<?xml version="1.0" encoding="utf-8"?><!--
-   Sample backup rules file; uncomment and customize as necessary.
-   See https://developer.android.com/guide/topics/data/autobackup
-   for details.
-   Note: This file is ignored for devices older that API 31
-   See https://developer.android.com/about/versions/12/backup-restore
--->
+<?xml version="1.0" encoding="utf-8"?>
 <full-backup-content>
-    <!--
-   <include domain="sharedpref" path="."/>
-   <exclude domain="sharedpref" path="device.xml"/>
--->
+    <!-- Incluir configuraciones importantes -->
+    <include domain="file" path="." />
+    <include domain="database" path="." />
+    <include domain="sharedpref" path="." />
+
+    <!-- Excluir archivos sensibles de operaciones -->
+    <exclude domain="file" path="voice_recordings/" />
+    <exclude domain="file" path="emergency/" />
+    <exclude domain="file" path="temp/" />
+
+    <!-- Excluir cache temporal -->
+    <exclude domain="file" path="cache/" />
 </full-backup-content>

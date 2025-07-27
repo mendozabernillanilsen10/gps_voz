@@ -30,6 +30,8 @@ import com.example.demoappchat.data.model.ProximityChat
 import com.example.demoappchat.presentation.components.CreateChatDialog
 import com.example.demoappchat.presentation.components.JoinChatDialog
 import com.example.demoappchat.presentation.components.LocationPermissionDialog
+import com.example.demoappchat.presentation.components.CompactRecordingIndicator
+import com.example.demoappchat.presentation.recording.RecordingViewModel
 import com.example.demoappchat.ui.theme.EmergencyRed
 import com.example.demoappchat.ui.theme.SafetyGreen
 import com.example.demoappchat.ui.theme.WarningOrange
@@ -41,13 +43,15 @@ fun MainScreen(
     onNavigateToChat: (String) -> Unit,
     onSignOut: () -> Unit,
     onNavigateToSettings: () -> Unit = {},
-    viewModel: MainViewModel = hiltViewModel()
+    viewModel: MainViewModel = hiltViewModel(),
+    recordingViewModel: RecordingViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
     val nearbyChats by viewModel.nearbyChats.collectAsState()
     val currentUser by viewModel.currentUser.collectAsState()
     val isVoiceServiceEnabled by viewModel.isVoiceServiceEnabled.collectAsState()
+    val recordingState by recordingViewModel.recordingState.collectAsState()
     val currentLocation by viewModel.currentLocation.collectAsState()
 
     var showCreateDialog by remember { mutableStateOf(false) }
@@ -133,8 +137,15 @@ fun MainScreen(
                     containerColor = Color(0xFF1877F2) // Facebook blue
                 ),
                 actions = {
-                    // Voice status indicator
-                    if (isVoiceServiceEnabled) {
+                    // Indicador de grabación compacto
+                    if (recordingState.isRecording) {
+                        CompactRecordingIndicator(
+                            isRecording = recordingState.isRecording,
+                            recordingTime = recordingState.recordingTime
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                    } else if (isVoiceServiceEnabled) {
+                        // Indicador de voz activa cuando no está grabando
                         Surface(
                             shape = CircleShape,
                             color = Color(0xFF42C85F), // WhatsApp green

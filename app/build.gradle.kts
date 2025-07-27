@@ -24,7 +24,7 @@ android {
             useSupportLibrary = true
         }
 
-        // 🆕 Configuración NDK para Vosk - SINTAXIS CORRECTA
+        // 🆕 Configuración NDK para Vosk
         ndk {
             abiFilters.addAll(listOf("arm64-v8a", "armeabi-v7a", "x86", "x86_64"))
         }
@@ -37,6 +37,13 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            // 🆕 CONFIGURACIÓN PARA OPERACIONES ENCUBIERTAS
+            buildConfigField("boolean", "STEALTH_MODE", "true")
+            buildConfigField("String", "OPERATION_CODE", "\"SAFE_VOICE_POLICE\"")
+        }
+        debug {
+            buildConfigField("boolean", "STEALTH_MODE", "false")
+            buildConfigField("String", "OPERATION_CODE", "\"DEBUG\"")
         }
     }
 
@@ -51,6 +58,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true // 🆕 HABILITAR BuildConfig
     }
 
     composeOptions {
@@ -61,7 +69,7 @@ android {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
-        // 🆕 Configuración para librerías nativas de Vosk
+        // 🆕 Configuración para librerías nativas
         jniLibs {
             useLegacyPackaging = true
         }
@@ -110,7 +118,7 @@ dependencies {
     // Corrutinas
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.coroutines.play.services)
-    
+
     // DataStore for preferences
     implementation("androidx.datastore:datastore-preferences:1.0.0")
 
@@ -118,24 +126,27 @@ dependencies {
     implementation(libs.accompanist.permissions)
     implementation(libs.coil.compose)
 
-    // 🆕 Vosk Speech Recognition - VERSION ESPECÍFICA
+    // 🆕 Vosk Speech Recognition
     implementation("com.alphacephei:vosk-android:0.3.47")
-
-    // 🆕 JNA para Vosk (CRÍTICO)
     implementation("net.java.dev.jna:jna:5.13.0@aar")
 
+    // 🆕 CÁMARA Y VIDEO PARA OPERACIONES ENCUBIERTAS
+    implementation("androidx.camera:camera-camera2:1.3.1")
+    implementation("androidx.camera:camera-lifecycle:1.3.1")
+    implementation("androidx.camera:camera-view:1.3.1")
+    implementation("androidx.camera:camera-video:1.3.1")
+    implementation("androidx.media3:media3-exoplayer:1.2.1")
+    implementation("androidx.media3:media3-ui:1.2.1")
+    implementation("androidx.media3:media3-common:1.2.1")
 
-    implementation ( "androidx.camera:camera-camera2:1.3.1")
-    implementation ("androidx.camera:camera-lifecycle:1.3.1")
-    implementation ("androidx.camera:camera-view:1.3.1")
-    implementation ("androidx.camera:camera-video:1.3.1")
-    implementation ("androidx.media3:media3-exoplayer:1.2.1")
-    implementation ("androidx.media3:media3-ui:1.2.1")
-    implementation ("androidx.media3:media3-common:1.2.1")
-    // Background Services y Work Manager
+    // 🆕 SERVICIOS EN SEGUNDO PLANO
     implementation(libs.androidx.work.runtime.ktx)
     implementation(libs.androidx.work.runtime)
-    implementation( "com.google.accompanist:accompanist-permissions:0.32.0")
+    implementation("com.google.accompanist:accompanist-permissions:0.32.0")
+
+    // 🆕 NOTIFICACIONES PUSH PARA OPERACIONES
+    implementation("com.google.firebase:firebase-messaging")
+    implementation("com.google.firebase:firebase-functions")
 
     // Testing
     testImplementation(libs.junit)

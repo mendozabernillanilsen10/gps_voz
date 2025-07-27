@@ -12,11 +12,28 @@ data class ProximityChat(
     val radius: Int = 4000,
     val pin: String = "",
     val createdAt: Long = 0L,
-    val isActive: Boolean = true,
+    var isActive: Boolean = true, // var para Firebase
     val participantsCount: Int = 0,
     val lastActivity: Long = 0L,
     val category: String = "emergency" // emergency, security, traffic, community
 ) {
+    // Constructor vacío requerido por Firebase
+    constructor() : this(
+        id = "",
+        creatorId = "",
+        creatorName = "",
+        title = "",
+        description = "",
+        latitude = 0.0,
+        longitude = 0.0,
+        radius = 4000,
+        pin = "",
+        createdAt = 0L,
+        isActive = true,
+        participantsCount = 0,
+        lastActivity = 0L,
+        category = "emergency"
+    )
     fun toMap(): Map<String, Any> {
         return mapOf(
             "id" to id,

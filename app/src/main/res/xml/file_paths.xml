@@ -1,6 +1,35 @@
 <?xml version="1.0" encoding="utf-8"?>
 <paths xmlns:android="http://schemas.android.com/apk/res/android">
-    <external-files-path name="media" path="." />
-    <external-path name="external" path="." />
-    <cache-path name="cache" path="." />
+    <!-- Archivos externos -->
+    <external-path
+        name="external_files"
+        path="." />
+
+    <!-- Archivos internos de la app -->
+    <files-path
+        name="files"
+        path="." />
+
+    <!-- Cache de la app -->
+    <cache-path
+        name="cache"
+        path="." />
+
+    <!-- Cache externo -->
+    <external-cache-path
+        name="external_cache"
+        path="." />
+
+    <!-- 🆕 RUTAS ESPECÍFICAS PARA OPERACIONES -->
+    <files-path
+        name="voice_recordings"
+        path="voice_recordings/" />
+
+    <files-path
+        name="emergency_media"
+        path="emergency/" />
+
+    <external-files-path
+        name="shared_recordings"
+        path="SafeVoice/" />
 </paths>
