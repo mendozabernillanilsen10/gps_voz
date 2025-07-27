@@ -53,6 +53,7 @@ import com.example.demoappchat.presentation.components.*
 import com.example.demoappchat.ui.theme.Gray600
 import com.example.demoappchat.ui.theme.Gray900
 import com.example.demoappchat.ui.theme.MessageBackground
+import com.example.demoappchat.presentation.chat.VideoCallActivity
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -69,7 +70,7 @@ fun ChatScreen(
     val listState = rememberLazyListState()
     val context = LocalContext.current
 
-    var isUploading by remember { mutableStateOf(false) }
+    val isUploading = uiState.isLoading
     var pendingMediaToUpload by remember { mutableStateOf<Pair<Uri, String>?>(null) }
     var showMediaOptions by remember { mutableStateOf(false) }
     var showVideoRecorder by remember { mutableStateOf(false) }
@@ -97,9 +98,7 @@ fun ChatScreen(
     // Upload effect
     LaunchedEffect(pendingMediaToUpload) {
         val (uri, type) = pendingMediaToUpload ?: return@LaunchedEffect
-        isUploading = true
         viewModel.uploadAndSendMedia(chatId, uri, type, context)
-        isUploading = false
         pendingMediaToUpload = null
     }
 
@@ -115,6 +114,27 @@ fun ChatScreen(
             listState.animateScrollToItem(messages.size - 1)
         }
     }
+    
+    // Set current chat ID for voice service
+    LaunchedEffect(chatId) {
+        viewModel.setCurrentChatId(chatId)
+    }
+    
+    DisposableEffect(Unit) {
+        onDispose {
+            viewModel.clearCurrentChatId()
+        }
+    }
+    
+    // Helper function for video calls
+    fun startVideoCall(context: android.content.Context, chatId: String, participantName: String) {
+        val intent = Intent(context, VideoCallActivity::class.java).apply {
+            putExtra(VideoCallActivity.EXTRA_CHAT_ID, chatId)
+            putExtra(VideoCallActivity.EXTRA_PARTICIPANT_NAME, participantName)
+            putExtra(VideoCallActivity.EXTRA_IS_INCOMING_CALL, false)
+        }
+        context.startActivity(intent)
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
@@ -123,7 +143,16 @@ fun ChatScreen(
                 ModernChatTopBar(
                     chatTitle = uiState.currentChat?.title ?: "Chat",
                     participantCount = uiState.currentChat?.participantsCount ?: 0,
-                    onNavigateBack = onNavigateBack
+                    chatId = chatId,
+                    onNavigateBack = onNavigateBack,
+                    onVideoCall = { 
+                        // Start video call
+                        startVideoCall(context, chatId, uiState.currentChat?.title ?: "Chat")
+                    },
+                    onVoiceCall = {
+                        // Start voice call
+                        startVideoCall(context, chatId, uiState.currentChat?.title ?: "Chat")
+                    }
                 )
             },
             bottomBar = {
@@ -235,9 +264,7 @@ fun ChatScreen(
             VideoRecorderScreen(
                 onVideoRecorded = { uri ->
                     showVideoRecorder = false
-                    isUploading = true
                     viewModel.uploadAndSendMedia(chatId, uri, "video", context)
-                    isUploading = false
                 },
                 onDismiss = { showVideoRecorder = false }
             )
@@ -247,9 +274,7 @@ fun ChatScreen(
             AudioRecorderScreen(
                 onAudioRecorded = { uri ->
                     showAudioRecorder = false
-                    isUploading = true
                     viewModel.uploadAndSendMedia(chatId, uri, "audio", context)
-                    isUploading = false
                 },
                 onDismiss = { showAudioRecorder = false }
             )

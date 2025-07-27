@@ -2,7 +2,11 @@ package com.example.demoappchat
 
 import android.Manifest
 import android.content.Intent
+import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.os.PowerManager
+import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -17,12 +21,13 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.example.demoappchat.data.VoiceServicePreferences
+import com.example.demoappchat.data.UserPreferences
 import com.example.demoappchat.data.service.VoiceRecognitionService
 import com.example.demoappchat.presentation.auth.AuthViewModel
 import com.example.demoappchat.presentation.auth.LoginScreen
 import com.example.demoappchat.presentation.chat.ChatScreen
 import com.example.demoappchat.presentation.main.MainScreen
+import com.example.demoappchat.presentation.settings.SettingsScreen
 import com.example.demoappchat.presentation.splash.ModernSplashScreen
 import com.example.demoappchat.ui.theme.SecurityChatTheme
 import dagger.hilt.android.AndroidEntryPoint
@@ -31,7 +36,7 @@ import com.google.firebase.FirebaseApp
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
-    private lateinit var voiceServicePreferences: VoiceServicePreferences
+    private lateinit var userPreferences: UserPreferences
     private var permissionsGranted = false
 
     // Lanzador de permisos
@@ -41,9 +46,7 @@ class MainActivity : ComponentActivity() {
         permissionsGranted = permissions.all { it.value }
         if (permissionsGranted) {
             // Si los permisos fueron concedidos y el servicio estaba habilitado, iniciarlo
-            if (voiceServicePreferences.isVoiceServiceEnabled) {
-                startVoiceService()
-            }
+            // Voice service will be handled through the new settings system
         }
     }
 
@@ -52,10 +55,13 @@ class MainActivity : ComponentActivity() {
 
         // Inicializar Firebase y preferencias
         FirebaseApp.initializeApp(this)
-        voiceServicePreferences = VoiceServicePreferences(this)
+        // Initialize userPreferences through Hilt injection
 
         // Solicitar permisos necesarios
         requestVoicePermissions()
+        
+        // Solicitar exención de optimización de batería
+        requestBatteryOptimizationExemption()
 
         setContent {
             SecurityChatTheme {
@@ -63,29 +69,31 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    SafeVoiceApp(
-                        onVoiceServiceToggle = { enabled ->
-                            handleVoiceServiceToggle(enabled)
-                        },
-                        isVoiceServiceEnabled = voiceServicePreferences.isVoiceServiceEnabled
-                    )
+                    SafeVoiceApp()
                 }
             }
         }
     }
 
     private fun requestVoicePermissions() {
-        val permissions = arrayOf(
+        val permissions = mutableListOf(
             Manifest.permission.RECORD_AUDIO,
-            Manifest.permission.FOREGROUND_SERVICE,
-            Manifest.permission.WAKE_LOCK,
+            Manifest.permission.CAMERA,
             Manifest.permission.ACCESS_FINE_LOCATION,
             Manifest.permission.ACCESS_COARSE_LOCATION,
-            Manifest.permission.RECEIVE_BOOT_COMPLETED,
-            Manifest.permission.CAMERA,
-            Manifest.permission.WRITE_EXTERNAL_STORAGE,
-            Manifest.permission.READ_EXTERNAL_STORAGE
+            Manifest.permission.WAKE_LOCK
         )
+        
+        // Add notification permission for Android 13+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            permissions.add(Manifest.permission.POST_NOTIFICATIONS)
+        }
+        
+        // Add storage permissions based on API level
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
+            permissions.add(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+            permissions.add(Manifest.permission.READ_EXTERNAL_STORAGE)
+        }
 
         // Verificar si todos los permisos están concedidos
         permissionsGranted = permissions.all { permission ->
@@ -94,7 +102,29 @@ class MainActivity : ComponentActivity() {
         }
 
         if (!permissionsGranted) {
-            permissionLauncher.launch(permissions)
+            permissionLauncher.launch(permissions.toTypedArray())
+        }
+    }
+
+    private fun requestBatteryOptimizationExemption() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val powerManager = getSystemService(POWER_SERVICE) as PowerManager
+            if (!powerManager.isIgnoringBatteryOptimizations(packageName)) {
+                try {
+                    val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                        data = Uri.parse("package:$packageName")
+                    }
+                    startActivity(intent)
+                } catch (e: Exception) {
+                    // Si no se puede abrir la configuración específica, abrir la general
+                    try {
+                        val intent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+                        startActivity(intent)
+                    } catch (e2: Exception) {
+                        e2.printStackTrace()
+                    }
+                }
+            }
         }
     }
 
@@ -104,7 +134,7 @@ class MainActivity : ComponentActivity() {
             return
         }
 
-        voiceServicePreferences.isVoiceServiceEnabled = enabled
+        // Voice service preferences now handled through UserPreferences in Settings
 
         if (enabled) {
             startVoiceService()
@@ -145,10 +175,7 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun SafeVoiceApp(
-    onVoiceServiceToggle: (Boolean) -> Unit = {},
-    isVoiceServiceEnabled: Boolean = false
-) {
+fun SafeVoiceApp() {
     val navController = rememberNavController()
     val authViewModel: AuthViewModel = hiltViewModel()
     val currentUser by authViewModel.currentUser.collectAsState()
@@ -185,11 +212,20 @@ fun SafeVoiceApp(
                             popUpTo("main") { inclusive = true }
                         }
                     },
-                    onVoiceServiceToggle = onVoiceServiceToggle,
-                    isVoiceServiceEnabled = isVoiceServiceEnabled
+                    onNavigateToSettings = {
+                        navController.navigate("settings")
+                    }
                 )
             }
 
+            composable("settings") {
+                SettingsScreen(
+                    onNavigateBack = {
+                        navController.popBackStack()
+                    }
+                )
+            }
+            
             composable("chat/{chatId}") { backStackEntry ->
                 val chatId = backStackEntry.arguments?.getString("chatId") ?: ""
                 ChatScreen(

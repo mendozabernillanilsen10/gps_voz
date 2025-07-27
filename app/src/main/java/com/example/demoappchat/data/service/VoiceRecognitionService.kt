@@ -20,12 +20,14 @@ import androidx.core.app.NotificationCompat
 import com.example.demoappchat.MainActivity
 import com.example.demoappchat.MyApplication
 import com.example.demoappchat.R
-import com.example.demoappchat.data.VoiceServicePreferences
+import com.example.demoappchat.data.UserPreferences
 import com.example.demoappchat.data.repository.FirebaseRepository
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
 import org.json.JSONObject
 import org.vosk.LibVosk
 import org.vosk.LogLevel
@@ -43,13 +45,17 @@ class VoiceRecognitionService : Service() {
     lateinit var repository: FirebaseRepository
 
     @Inject
-    lateinit var preferences: VoiceServicePreferences
+    lateinit var preferences: UserPreferences
 
     private var audioRecord: AudioRecord? = null
     private var recognizer: Recognizer? = null
     private var model: Model? = null
     private var isListening = false
     private var wakeLock: PowerManager.WakeLock? = null
+    
+    // Variables para controlar inicialización única
+    private var isInitializing = false
+    private var isInitialized = false
     
     // Variables para grabación de audio/video
     private var mediaRecorder: MediaRecorder? = null
@@ -66,20 +72,42 @@ class VoiceRecognitionService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        
+        // Verificar si ya hay una instancia ejecutándose
+        synchronized(VoiceRecognitionService::class.java) {
+            if (isServiceRunning && serviceInstance != null && serviceInstance != this) {
+                Log.w("VoiceService", "⚠️ Servicio ya está ejecutándose, cancelando esta instancia")
+                stopSelf()
+                return
+            }
+            
+            isServiceRunning = true
+            serviceInstance = this
+            Log.d("VoiceService", "🚀 Iniciando nueva instancia del servicio")
+        }
+        
         acquireWakeLock()
-        initializeVosk()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_START_LISTENING -> {
                 startForeground(NOTIFICATION_ID, createNotification())
-                startListening()
-                preferences.isVoiceServiceEnabled = true
+                serviceScope.launch {
+                    preferences.setVoiceServiceEnabled(true)
+                    // Solo inicializar Vosk cuando se necesite
+                    if (serviceInstance == this@VoiceRecognitionService && !isInitialized) {
+                        initializeVoskSafely()
+                    }
+                    // Esperar e iniciar escucha
+                    waitForVoskAndStartListening()
+                }
             }
             ACTION_STOP_LISTENING -> {
                 stopListening()
-                preferences.isVoiceServiceEnabled = false
+                serviceScope.launch {
+                    preferences.setVoiceServiceEnabled(false)
+                }
                 stopSelf()
             }
             ACTION_START_RECORDING -> {
@@ -91,43 +119,172 @@ class VoiceRecognitionService : Service() {
             }
             else -> {
                 startForeground(NOTIFICATION_ID, createNotification())
-                startListening()
             }
         }
 
-        return START_STICKY // Reinicia automáticamente
+        return START_STICKY
     }
 
     private fun acquireWakeLock() {
         val powerManager = getSystemService(POWER_SERVICE) as PowerManager
         wakeLock = powerManager.newWakeLock(
-            PowerManager.PARTIAL_WAKE_LOCK,
+            PowerManager.PARTIAL_WAKE_LOCK or PowerManager.ON_AFTER_RELEASE,
             "SafeVoice::VoiceRecognitionWakeLock"
         )
-        wakeLock?.acquire(10*60*1000L /*10 minutes*/)
+        // Mantener el servicio activo indefinidamente - ESENCIAL para operaciones policiales
+        wakeLock?.acquire()
+        Log.d("VoiceService", "🔒 WakeLock POLICIAL adquirido - Monitoreo 24/7 activado")
+    }
+
+    private suspend fun initializeVoskSafely() {
+        // Proteger contra múltiples inicializaciones simultáneas
+        synchronized(this@VoiceRecognitionService) {
+            if (isInitializing || isInitialized) {
+                Log.d("VoiceService", "⚠️ Vosk ya está inicializándose o inicializado")
+                return
+            }
+            isInitializing = true
+        }
+        
+        var attempts = 0
+        val maxAttempts = 3 // Reducir intentos para evitar crashes
+        
+        while (attempts < maxAttempts && !isInitialized) {
+            attempts++
+            Log.d("VoiceService", "Intento de inicialización de Vosk #$attempts")
+            
+            try {
+                initializeVosk()
+                if (model != null && recognizer != null) {
+                    synchronized(this@VoiceRecognitionService) {
+                        isInitialized = true
+                        isInitializing = false
+                    }
+                    Log.d("VoiceService", "✅ Vosk inicializado exitosamente en intento #$attempts")
+                    return
+                }
+            } catch (e: Exception) {
+                Log.w("VoiceService", "Intento #$attempts falló: ${e.message}")
+            }
+            
+            // Esperar antes del siguiente intento
+            kotlinx.coroutines.delay(2000L)
+        }
+        
+        synchronized(this@VoiceRecognitionService) {
+            isInitializing = false
+            if (!isInitialized) {
+                Log.e("VoiceService", "❌ No se pudo inicializar Vosk después de $maxAttempts intentos")
+            }
+        }
+    }
+    
+    private suspend fun waitForVoskAndStartListening() {
+        Log.d("VoiceService", "🔄 Esperando a que Vosk esté listo...")
+        
+        // Esperar hasta que Vosk esté inicializado (máximo 10 segundos)
+        var waitTime = 0
+        val maxWaitTime = 10000 // 10 segundos
+        val checkInterval = 500L // 0.5 segundos
+        
+        while (!isInitialized && waitTime < maxWaitTime) {
+            kotlinx.coroutines.delay(checkInterval)
+            waitTime += checkInterval.toInt()
+            
+            if (waitTime % 2000 == 0) { // Log cada 2 segundos
+                Log.d("VoiceService", "⏳ Esperando Vosk... ${waitTime/1000}s")
+            }
+        }
+        
+        if (isInitialized && model != null && recognizer != null) {
+            Log.d("VoiceService", "🎉 Vosk está listo, iniciando escucha...")
+            startListening()
+        } else {
+            Log.w("VoiceService", "⚠️ Vosk no está listo después de ${maxWaitTime/1000}s, saltando inicialización de escucha")
+        }
     }
 
     private fun initializeVosk() {
         try {
+            Log.d("VoiceService", "Iniciando inicialización de Vosk...")
             LibVosk.setLogLevel(LogLevel.WARNINGS)
 
             val modelDir = File(filesDir, "vosk-models/spanish")
-            if (modelDir.exists()) {
+            Log.d("VoiceService", "Buscando modelo en: ${modelDir.absolutePath}")
+            Log.d("VoiceService", "El directorio existe: ${modelDir.exists()}")
+            
+            if (modelDir.exists() && hasRequiredModelFiles(modelDir)) {
+                Log.d("VoiceService", "Creando modelo Vosk...")
+                
+                // Verificar que no haya instancias previas
+                model?.close()
+                recognizer?.close()
+                
                 model = Model(modelDir.absolutePath)
                 recognizer = Recognizer(model, 16000.0f)
+                Log.d("VoiceService", "✅ Vosk inicializado correctamente")
+            } else {
+                Log.e("VoiceService", "❌ Directorio del modelo no existe o archivos faltantes")
+                // Forzar extracción del modelo desde la aplicación principal
+                triggerModelExtraction()
+                throw Exception("Modelo no disponible, se está extrayendo...")
             }
 
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.e("VoiceService", "❌ Error inicializando Vosk", e)
+            throw e
         }
     }
+    
+    private fun hasRequiredModelFiles(modelDir: File): Boolean {
+        val requiredFiles = listOf(
+            "am/final.mdl",
+            "conf/mfcc.conf", 
+            "conf/model.conf",
+            "graph/Gr.fst",
+            "graph/HCLr.fst"
+        )
+        
+        for (file in requiredFiles) {
+            if (!File(modelDir, file).exists()) {
+                Log.w("VoiceService", "Archivo faltante: $file")
+                return false
+            }
+        }
+        return true
+    }
+    
+    private fun triggerModelExtraction() {
+        Log.d("VoiceService", "🔄 Solicitando extracción forzada del modelo...")
+        // Forzar extracción directa
+        MyApplication.forceModelExtraction()
+        // También enviar broadcast como respaldo
+        val intent = Intent("com.example.demoappchat.EXTRACT_VOSK_MODEL")
+        sendBroadcast(intent)
+    }
+    
 
     private fun startListening() {
-        if (ActivityCompat.checkSelfPermission(
-                this, Manifest.permission.RECORD_AUDIO
-            ) != PackageManager.PERMISSION_GRANTED
-        ) {
-            return
+        synchronized(this) {
+            Log.d("VoiceService", "Intentando iniciar escucha...")
+            
+            if (isListening) {
+                Log.w("VoiceService", "⚠️ Ya está escuchando, ignorando nueva solicitud")
+                return
+            }
+            
+            if (ActivityCompat.checkSelfPermission(
+                    this, Manifest.permission.RECORD_AUDIO
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
+                Log.e("VoiceService", "❌ Sin permiso de RECORD_AUDIO")
+                return
+            }
+            
+            if (!isInitialized || model == null || recognizer == null) {
+                Log.e("VoiceService", "❌ Modelo o reconocedor de Vosk no inicializados")
+                return
+            }
         }
 
         val bufferSize = AudioRecord.getMinBufferSize(
@@ -137,29 +294,43 @@ class VoiceRecognitionService : Service() {
         )
 
         audioRecord = AudioRecord(
-            MediaRecorder.AudioSource.MIC,
+            MediaRecorder.AudioSource.VOICE_RECOGNITION,
             16000,
             AudioFormat.CHANNEL_IN_MONO,
             AudioFormat.ENCODING_PCM_16BIT,
             bufferSize
         )
 
-        audioRecord?.startRecording()
-        isListening = true
+        try {
+            audioRecord?.startRecording()
+            val state = audioRecord?.recordingState
+            Log.d("VoiceService", "Estado de AudioRecord: $state")
+            isListening = true
+        } catch (e: Exception) {
+            Log.e("VoiceService", "Error iniciando AudioRecord", e)
+            return
+        }
 
         Thread {
             val buffer = ShortArray(bufferSize)
-            while (isListening) {
-                val bytesRead = audioRecord?.read(buffer, 0, buffer.size) ?: 0
-                if (bytesRead > 0) {
-                    recognizer?.acceptWaveForm(buffer, bytesRead)?.let { isEndOfSpeech ->
-                        if (isEndOfSpeech) {
-                            handleSpeechResult()
+            Log.d("VoiceService", "Iniciando thread de escucha")
+            while (isListening && audioRecord?.recordingState == AudioRecord.RECORDSTATE_RECORDING) {
+                try {
+                    val bytesRead = audioRecord?.read(buffer, 0, buffer.size) ?: 0
+                    if (bytesRead > 0) {
+                        recognizer?.acceptWaveForm(buffer, bytesRead)?.let { isEndOfSpeech ->
+                            if (isEndOfSpeech) {
+                                handleSpeechResult()
+                            }
                         }
                     }
+                    Thread.sleep(100) // Pequeña pausa para no saturar CPU
+                } catch (e: Exception) {
+                    Log.e("VoiceService", "Error en loop de audio", e)
+                    break
                 }
-                Thread.sleep(100) // Pequeña pausa para no saturar CPU
             }
+            Log.d("VoiceService", "Thread de escucha terminado")
         }.start()
     }
 
@@ -176,10 +347,19 @@ class VoiceRecognitionService : Service() {
                 val jsonResult = JSONObject(result)
                 val text = jsonResult.getString("text").lowercase()
 
-                // Verificar comandos de activación configurados
-                val activationCommands = preferences.activationCommands
-                if (activationCommands.any { command -> text.contains(command) }) {
-                    triggerEmergencyAction(text)
+                serviceScope.launch {
+                    // Check if user is currently in a chat (CRITICAL: Only work within chat groups)
+                    val currentChatId = preferences.getCurrentChatId().first()
+                    if (currentChatId.isNullOrEmpty()) {
+                        Log.d("VoiceService", "No active chat - voice commands disabled")
+                        return@launch
+                    }
+
+                    // Verificar comandos de activación configurados
+                    val activationCommands = preferences.getVoiceCommands().first()
+                    if (activationCommands.any { command -> text.contains(command) }) {
+                        triggerEmergencyAction(text, currentChatId)
+                    }
                 }
 
             } catch (e: Exception) {
@@ -188,45 +368,32 @@ class VoiceRecognitionService : Service() {
         }
     }
 
-    private fun triggerEmergencyAction(recognizedText: String) {
-        Log.d("VoiceService", "Comando detectado: $recognizedText")
-
-        // Verificar si hay chat activo
-        val currentChatId = preferences.currentChatId
-        if (currentChatId.isNullOrEmpty()) {
-            // Mostrar notificación de advertencia
-            val warningNotification = NotificationCompat.Builder(this, MyApplication.VOICE_CHANNEL_ID)
-                .setContentTitle("SafeVoice: No estás en un grupo")
-                .setContentText("Únete a un chat para activar la grabación por voz.")
-                .setSmallIcon(android.R.drawable.ic_dialog_alert)
-                .setPriority(NotificationCompat.PRIORITY_HIGH)
-                .setAutoCancel(true)
-                .build()
-            val notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
-            notificationManager.notify(EMERGENCY_NOTIFICATION_ID + 1, warningNotification)
-            return
-        }
+    private fun triggerEmergencyAction(recognizedText: String, chatId: String) {
+        Log.d("VoiceService", "Comando detectado: $recognizedText en chat: $chatId")
 
         // Determinar tipo de grabación según el comando
         val recordingType = when {
-            recognizedText.contains("grabar audio") || recognizedText.contains("audio") -> RecordingType.AUDIO
+            recognizedText.contains("grabar audio") || recognizedText.contains("audio") || recognizedText.contains("óyeme") -> RecordingType.AUDIO
             recognizedText.contains("grabar video") || recognizedText.contains("video") || recognizedText.contains("cámara") -> RecordingType.VIDEO
             else -> RecordingType.AUDIO // Por defecto grabar audio
         }
 
-        // Iniciar grabación
-        startRecording(recordingType)
+        // Iniciar grabación para el chat específico
+        startRecording(recordingType, chatId)
 
-        if (preferences.discreteMode) {
-            // Modo discreto: sin notificaciones visibles
-            sendSilentEmergencyAlert(recognizedText, recordingType)
-        } else {
-            // Modo normal: con notificaciones
-            sendEmergencyAlert(recognizedText, recordingType)
+        serviceScope.launch {
+            val discreteMode = preferences.getDiscreteMode().first()
+            if (discreteMode) {
+                // Modo discreto: sin notificaciones visibles
+                sendSilentEmergencyAlert(recognizedText, recordingType)
+            } else {
+                // Modo normal: con notificaciones
+                sendEmergencyAlert(recognizedText, recordingType)
+            }
         }
     }
 
-    private fun startRecording(type: RecordingType) {
+    private fun startRecording(type: RecordingType, chatId: String? = null) {
         if (isRecording) {
             stopRecording()
         }
@@ -325,7 +492,7 @@ class VoiceRecognitionService : Service() {
     private fun uploadFileToFirebase(file: File, type: RecordingType) {
         serviceScope.launch {
             try {
-                val chatId = preferences.currentChatId ?: return@launch
+                val chatId = preferences.getCurrentChatId().first() ?: return@launch
                 val mediaType = if (type == RecordingType.AUDIO) "audio" else "video"
 
                 // ✅ USAR EL REPOSITORY INYECTADO
@@ -350,7 +517,9 @@ class VoiceRecognitionService : Service() {
     private fun sendSilentEmergencyAlert(command: String, type: RecordingType) {
         serviceScope.launch {
             try {
-                repository.sendEmergencyAlert(command, preferences.emergencyRadius, type.name)
+                // Send emergency alert with current transmission radius
+                val radius = preferences.getTransmissionRadius().first() * 1000 // Convert km to meters
+                repository.sendEmergencyAlert(command, radius.toInt(), type.name)
             } catch (e: Exception) {
                 e.printStackTrace()
             }
@@ -399,7 +568,7 @@ class VoiceRecognitionService : Service() {
     private fun getNotificationText(): String {
         return when {
             isRecording -> "Grabando: ${recordingType.name.lowercase()}"
-            else -> "Comandos: ${preferences.activationCommands.joinToString(", ")}"
+            else -> "Comandos de voz activados"
         }
     }
 
@@ -432,11 +601,24 @@ class VoiceRecognitionService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
-        stopListening()
-        stopRecording()
-        recognizer?.close()
-        model?.close()
-        wakeLock?.release()
+        Log.d("VoiceService", "🛑 Servicio destruido")
+        
+        synchronized(VoiceRecognitionService::class.java) {
+            if (serviceInstance == this) {
+                isServiceRunning = false
+                serviceInstance = null
+            }
+        }
+        
+        try {
+            stopListening()
+            stopRecording()
+            recognizer?.close()
+            model?.close()
+            wakeLock?.release()
+        } catch (e: Exception) {
+            Log.e("VoiceService", "Error cleaning up service", e)
+        }
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -450,5 +632,13 @@ class VoiceRecognitionService : Service() {
 
         private const val NOTIFICATION_ID = 1001
         private const val EMERGENCY_NOTIFICATION_ID = 1002
+        private const val VOSK_READY_NOTIFICATION_ID = 1003
+        
+        // Control de instancia única
+        @Volatile
+        private var isServiceRunning = false
+        
+        @Volatile
+        private var serviceInstance: VoiceRecognitionService? = null
     }
 }

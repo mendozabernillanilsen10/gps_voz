@@ -110,6 +110,9 @@ dependencies {
     // Corrutinas
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.coroutines.play.services)
+    
+    // DataStore for preferences
+    implementation("androidx.datastore:datastore-preferences:1.0.0")
 
     // Utilidades
     implementation(libs.accompanist.permissions)

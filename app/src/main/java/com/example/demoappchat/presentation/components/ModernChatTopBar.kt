@@ -43,7 +43,10 @@ import java.io.IOException
 fun ModernChatTopBar(
     chatTitle: String,
     participantCount: Int,
-    onNavigateBack: () -> Unit
+    chatId: String = "",
+    onNavigateBack: () -> Unit,
+    onVideoCall: () -> Unit = {},
+    onVoiceCall: () -> Unit = {}
 ) {
     TopAppBar(
         title = {
@@ -115,7 +118,7 @@ fun ModernChatTopBar(
             containerColor = Color.White
         ),
         actions = {
-            IconButton(onClick = { /* Video call */ }) {
+            IconButton(onClick = onVideoCall) {
                 Icon(
                     Icons.Rounded.Videocam,
                     contentDescription = "Videollamada",
@@ -123,7 +126,7 @@ fun ModernChatTopBar(
                     modifier = Modifier.size(22.dp)
                 )
             }
-            IconButton(onClick = { /* Voice call */ }) {
+            IconButton(onClick = onVoiceCall) {
                 Icon(
                     Icons.Rounded.Call,
                     contentDescription = "Llamada",

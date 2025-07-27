@@ -1,22 +1,25 @@
 package com.example.demoappchat.presentation.chat
 
+import android.net.Uri
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.demoappchat.data.model.ChatMessage
 import com.example.demoappchat.data.model.MessageType
 import com.example.demoappchat.data.model.ProximityChat
 import com.example.demoappchat.data.repository.FirebaseRepository
+import com.example.demoappchat.data.UserPreferences
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
-import android.net.Uri
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 @HiltViewModel
 class ChatViewModel @Inject constructor(
-    private val repository: FirebaseRepository
+    private val repository: FirebaseRepository,
+    private val userPreferences: UserPreferences
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ChatUiState())
@@ -109,9 +112,9 @@ class ChatViewModel @Inject constructor(
 
                 _uiState.value = _uiState.value.copy(isLoading = false)
             } catch (e: Exception) {
-                println("Error subiendo archivo: $e")
+                Log.e("ChatViewModel", "❌ Error subiendo archivo", e)
                 _uiState.value = _uiState.value.copy(
-                    error = e.message,
+                    error = "Error subiendo ${type}: ${e.message}",
                     isLoading = false
                 )
             }
@@ -120,6 +123,19 @@ class ChatViewModel @Inject constructor(
 
     fun clearError() {
         _uiState.value = _uiState.value.copy(error = null)
+    }
+    
+    // Voice service integration methods
+    fun setCurrentChatId(chatId: String) {
+        viewModelScope.launch {
+            userPreferences.setCurrentChatId(chatId)
+        }
+    }
+    
+    fun clearCurrentChatId() {
+        viewModelScope.launch {
+            userPreferences.setCurrentChatId(null)
+        }
     }
 }
 
