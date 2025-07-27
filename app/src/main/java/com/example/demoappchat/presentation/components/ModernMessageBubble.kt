@@ -50,7 +50,9 @@ import java.util.*
 @Composable
 fun ModernMessageBubble(
     message: ChatMessage,
-    isOwnMessage: Boolean
+    isOwnMessage: Boolean,
+    onVideoClick: (Uri) -> Unit = {},
+    onImageClick: (Uri) -> Unit = {}
 ) {
     val scale by animateFloatAsState(
         targetValue = 1f,
@@ -131,7 +133,8 @@ fun ModernMessageBubble(
                         PhotoMessageContent(
                             mediaUrl = message.mediaUrl ?: "",
                             content = message.content,
-                            isOwnMessage = isOwnMessage
+                            isOwnMessage = isOwnMessage,
+                            onImageClick = onImageClick
                         )
                     }
 
@@ -149,9 +152,7 @@ fun ModernMessageBubble(
                             mediaUrl = message.mediaUrl ?: "",
                             content = message.content,
                             isOwnMessage = isOwnMessage,
-                            onVideoClick = { uri ->
-                                // Aquí conectas con tu showVideoPlayer
-                            }
+                            onVideoClick = onVideoClick
                         )
                     }
 
@@ -189,7 +190,8 @@ fun ModernMessageBubble(
 fun PhotoMessageContent(
     mediaUrl: String,
     content: String,
-    isOwnMessage: Boolean
+    isOwnMessage: Boolean,
+    onImageClick: (Uri) -> Unit = {}
 ) {
     var showFullScreenImage by remember { mutableStateOf(false) }
     var isImageLoading by remember { mutableStateOf(true) }
@@ -202,7 +204,14 @@ fun PhotoMessageContent(
                 .size(width = 240.dp, height = 180.dp)
                 .clip(RoundedCornerShape(12.dp))
                 .background(Gray100)
-                .clickable { showFullScreenImage = true }
+                .clickable { 
+                    showFullScreenImage = true
+                    try {
+                        onImageClick(Uri.parse(mediaUrl))
+                    } catch (e: Exception) {
+                        // Fallback para mostrar en pantalla completa
+                    }
+                }
         ) {
             AsyncImage(
                 model = ImageRequest.Builder(LocalContext.current)
@@ -437,87 +446,6 @@ fun FullScreenImageViewer(
 }
 
 
-@Composable
-fun VideoMessageContent(
-    mediaUrl: String,
-    content: String,
-    isOwnMessage: Boolean,
-    onVideoClick: (Uri) -> Unit
-) {
-    Column {
-        Box(
-            modifier = Modifier
-                .size(width = 280.dp, height = 200.dp)
-                .clip(RoundedCornerShape(16.dp))
-                .clickable { onVideoClick(Uri.parse(mediaUrl)) }
-        ) {
-            // Video thumbnail
-            AsyncImage(
-                model = mediaUrl,
-                contentDescription = "Video thumbnail",
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop
-            )
-
-            // Overlay con gradiente
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        Brush.radialGradient(
-                            colors = listOf(
-                                Color.Transparent,
-                                Color.Black.copy(alpha = 0.4f)
-                            )
-                        )
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Surface(
-                    color = Color.Black.copy(alpha = 0.7f),
-                    shape = CircleShape
-                ) {
-                    Icon(
-                        Icons.Rounded.PlayArrow,
-                        contentDescription = "Reproducir video",
-                        tint = Color.White,
-                        modifier = Modifier
-                            .size(56.dp)
-                            .padding(12.dp)
-                    )
-                }
-            }
-
-            // Duration overlay
-            Surface(
-                color = Color.Black.copy(alpha = 0.8f),
-                shape = RoundedCornerShape(6.dp),
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(12.dp)
-            ) {
-                Text(
-                    text = "1:23",
-                    color = Color.White,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                )
-            }
-        }
-
-        if (content.isNotBlank()) {
-            Text(
-                text = content,
-                color = if (isOwnMessage) Color.White else Gray900,
-                fontSize = 14.sp,
-                modifier = Modifier.padding(16.dp)
-            )
-        }
-    }
-}
-
-
 
 // Funciones auxiliares
 private fun formatTime(timestamp: Long): String {
@@ -555,5 +483,131 @@ private fun stopRecording(mediaRecorder: MediaRecorder?, onStopped: (Uri) -> Uni
         }
     } catch (e: RuntimeException) {
         // Handle error
+    }
+}
+
+@Composable
+fun VideoMessageContent(
+    mediaUrl: String,
+    content: String,
+    isOwnMessage: Boolean,
+    onVideoClick: (Uri) -> Unit = {}
+) {
+    var isVideoLoading by remember { mutableStateOf(true) }
+    var videoLoadError by remember { mutableStateOf(false) }
+
+    Column {
+        // Contenedor del video con preview
+        Box(
+            modifier = Modifier
+                .size(width = 280.dp, height = 200.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(Color.Black)
+                .clickable { 
+                    try {
+                        onVideoClick(Uri.parse(mediaUrl))
+                    } catch (e: Exception) {
+                        videoLoadError = true
+                    }
+                }
+        ) {
+            // Thumbnail del video o loading
+            if (videoLoadError) {
+                // Error state
+                Column(
+                    modifier = Modifier.fillMaxSize(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.ErrorOutline,
+                        contentDescription = "Error",
+                        tint = Color.White,
+                        modifier = Modifier.size(48.dp)
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Error al cargar video",
+                        color = Color.White,
+                        fontSize = 12.sp
+                    )
+                }
+            } else if (isVideoLoading) {
+                // Loading state
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(
+                        color = Color.White,
+                        strokeWidth = 2.dp
+                    )
+                }
+            } else {
+                // Video thumbnail con ícono de play
+                AsyncImage(
+                    model = ImageRequest.Builder(LocalContext.current)
+                        .data(mediaUrl)
+                        .crossfade(true)
+                        .build(),
+                    contentDescription = "Video thumbnail",
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop,
+                    onLoading = { isVideoLoading = true },
+                    onSuccess = { isVideoLoading = false },
+                    onError = { 
+                        isVideoLoading = false
+                        videoLoadError = true
+                    }
+                )
+            }
+
+            // Overlay con ícono de play
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Surface(
+                    modifier = Modifier.size(64.dp),
+                    shape = CircleShape,
+                    color = Color.Black.copy(alpha = 0.7f)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.PlayArrow,
+                        contentDescription = "Reproducir video",
+                        tint = Color.White,
+                        modifier = Modifier
+                            .size(32.dp)
+                            .padding(8.dp)
+                    )
+                }
+            }
+
+            // Indicador de duración (placeholder)
+            Surface(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(8.dp),
+                shape = RoundedCornerShape(4.dp),
+                color = Color.Black.copy(alpha = 0.7f)
+            ) {
+                Text(
+                    text = "0:15", // Placeholder duration
+                    color = Color.White,
+                    fontSize = 10.sp,
+                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                )
+            }
+        }
+
+        // Mensaje de texto si existe
+        if (content.isNotBlank()) {
+            Text(
+                text = content,
+                color = if (isOwnMessage) Color.White else Gray900,
+                fontSize = 14.sp,
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+            )
+        }
     }
 }

@@ -8,9 +8,21 @@ data class User(
     val latitude: Double = 0.0,
     val longitude: Double = 0.0,
     val lastSeen: Long = 0L,
-    val fcmToken: String = "",
-    val isActive: Boolean = true
+    var fcmToken: String = "", // var para Firebase
+    var isActive: Boolean = true // var para Firebase
 ) {
+    // Constructor vacío requerido por Firebase
+    constructor() : this(
+        id = "",
+        name = "",
+        email = "",
+        photoUrl = "",
+        latitude = 0.0,
+        longitude = 0.0,
+        lastSeen = 0L,
+        fcmToken = "",
+        isActive = true
+    )
     fun toMap(): Map<String, Any> {
         return mapOf(
             "id" to id,
@@ -25,3 +37,4 @@ data class User(
         )
     }
 }
+

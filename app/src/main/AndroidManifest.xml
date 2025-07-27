@@ -1,34 +1,68 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <!-- 🚨 PERMISOS CRÍTICOS PARA OPERACIONES POLICIALES -->
+
     <!-- Permisos básicos -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+
+    <!-- Permisos de ubicación (CRÍTICOS para operaciones) -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+
+    <!-- Permisos de audio/video (ESENCIALES para espionaje) -->
     <uses-permission android:name="android.permission.CAMERA" />
-    <!-- Permisos para reconocimiento de voz -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.CAPTURE_AUDIO_OUTPUT" />
+
+    <!-- Permisos para servicios en segundo plano (CRÍTICOS) -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CAMERA" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 
-    <!-- Permisos para reinicio automático -->
+    <!-- Permisos para reinicio automático (OPERACIONES CONTINUAS) -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.QUICKBOOT_POWERON" />
 
-    <!-- Permisos opcionales para notificaciones -->
+    <!-- Permisos para notificaciones y alertas -->
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    
-    <!-- Permisos adicionales para background y power management -->
+
+    <!-- 🆕 PERMISOS AVANZADOS PARA OPERACIONES ENCUBIERTAS -->
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CAMERA" />
-    
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+
     <!-- Permisos para grabación y almacenamiento -->
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
-    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" 
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"
         tools:ignore="ScopedStorage" />
+
+    <!-- 🆕 PERMISOS PARA OPERACIONES TELEFÓNICAS -->
+    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+    <uses-permission android:name="android.permission.CALL_PHONE" />
+
+    <!-- 🆕 FEATURES DEL DISPOSITIVO -->
+    <uses-feature
+        android:name="android.hardware.camera"
+        android:required="false" />
+    <uses-feature
+        android:name="android.hardware.camera.front"
+        android:required="false" />
+    <uses-feature
+        android:name="android.hardware.microphone"
+        android:required="true" />
+    <uses-feature
+        android:name="android.hardware.location.gps"
+        android:required="false" />
 
     <application
         android:name=".MyApplication"
@@ -41,42 +75,68 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.DemoAppChat"
         android:requestLegacyExternalStorage="true"
+        android:preserveLegacyExternalStorage="true"
+        android:largeHeap="true"
         tools:targetApi="31">
 
-        <!-- Actividad principal -->
+        <!-- 🎯 ACTIVIDAD PRINCIPAL -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:launchMode="singleTop"
             android:screenOrientation="portrait"
-            android:theme="@style/Theme.DemoAppChat">
+            android:theme="@style/Theme.DemoAppChat"
+            android:configChanges="orientation|screenSize|keyboardHidden">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+
+            <!-- 🆕 INTENT FILTER PARA OPERACIONES ENCUBIERTAS -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="safevoice" />
+            </intent-filter>
         </activity>
 
-        <!-- Actividad de videollamada -->
+        <!-- 🎥 ACTIVIDAD DE VIDEOLLAMADAS POLICIALES -->
         <activity
             android:name=".presentation.chat.VideoCallActivity"
             android:exported="false"
             android:screenOrientation="portrait"
-            android:theme="@style/Theme.DemoAppChat" />
+            android:theme="@style/Theme.DemoAppChat"
+            android:configChanges="orientation|screenSize|keyboardHidden"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true" />
 
-        <!-- Servicio de reconocimiento de voz -->
+        <!-- 🚨 SERVICIO DE RECONOCIMIENTO DE VOZ POLICIAL -->
         <service
             android:name=".data.service.VoiceRecognitionService"
             android:enabled="true"
             android:exported="false"
-            android:foregroundServiceType="microphone|camera"
-            android:stopWithTask="false" />
+            android:foregroundServiceType="microphone|camera|location"
+            android:stopWithTask="false"
+            android:isolatedProcess="false"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
 
-        <!-- Receptor para monitoreo policial continuo -->
+        <!-- 🆕 SERVICIO FCM PARA NOTIFICACIONES PUSH POLICIALES -->
+        <service
+            android:name=".data.service.MyFirebaseMessagingService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+
+        <!-- 🔄 RECEPTOR PARA MONITOREO POLICIAL CONTINUO -->
         <receiver
             android:name=".data.receiver.BootReceiver"
             android:enabled="true"
             android:exported="true"
             android:directBootAware="true">
+
             <!-- Reinicio del dispositivo -->
             <intent-filter android:priority="1000">
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
@@ -84,21 +144,43 @@
                 <action android:name="android.intent.action.QUICKBOOT_POWERON" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
+
             <!-- Actualizaciones de la app -->
             <intent-filter>
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
                 <action android:name="android.intent.action.PACKAGE_REPLACED" />
                 <data android:scheme="package" />
             </intent-filter>
+
             <!-- Estados de pantalla para modo encubierto -->
             <intent-filter>
                 <action android:name="android.intent.action.SCREEN_OFF" />
                 <action android:name="android.intent.action.SCREEN_ON" />
                 <action android:name="android.intent.action.USER_PRESENT" />
             </intent-filter>
+
+            <!-- 🆕 EVENTOS DE BATERÍA Y CONECTIVIDAD -->
+            <intent-filter>
+                <action android:name="android.intent.action.BATTERY_LOW" />
+                <action android:name="android.intent.action.BATTERY_OKAY" />
+                <action android:name="android.intent.action.POWER_CONNECTED" />
+                <action android:name="android.intent.action.POWER_DISCONNECTED" />
+            </intent-filter>
         </receiver>
 
-        <!-- Configuración para Firebase -->
+        <!-- 🆕 RECEPTOR PARA COMANDOS EXTERNOS -->
+        <receiver
+            android:name=".data.receiver.CommandReceiver"
+            android:enabled="true"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.example.demoappchat.VOICE_COMMAND" />
+                <action android:name="com.example.demoappchat.EMERGENCY_ACTIVATE" />
+                <action android:name="com.example.demoappchat.START_RECORDING" />
+            </intent-filter>
+        </receiver>
+
+        <!-- 🔥 CONFIGURACIÓN FIREBASE -->
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_icon"
             android:resource="@drawable/ic_notification" />
@@ -107,7 +189,20 @@
             android:name="com.google.firebase.messaging.default_notification_color"
             android:resource="@color/colorPrimary" />
 
-        <!-- Proveedores de archivos para compartir contenido -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="emergency_alerts" />
+
+        <!-- 🆕 CONFIGURACIÓN ADICIONAL PARA OPERACIONES -->
+        <meta-data
+            android:name="firebase_crashlytics_collection_enabled"
+            android:value="true" />
+
+        <meta-data
+            android:name="firebase_analytics_collection_enabled"
+            android:value="true" />
+
+        <!-- 📁 PROVEEDOR DE ARCHIVOS PARA MULTIMEDIA -->
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
@@ -117,6 +212,13 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
         </provider>
+
+        <!-- 🆕 PROVEEDOR ADICIONAL PARA OPERACIONES ENCUBIERTAS -->
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:authorities="${applicationId}.androidx-startup"
+            android:exported="false"
+            tools:node="merge" />
 
     </application>
 

@@ -39,6 +39,7 @@ class UserPreferences @Inject constructor(
         private val TRANSMISSION_RADIUS = floatPreferencesKey("transmission_radius")
         private val AUDIO_QUALITY = stringPreferencesKey("audio_quality")
         private val AUTO_UPLOAD_RECORDINGS = booleanPreferencesKey("auto_upload_recordings")
+        private val AUTO_RECORDING_DURATION = intPreferencesKey("auto_recording_duration")
         
         // Privacy Settings
         private val SHARE_LOCATION = booleanPreferencesKey("share_location")
@@ -158,7 +159,7 @@ class UserPreferences @Inject constructor(
 
     fun getTransmissionRadius(): Flow<Float> {
         return context.dataStore.data.map { preferences ->
-            preferences[TRANSMISSION_RADIUS] ?: 4.0f
+            preferences[TRANSMISSION_RADIUS] ?: 5.0f // Valor por defecto actualizado a 5km
         }
     }
 
@@ -208,6 +209,18 @@ class UserPreferences @Inject constructor(
     fun getDataRetentionDays(): Flow<Int> {
         return context.dataStore.data.map { preferences ->
             preferences[DATA_RETENTION_DAYS] ?: 7
+        }
+    }
+
+    suspend fun setAutoRecordingDuration(seconds: Int) {
+        context.dataStore.edit { preferences ->
+            preferences[AUTO_RECORDING_DURATION] = seconds
+        }
+    }
+
+    fun getAutoRecordingDuration(): Flow<Int> {
+        return context.dataStore.data.map { preferences ->
+            preferences[AUTO_RECORDING_DURATION] ?: 8
         }
     }
 }
