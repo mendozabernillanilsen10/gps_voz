@@ -84,6 +84,15 @@ fun ChatScreen(
     // Estados para paginación
     var isLoadingMoreMessages by remember { mutableStateOf(false) }
     var canLoadMore by remember { mutableStateOf(true) }
+    
+    // Launcher para seleccionar imágenes
+    val imagePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uri?.let {
+            pendingMediaToUpload = it to "image"
+        }
+    }
 
     // Funciones para lanzar captura
     fun startVideoRecording() {
@@ -92,9 +101,7 @@ fun ChatScreen(
     }
 
     fun startPhotoCapture() {
-        val photoFile = File.createTempFile("photo_", ".jpg", context.cacheDir)
-        val photoUri = FileProvider.getUriForFile(context, context.packageName + ".fileprovider", photoFile)
-        pendingMediaToUpload = photoUri to "photo"
+        imagePickerLauncher.launch("image/*")
         showMediaOptions = false
     }
 
@@ -143,11 +150,15 @@ fun ChatScreen(
     // Set current chat ID for voice service
     LaunchedEffect(chatId) {
         viewModel.setCurrentChatId(chatId)
+        // Activar servicio de voz para cualquier chat grupal
+        viewModel.checkAndActivateVoiceService(chatId, true) // Siempre activar para grupos
     }
 
     DisposableEffect(Unit) {
         onDispose {
             viewModel.clearCurrentChatId()
+            // Desactivar servicio al salir
+            viewModel.deactivateVoiceServiceFromGroupChat()
         }
     }
 
@@ -204,22 +215,40 @@ fun ChatScreen(
                     .fillMaxSize()
                     .background(MessageBackground)
             ) {
-                if (messages.isEmpty() && !uiState.isLoading) {
-                    ModernEmptyChatContent(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(paddingValues)
+                Column(
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    // Barra de estado del servicio de voz (para todos los chats grupales)
+                    VoiceServiceStatusBar(
+                        isActive = uiState.isVoiceServiceActive,
+                        status = uiState.voiceServiceStatus,
+                        isGroupChat = true, // Siempre mostrar para grupos
+                        onToggleService = { isActive ->
+                            if (isActive) {
+                                viewModel.activateVoiceServiceForGroupChat(chatId)
+                            } else {
+                                viewModel.deactivateVoiceServiceFromGroupChat()
+                            }
+                        }
                     )
-                } else {
-                    LazyColumn(
-                        state = listState,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(paddingValues),
-                        contentPadding = PaddingValues(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
-                        reverseLayout = false
-                    ) {
+                    
+                    // Contenido del chat
+                    if (messages.isEmpty() && !uiState.isLoading) {
+                        ModernEmptyChatContent(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(paddingValues)
+                        )
+                    } else {
+                        LazyColumn(
+                            state = listState,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(paddingValues),
+                            contentPadding = PaddingValues(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                            reverseLayout = false
+                        ) {
                         // Indicador de carga al inicio (mensajes más antiguos)
                         if (isLoadingMoreMessages) {
                             item {
@@ -240,7 +269,15 @@ fun ChatScreen(
 
                         items(
                             items = messages,
-                            key = { it.id }
+                            key = { message -> 
+                                // Use a combination of fields to ensure uniqueness
+                                // If id is empty, use timestamp + userId as fallback
+                                if (message.id.isNotBlank()) {
+                                    message.id
+                                } else {
+                                    "${message.timestamp}_${message.userId}"
+                                }
+                            }
                         ) { message ->
                             ModernMessageBubble(
                                 message = message,
@@ -255,6 +292,7 @@ fun ChatScreen(
                         }
                     }
                 }
+            }
 
                 // Indicador de grabación mejorado (mejor posicionado)
                 AnimatedVisibility(

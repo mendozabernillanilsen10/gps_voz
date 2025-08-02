@@ -40,7 +40,11 @@ class MyApplication : Application() {
         FirebaseApp.initializeApp(this)
 
         // Registrar receptor para extracción de modelo
-        registerReceiver(modelExtractionReceiver, IntentFilter("com.example.demoappchat.EXTRACT_VOSK_MODEL"))
+        registerReceiver(
+            modelExtractionReceiver, 
+            IntentFilter("com.example.demoappchat.EXTRACT_VOSK_MODEL"),
+            Context.RECEIVER_NOT_EXPORTED
+        )
 
         // Crear canales de notificación
         createNotificationChannels()

@@ -2,38 +2,23 @@ package com.example.demoappchat.data.model
 
 
 data class ProximityChat(
-    val id: String = "",
-    val creatorId: String = "",
-    val creatorName: String = "",
-    val title: String = "",
-    val description: String = "",
-    val latitude: Double = 0.0,
-    val longitude: Double = 0.0,
-    val radius: Int = 4000,
-    val pin: String = "",
-    val createdAt: Long = 0L,
-    var isActive: Boolean = true, // var para Firebase
-    val participantsCount: Int = 0,
-    val lastActivity: Long = 0L,
-    val category: String = "emergency" // emergency, security, traffic, community
+    var id: String = "",
+    var creatorId: String = "",
+    var creatorName: String = "",
+    var title: String = "",
+    var description: String = "",
+    var latitude: Double = 0.0,
+    var longitude: Double = 0.0,
+    var radius: Int = 4000,
+    var pin: String = "",
+    var createdAt: Long = 0L,
+    var isActive: Boolean = true,
+    var participantsCount: Int = 0,
+    var lastActivity: Long = 0L,
+    var category: String = "emergency"
 ) {
     // Constructor vacío requerido por Firebase
-    constructor() : this(
-        id = "",
-        creatorId = "",
-        creatorName = "",
-        title = "",
-        description = "",
-        latitude = 0.0,
-        longitude = 0.0,
-        radius = 4000,
-        pin = "",
-        createdAt = 0L,
-        isActive = true,
-        participantsCount = 0,
-        lastActivity = 0L,
-        category = "emergency"
-    )
+    constructor() : this("", "", "", "", "", 0.0, 0.0, 4000, "", 0L, true, 0, 0L, "emergency")
     fun toMap(): Map<String, Any> {
         return mapOf(
             "id" to id,

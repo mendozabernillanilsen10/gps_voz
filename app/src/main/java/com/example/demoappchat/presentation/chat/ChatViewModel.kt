@@ -1,5 +1,7 @@
 package com.example.demoappchat.presentation.chat
 
+import android.content.Context
+import android.content.Intent
 import android.net.Uri
 import android.util.Log
 import androidx.lifecycle.ViewModel
@@ -9,7 +11,9 @@ import com.example.demoappchat.data.model.MessageType
 import com.example.demoappchat.data.model.ProximityChat
 import com.example.demoappchat.data.repository.FirebaseRepository
 import com.example.demoappchat.data.UserPreferences
+import com.example.demoappchat.data.service.VoiceRecognitionService
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -19,7 +23,8 @@ import kotlinx.coroutines.withContext
 @HiltViewModel
 class ChatViewModel @Inject constructor(
     private val repository: FirebaseRepository,
-    private val userPreferences: UserPreferences
+    private val userPreferences: UserPreferences,
+    @ApplicationContext private val context: Context
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ChatUiState())
@@ -128,15 +133,44 @@ class ChatViewModel @Inject constructor(
     // Voice service integration methods
     fun setCurrentChatId(chatId: String) {
         viewModelScope.launch {
+            // Guardar en DataStore
             userPreferences.setCurrentChatId(chatId)
+            
+            // También guardar en SharedPreferences para el servicio de voz
+            val sharedPrefs = context.getSharedPreferences("voice_prefs", Context.MODE_PRIVATE)
+            sharedPrefs.edit().putString("current_chat_id", chatId).apply()
+            
+            Log.d("ChatViewModel", "💾 Chat ID guardado: $chatId (DataStore + SharedPreferences)")
         }
     }
     
     fun clearCurrentChatId() {
         viewModelScope.launch {
+            // Limpiar en DataStore
             userPreferences.setCurrentChatId(null)
+            
+            // También limpiar en SharedPreferences
+            val sharedPrefs = context.getSharedPreferences("voice_prefs", Context.MODE_PRIVATE)
+            sharedPrefs.edit().remove("current_chat_id").apply()
+            
+            Log.d("ChatViewModel", "🗑️ Chat ID limpiado (DataStore + SharedPreferences)")
         }
     }
+    
+    // TODO: Implementar cuando las dependencias estén disponibles
+    // fun startGroupVideoCall(chatId: String) {
+    //     viewModelScope.launch {
+    //         // Implementar lógica para iniciar videollamada grupal
+    //         Log.d("ChatViewModel", "📹 Iniciando videollamada grupal: $chatId")
+    //     }
+    // }
+    //
+    // fun startGroupAudioCall(chatId: String) {
+    //     viewModelScope.launch {
+    //         // Implementar lógica para iniciar llamada de audio grupal
+    //         Log.d("ChatViewModel", "🎤 Iniciando llamada de audio grupal: $chatId")
+    //     }
+    // }
     
     // ============== FCM GROUP CALLS INTEGRATION ==============
     
@@ -272,10 +306,97 @@ class ChatViewModel @Inject constructor(
             }
         }
     }
+
+    /**
+     * FUNCIÓN NUEVA: Activa el servicio de voz cuando el usuario entra a un chat grupal
+     */
+    fun activateVoiceServiceForGroupChat(chatId: String) {
+        viewModelScope.launch {
+            try {
+                Log.d("ChatViewModel", "🏢 Activando servicio de voz para chat grupal: $chatId")
+                
+                // Guardar el chat activo en las preferencias
+                userPreferences.setCurrentChatId(chatId)
+                
+                // Iniciar el servicio de voz en segundo plano
+                val intent = Intent(context, VoiceRecognitionService::class.java).apply {
+                    action = VoiceRecognitionService.ACTION_START_LISTENING
+                    putExtra("chat_id", chatId)
+                }
+                
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                    context.startForegroundService(intent)
+                } else {
+                    context.startService(intent)
+                }
+                
+                // Actualizar el estado de la UI
+                _uiState.value = _uiState.value.copy(
+                    isVoiceServiceActive = true,
+                    voiceServiceStatus = "🎤 Escuchando comandos de voz"
+                )
+                
+                Log.d("ChatViewModel", "✅ Servicio de voz activado para chat grupal")
+                
+            } catch (e: Exception) {
+                Log.e("ChatViewModel", "❌ Error activando servicio de voz", e)
+                _uiState.value = _uiState.value.copy(
+                    voiceServiceStatus = "❌ Error activando servicio"
+                )
+            }
+        }
+    }
+    
+    /**
+     * FUNCIÓN NUEVA: Desactiva el servicio de voz cuando el usuario sale del chat grupal
+     */
+    fun deactivateVoiceServiceFromGroupChat() {
+        viewModelScope.launch {
+            try {
+                Log.d("ChatViewModel", "🚪 Desactivando servicio de voz - saliendo de chat grupal")
+                
+                // Limpiar el chat activo
+                userPreferences.setCurrentChatId(null)
+                
+                // Detener el servicio de voz
+                val intent = Intent(context, VoiceRecognitionService::class.java).apply {
+                    action = VoiceRecognitionService.ACTION_STOP_LISTENING
+                }
+                
+                context.startService(intent)
+                
+                // Actualizar el estado de la UI
+                _uiState.value = _uiState.value.copy(
+                    isVoiceServiceActive = false,
+                    voiceServiceStatus = "⏸️ Servicio pausado"
+                )
+                
+                Log.d("ChatViewModel", "✅ Servicio de voz desactivado")
+                
+            } catch (e: Exception) {
+                Log.e("ChatViewModel", "❌ Error desactivando servicio de voz", e)
+            }
+        }
+    }
+    
+    /**
+     * FUNCIÓN NUEVA: Activa el servicio de voz para cualquier chat grupal
+     */
+    fun checkAndActivateVoiceService(chatId: String, isGroupChat: Boolean) {
+        if (isGroupChat) {
+            Log.d("ChatViewModel", "🏢 Chat grupal detectado - activando servicio de voz")
+            activateVoiceServiceForGroupChat(chatId)
+        } else {
+            Log.d("ChatViewModel", "💬 Chat individual - no se activa servicio de voz")
+            deactivateVoiceServiceFromGroupChat()
+        }
+    }
 }
 
 data class ChatUiState(
     val isLoading: Boolean = false,
     val currentChat: ProximityChat? = null,
-    val error: String? = null
+    val error: String? = null,
+    val isVoiceServiceActive: Boolean = false,
+    val voiceServiceStatus: String = "⏸️ Servicio pausado"
 )

@@ -1,32 +1,20 @@
 package com.example.demoappchat.data.model
 
 data class ChatMessage(
-    val id: String = "",
-    val chatId: String = "",
-    val userId: String = "",
-    val userName: String = "",
-    val userPhotoUrl: String = "",
-    val messageType: MessageType = MessageType.TEXT,
-    val content: String = "",
-    val mediaUrl: String? = null,
-    val timestamp: Long = 0L,
-    var isDeleted: Boolean = false, // var para Firebase
-    val replyTo: String? = null
+    var id: String = "",
+    var chatId: String = "",
+    var userId: String = "",
+    var userName: String = "",
+    var userPhotoUrl: String = "",
+    var messageType: MessageType = MessageType.TEXT,
+    var content: String = "",
+    var mediaUrl: String? = null,
+    var timestamp: Long = 0L,
+    var isDeleted: Boolean = false,
+    var replyTo: String? = null
 ) {
     // Constructor vacío requerido por Firebase
-    constructor() : this(
-        id = "",
-        chatId = "",
-        userId = "",
-        userName = "",
-        userPhotoUrl = "",
-        messageType = MessageType.TEXT,
-        content = "",
-        mediaUrl = null,
-        timestamp = 0L,
-        isDeleted = false,
-        replyTo = null
-    )
+    constructor() : this("", "", "", "", "", MessageType.TEXT, "", null, 0L, false, null)
     fun toMap(): Map<String, Any> {
         return mapOf(
             "id" to id,

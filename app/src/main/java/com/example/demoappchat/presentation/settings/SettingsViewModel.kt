@@ -7,6 +7,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.demoappchat.data.UserPreferences
 import com.example.demoappchat.data.service.VoiceRecognitionService
+
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -25,7 +26,20 @@ data class SettingsUiState(
     val autoUploadRecordings: Boolean = true,
     val emergencyContacts: List<String> = emptyList(),
     val shareLocation: Boolean = true,
-    val dataRetentionDays: Int = 7
+    val dataRetentionDays: Int = 7,
+    // NUEVAS PREFERENCIAS DE GRABACIÓN
+    val audioRecordingDuration: Int = 30,
+    val videoRecordingDuration: Int = 15,
+    val photoCaptureEnabled: Boolean = true,
+    val autoSendRecordings: Boolean = true,
+    val recordingQuality: String = "HIGH",
+    val commandActions: Map<String, String> = mapOf(
+        "grabar audio" to "AUDIO",
+        "grabar video" to "VIDEO",
+        "foto" to "PHOTO",
+        "emergencia" to "AUDIO",
+        "alerta" to "AUDIO"
+    )
 )
 
 @HiltViewModel
@@ -51,7 +65,13 @@ class SettingsViewModel @Inject constructor(
                 userPreferences.getAudioQuality(),
                 userPreferences.getAutoUploadRecordings(),
                 userPreferences.getShareLocation(),
-                userPreferences.getDataRetentionDays()
+                userPreferences.getDataRetentionDays(),
+                userPreferences.getAudioRecordingDuration(),
+                userPreferences.getVideoRecordingDuration(),
+                userPreferences.getPhotoCaptureEnabled(),
+                userPreferences.getAutoSendRecordings(),
+                userPreferences.getRecordingQuality(),
+                userPreferences.getCommandActions()
             ) { flows ->
                 val enabled = flows[0] as Boolean
                 val discrete = flows[1] as Boolean  
@@ -61,6 +81,12 @@ class SettingsViewModel @Inject constructor(
                 val autoUpload = flows[5] as Boolean
                 val shareLocation = flows[6] as Boolean
                 val retention = flows[7] as Int
+                val audioDuration = flows[8] as Int
+                val videoDuration = flows[9] as Int
+                val photoCapture = flows[10] as Boolean
+                val autoSend = flows[11] as Boolean
+                val recordingQuality = flows[12] as String
+                val commandActions = flows[13] as Map<String, String>
                 
                 SettingsUiState(
                     isVoiceServiceEnabled = enabled,
@@ -70,7 +96,13 @@ class SettingsViewModel @Inject constructor(
                     audioQuality = quality,
                     autoUploadRecordings = autoUpload,
                     shareLocation = shareLocation,
-                    dataRetentionDays = retention
+                    dataRetentionDays = retention,
+                    audioRecordingDuration = audioDuration,
+                    videoRecordingDuration = videoDuration,
+                    photoCaptureEnabled = photoCapture,
+                    autoSendRecordings = autoSend,
+                    recordingQuality = recordingQuality,
+                    commandActions = commandActions
                 )
             }.collect { newState ->
                 _uiState.value = newState
@@ -170,6 +202,79 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             // Save emergency contacts to preferences
             _uiState.value = _uiState.value.copy(emergencyContacts = contacts)
+        }
+    }
+    
+    // NUEVOS MÉTODOS PARA CONFIGURACIÓN DE GRABACIÓN
+    fun setAudioRecordingDuration(duration: Int) {
+        viewModelScope.launch {
+            userPreferences.setAudioRecordingDuration(duration)
+            _uiState.value = _uiState.value.copy(audioRecordingDuration = duration)
+        }
+    }
+    
+    fun setVideoRecordingDuration(duration: Int) {
+        viewModelScope.launch {
+            userPreferences.setVideoRecordingDuration(duration)
+            _uiState.value = _uiState.value.copy(videoRecordingDuration = duration)
+        }
+    }
+    
+    fun setPhotoCaptureEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            userPreferences.setPhotoCaptureEnabled(enabled)
+            _uiState.value = _uiState.value.copy(photoCaptureEnabled = enabled)
+        }
+    }
+    
+    fun setAutoSendRecordings(enabled: Boolean) {
+        viewModelScope.launch {
+            userPreferences.setAutoSendRecordings(enabled)
+            _uiState.value = _uiState.value.copy(autoSendRecordings = enabled)
+        }
+    }
+    
+    fun setRecordingQuality(quality: String) {
+        viewModelScope.launch {
+            userPreferences.setRecordingQuality(quality)
+            _uiState.value = _uiState.value.copy(recordingQuality = quality)
+        }
+    }
+    
+    fun setCommandAction(command: String, action: String) {
+        viewModelScope.launch {
+            val currentActions = _uiState.value.commandActions.toMutableMap()
+            currentActions[command] = action
+            userPreferences.setCommandActions(currentActions)
+            _uiState.value = _uiState.value.copy(commandActions = currentActions)
+            
+            // También guardar en SharedPreferences para el servicio de voz
+            saveCommandActionsToSharedPreferences(currentActions)
+            Log.d("SettingsViewModel", "💾 Comando guardado: '$command' -> $action")
+        }
+    }
+    
+    fun removeCommandAction(command: String) {
+        viewModelScope.launch {
+            val currentActions = _uiState.value.commandActions.toMutableMap()
+            currentActions.remove(command)
+            userPreferences.setCommandActions(currentActions)
+            _uiState.value = _uiState.value.copy(commandActions = currentActions)
+            
+            // También guardar en SharedPreferences para el servicio de voz
+            saveCommandActionsToSharedPreferences(currentActions)
+            Log.d("SettingsViewModel", "🗑️ Comando removido: '$command'")
+        }
+    }
+    
+    private fun saveCommandActionsToSharedPreferences(actions: Map<String, String>) {
+        try {
+            val actionsString = actions.map { "${it.key}:${it.value}" }.joinToString(",")
+            val sharedPrefs = context.getSharedPreferences("voice_prefs", Context.MODE_PRIVATE)
+            sharedPrefs.edit().putString("command_actions", actionsString).apply()
+            Log.d("SettingsViewModel", "💾 Comandos sincronizados con servicio: $actionsString")
+        } catch (e: Exception) {
+            Log.e("SettingsViewModel", "❌ Error sincronizando comandos: ${e.message}")
         }
     }
     

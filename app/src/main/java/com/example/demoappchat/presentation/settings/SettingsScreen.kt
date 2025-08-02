@@ -21,11 +21,13 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
+import com.example.demoappchat.presentation.components.VoiceRecordingSettings
 
 @OptIn(ExperimentalPermissionsApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     onNavigateBack: () -> Unit,
+    onNavigateToVoiceCommands: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
@@ -101,13 +103,51 @@ fun SettingsScreen(
                     title = "Comandos de Voz",
                     subtitle = "Personaliza los comandos de activación"
                 ) {
-                    VoiceCommandsSettings(
-                        commands = uiState.voiceCommands,
-                        onCommandAdd = { command ->
-                            viewModel.addVoiceCommand(command)
+                    IntegratedVoiceCommandsSettings(
+                        commandActions = uiState.commandActions,
+                        onAddCommand = { command, action ->
+                            viewModel.setCommandAction(command, action)
                         },
-                        onCommandRemove = { command ->
-                            viewModel.removeVoiceCommand(command)
+                        onRemoveCommand = { command ->
+                            viewModel.removeCommandAction(command)
+                        },
+                        onUpdateCommandAction = { command, action ->
+                            viewModel.setCommandAction(command, action)
+                        }
+                    )
+                }
+            }
+            
+            // Voice Recording Settings Section
+            item {
+                SettingsSection(
+                    title = "Configuración de Grabación",
+                    subtitle = "Controla duración y tipo de contenido"
+                ) {
+                    VoiceRecordingSettings(
+                        audioDuration = uiState.audioRecordingDuration,
+                        videoDuration = uiState.videoRecordingDuration,
+                        photoCaptureEnabled = uiState.photoCaptureEnabled,
+                        autoSendEnabled = uiState.autoSendRecordings,
+                        recordingQuality = uiState.recordingQuality,
+                        commandActions = uiState.commandActions,
+                        onAudioDurationChange = { duration ->
+                            viewModel.setAudioRecordingDuration(duration)
+                        },
+                        onVideoDurationChange = { duration ->
+                            viewModel.setVideoRecordingDuration(duration)
+                        },
+                        onPhotoCaptureToggle = { enabled ->
+                            viewModel.setPhotoCaptureEnabled(enabled)
+                        },
+                        onAutoSendToggle = { enabled ->
+                            viewModel.setAutoSendRecordings(enabled)
+                        },
+                        onQualityChange = { quality ->
+                            viewModel.setRecordingQuality(quality)
+                        },
+                        onCommandActionChange = { command, action ->
+                            viewModel.setCommandAction(command, action)
                         }
                     )
                 }
@@ -320,7 +360,8 @@ fun VoiceServiceSettings(
 fun VoiceCommandsSettings(
     commands: List<String>,
     onCommandAdd: (String) -> Unit,
-    onCommandRemove: (String) -> Unit
+    onCommandRemove: (String) -> Unit,
+    onNavigateToCommands: () -> Unit = {}
 ) {
     var newCommand by remember { mutableStateOf("") }
     var showAddDialog by remember { mutableStateOf(false) }
@@ -370,6 +411,29 @@ fun VoiceCommandsSettings(
                     onRemove = { onCommandRemove(command) }
                 )
             }
+        }
+        
+        // Navigate to commands screen button
+        Button(
+            onClick = onNavigateToCommands,
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = Color(0xFF1877F2)
+            ),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Icon(
+                Icons.Default.Settings,
+                contentDescription = null,
+                modifier = Modifier.size(16.dp),
+                tint = Color.White
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                "Configurar Comandos de Voz",
+                color = Color.White,
+                fontWeight = FontWeight.Medium
+            )
         }
         
         // Add command button

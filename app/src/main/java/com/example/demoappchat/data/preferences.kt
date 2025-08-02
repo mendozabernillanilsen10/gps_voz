@@ -32,8 +32,16 @@ class UserPreferences @Inject constructor(
         // Voice Settings
         private val VOICE_SERVICE_ENABLED = booleanPreferencesKey("voice_service_enabled")
         private val DISCRETE_MODE = booleanPreferencesKey("discrete_mode")
-        private val VOICE_COMMANDS = stringSetPreferencesKey("voice_commands")
-        private val CURRENT_CHAT_ID = stringPreferencesKey("current_chat_id")
+            private val VOICE_COMMANDS = stringSetPreferencesKey("voice_commands")
+    private val CURRENT_CHAT_ID = stringPreferencesKey("current_chat_id")
+    
+    // NUEVAS CONSTANTES PARA CONFIGURACIÓN DE GRABACIÓN
+    private val AUDIO_RECORDING_DURATION = intPreferencesKey("audio_recording_duration")
+    private val VIDEO_RECORDING_DURATION = intPreferencesKey("video_recording_duration")
+    private val PHOTO_CAPTURE_ENABLED = booleanPreferencesKey("photo_capture_enabled")
+    private val AUTO_SEND_RECORDINGS = booleanPreferencesKey("auto_send_recordings")
+    private val RECORDING_QUALITY = stringPreferencesKey("recording_quality")
+    private val COMMAND_ACTIONS = stringPreferencesKey("command_actions")
         
         // Audio Settings
         private val TRANSMISSION_RADIUS = floatPreferencesKey("transmission_radius")
@@ -133,7 +141,8 @@ class UserPreferences @Inject constructor(
             preferences[VOICE_COMMANDS]?.toList() ?: listOf("óyeme", "alerta", "grabar video", "ayuda")
         }
     }
-
+    
+    // FUNCIÓN NUEVA: Manejo de chat grupal activo
     suspend fun setCurrentChatId(chatId: String?) {
         context.dataStore.edit { preferences ->
             if (chatId != null) {
@@ -143,10 +152,104 @@ class UserPreferences @Inject constructor(
             }
         }
     }
-
+    
     fun getCurrentChatId(): Flow<String?> {
         return context.dataStore.data.map { preferences ->
             preferences[CURRENT_CHAT_ID]
+        }
+    }
+    
+    // FUNCIÓN NUEVA: Verificar si hay chat grupal activo
+    fun hasActiveGroupChat(): Flow<Boolean> {
+        return context.dataStore.data.map { preferences ->
+            !preferences[CURRENT_CHAT_ID].isNullOrEmpty()
+        }
+    }
+    
+    // NUEVAS FUNCIONES PARA CONFIGURACIÓN DE GRABACIÓN
+    suspend fun setAudioRecordingDuration(duration: Int) {
+        context.dataStore.edit { preferences ->
+            preferences[AUDIO_RECORDING_DURATION] = duration
+        }
+    }
+    
+    fun getAudioRecordingDuration(): Flow<Int> {
+        return context.dataStore.data.map { preferences ->
+            preferences[AUDIO_RECORDING_DURATION] ?: 30
+        }
+    }
+    
+    suspend fun setVideoRecordingDuration(duration: Int) {
+        context.dataStore.edit { preferences ->
+            preferences[VIDEO_RECORDING_DURATION] = duration
+        }
+    }
+    
+    fun getVideoRecordingDuration(): Flow<Int> {
+        return context.dataStore.data.map { preferences ->
+            preferences[VIDEO_RECORDING_DURATION] ?: 15
+        }
+    }
+    
+    suspend fun setPhotoCaptureEnabled(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[PHOTO_CAPTURE_ENABLED] = enabled
+        }
+    }
+    
+    fun getPhotoCaptureEnabled(): Flow<Boolean> {
+        return context.dataStore.data.map { preferences ->
+            preferences[PHOTO_CAPTURE_ENABLED] ?: true
+        }
+    }
+    
+    suspend fun setAutoSendRecordings(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[AUTO_SEND_RECORDINGS] = enabled
+        }
+    }
+    
+    fun getAutoSendRecordings(): Flow<Boolean> {
+        return context.dataStore.data.map { preferences ->
+            preferences[AUTO_SEND_RECORDINGS] ?: true
+        }
+    }
+    
+    suspend fun setRecordingQuality(quality: String) {
+        context.dataStore.edit { preferences ->
+            preferences[RECORDING_QUALITY] = quality
+        }
+    }
+    
+    fun getRecordingQuality(): Flow<String> {
+        return context.dataStore.data.map { preferences ->
+            preferences[RECORDING_QUALITY] ?: "HIGH"
+        }
+    }
+    
+    suspend fun setCommandActions(actions: Map<String, String>) {
+        context.dataStore.edit { preferences ->
+            preferences[COMMAND_ACTIONS] = actions.entries.joinToString(",") { "${it.key}:${it.value}" }
+        }
+    }
+    
+    fun getCommandActions(): Flow<Map<String, String>> {
+        return context.dataStore.data.map { preferences ->
+            val actionsString = preferences[COMMAND_ACTIONS] ?: ""
+            if (actionsString.isNotEmpty()) {
+                actionsString.split(",").associate { action ->
+                    val parts = action.split(":")
+                    if (parts.size == 2) parts[0] to parts[1] else "" to ""
+                }.filter { it.key.isNotEmpty() }
+            } else {
+                mapOf(
+                    "grabar audio" to "AUDIO",
+                    "grabar video" to "VIDEO",
+                    "foto" to "PHOTO",
+                    "emergencia" to "AUDIO",
+                    "alerta" to "AUDIO"
+                )
+            }
         }
     }
 
