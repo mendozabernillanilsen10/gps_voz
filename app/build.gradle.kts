@@ -125,6 +125,9 @@ dependencies {
     // Utilidades
     implementation(libs.accompanist.permissions)
     implementation(libs.coil.compose)
+    
+    // JSON parsing
+    implementation("com.google.code.gson:gson:2.10.1")
 
     // 🆕 Vosk Speech Recognition
     implementation("com.alphacephei:vosk-android:0.3.47")

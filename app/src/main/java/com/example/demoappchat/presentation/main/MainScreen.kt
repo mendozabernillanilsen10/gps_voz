@@ -471,7 +471,18 @@ fun MainScreen(
                         EmptyStateContent()
                     }
                 } else {
-                    items(nearbyChats) { chat ->
+                    items(
+                        items = nearbyChats,
+                        key = { chat -> 
+                            // Use a combination of fields to ensure uniqueness
+                            // If id is empty, use createdAt + creatorId as fallback
+                            if (chat.id.isNotBlank()) {
+                                chat.id
+                            } else {
+                                "${chat.createdAt}_${chat.creatorId}"
+                            }
+                        }
+                    ) { chat ->
                         ModernChatCard(
                             chat = chat,
                             userLocation = currentLocation,
@@ -527,66 +538,89 @@ fun ModernChatCard(
     userLocation: android.location.Location?,
     onClick: () -> Unit
 ) {
-    Surface(
+    Card(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onClick() },
-        color = Color.White
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White)
     ) {
         Column(
             modifier = Modifier.padding(16.dp)
         ) {
-            // Header with profile-like structure
+            // Header estilo Instagram/Facebook
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Creator avatar
-                Surface(
-                    shape = CircleShape,
-                    color = when (chat.category) {
-                        "emergency" -> Color(0xFFDC3545)
-                        "security" -> Color(0xFFFF6B35)
-                        else -> Color(0xFF1877F2)
-                    },
-                    modifier = Modifier.size(40.dp)
+                // Avatar circular con gradiente
+                Box(
+                    modifier = Modifier.size(48.dp),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Text(
-                            text = chat.creatorName.firstOrNull()?.toString()?.uppercase() ?: "?",
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 16.sp
-                        )
+                    Surface(
+                        shape = CircleShape,
+                        modifier = Modifier.size(48.dp),
+                        color = when (chat.category) {
+                            "emergency" -> Color(0xFFE53E3E)
+                            "security" -> Color(0xFFFF6B35)
+                            else -> Color(0xFF1877F2)
+                        }
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(
+                                text = chat.creatorName.firstOrNull()?.toString()?.uppercase() ?: "?",
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 18.sp
+                            )
+                        }
                     }
                 }
                 
                 Spacer(modifier = Modifier.width(12.dp))
                 
+                // Información del usuario
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = chat.creatorName,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 15.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 16.sp,
                         color = Color(0xFF1C1E21)
                     )
                     Row(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = when (chat.category) {
-                                "emergency" -> "🚨 Emergencia"
-                                "security" -> "🔒 Seguridad"
-                                else -> "💬 General"
-                            },
-                            fontSize = 13.sp,
-                            color = Color(0xFF65676B)
-                        )
-                        Text(
-                            text = " • ",
-                            fontSize = 13.sp,
-                            color = Color(0xFF65676B)
-                        )
+                        // Badge de categoría
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = when (chat.category) {
+                                "emergency" -> Color(0xFFE53E3E).copy(alpha = 0.1f)
+                                "security" -> Color(0xFFFF6B35).copy(alpha = 0.1f)
+                                else -> Color(0xFF1877F2).copy(alpha = 0.1f)
+                            }
+                        ) {
+                            Text(
+                                text = when (chat.category) {
+                                    "emergency" -> "🚨 Emergencia"
+                                    "security" -> "🔒 Seguridad"
+                                    else -> "💬 General"
+                                },
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                                fontSize = 12.sp,
+                                color = when (chat.category) {
+                                    "emergency" -> Color(0xFFE53E3E)
+                                    "security" -> Color(0xFFFF6B35)
+                                    else -> Color(0xFF1877F2)
+                                },
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                        
+                        Spacer(modifier = Modifier.width(8.dp))
+                        
+                        // Distancia
                         Text(
                             text = userLocation?.let {
                                 chat.getDistanceText(it.latitude, it.longitude)
@@ -597,48 +631,48 @@ fun ModernChatCard(
                     }
                 }
                 
-                // Join button
+                // Botón de unirse estilo moderno
                 Surface(
                     onClick = onClick,
-                    shape = RoundedCornerShape(6.dp),
+                    shape = RoundedCornerShape(20.dp),
                     color = Color(0xFF1877F2)
                 ) {
                     Text(
                         text = "Unirse",
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
+                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
                         color = Color.White,
                         fontSize = 14.sp,
-                        fontWeight = FontWeight.Medium
+                        fontWeight = FontWeight.SemiBold
                     )
                 }
             }
             
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(16.dp))
             
-            // Post content
+            // Contenido del chat
             Text(
                 text = chat.title,
                 fontWeight = FontWeight.Normal,
                 fontSize = 16.sp,
                 color = Color(0xFF1C1E21),
-                lineHeight = 20.sp
+                lineHeight = 22.sp
             )
             
             if (chat.description.isNotBlank()) {
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     text = chat.description,
                     fontSize = 14.sp,
                     color = Color(0xFF65676B),
-                    lineHeight = 18.sp,
-                    maxLines = 2,
+                    lineHeight = 20.sp,
+                    maxLines = 3,
                     overflow = TextOverflow.Ellipsis
                 )
             }
             
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(16.dp))
             
-            // Engagement stats
+            // Footer con estadísticas
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,

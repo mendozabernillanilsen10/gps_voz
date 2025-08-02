@@ -50,40 +50,80 @@ class FirebaseRepository @Inject constructor(
 
     suspend fun registerUser(email: String, password: String, name: String): Result<User> {
         return try {
+            Log.d("FirebaseRepo", "🔄 Iniciando registro de usuario: $email")
+            
             val result = auth.createUserWithEmailAndPassword(email, password).await()
             val firebaseUser = result.user ?: throw Exception("Error creating user")
+            
+            Log.d("FirebaseRepo", "✅ Usuario creado en Auth: ${firebaseUser.uid}")
 
             val user = User(
                 id = firebaseUser.uid,
                 name = name,
                 email = email,
                 photoUrl = firebaseUser.photoUrl?.toString() ?: "",
+                latitude = 0.0,
+                longitude = 0.0,
                 lastSeen = System.currentTimeMillis(),
+                fcmToken = "",
                 isActive = true
             )
 
+            Log.d("FirebaseRepo", "📋 Datos del usuario a guardar: ${user.toMap()}")
+            
             // Guardar usuario en Realtime Database
             usersRef.child(firebaseUser.uid).setValue(user.toMap()).await()
+            Log.d("FirebaseRepo", "✅ Usuario guardado en Database")
+            
             _currentUser.value = user
+            Log.d("FirebaseRepo", "✅ Usuario asignado a currentUser")
 
             Result.success(user)
         } catch (e: Exception) {
-            Log.e("FirebaseRepo", "Error registering user", e)
+            Log.e("FirebaseRepo", "❌ Error registering user", e)
             Result.failure(e)
         }
     }
 
     suspend fun loginUser(email: String, password: String): Result<User> {
         return try {
+            Log.d("FirebaseRepo", "🔄 Iniciando login de usuario: $email")
+            
             val result = auth.signInWithEmailAndPassword(email, password).await()
             val firebaseUser = result.user ?: throw Exception("Error signing in")
+            
+            Log.d("FirebaseRepo", "✅ Autenticación exitosa: ${firebaseUser.uid}")
 
+            // Cargar usuario desde Database con timeout
             loadCurrentUser(firebaseUser.uid)
-            val user = _currentUser.value ?: throw Exception("User not found")
+            
+            // Esperar un poco para que se cargue el usuario
+            kotlinx.coroutines.delay(2000)
+            
+            val user = _currentUser.value
+            Log.d("FirebaseRepo", "👤 Usuario actual después de carga: $user")
+            
+            if (user == null) {
+                Log.w("FirebaseRepo", "⚠️ Usuario no encontrado en Database, intentando cargar directamente...")
+                // Intentar cargar directamente
+                val userSnapshot = usersRef.child(firebaseUser.uid).get().await()
+                Log.d("FirebaseRepo", "📄 Snapshot directo: ${userSnapshot.exists()}")
+                
+                if (userSnapshot.exists()) {
+                    val userData = userSnapshot.getValue(User::class.java)
+                    if (userData != null) {
+                        _currentUser.value = userData
+                        Log.d("FirebaseRepo", "✅ Usuario cargado directamente: ${userData.name}")
+                        return Result.success(userData)
+                    }
+                }
+                
+                throw Exception("User not found in database")
+            }
 
             Result.success(user)
         } catch (e: Exception) {
-            Log.e("FirebaseRepo", "Error logging in", e)
+            Log.e("FirebaseRepo", "❌ Error logging in", e)
             Result.failure(e)
         }
     }
@@ -94,16 +134,65 @@ class FirebaseRepository @Inject constructor(
     }
 
     private fun loadCurrentUser(userId: String) {
+        Log.d("FirebaseRepo", "🔄 Cargando usuario: $userId")
         usersRef.child(userId).addValueEventListener(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
-                val user = snapshot.getValue(User::class.java)
-                _currentUser.value = user
+                try {
+                    Log.d("FirebaseRepo", "📄 Snapshot recibido: ${snapshot.exists()}")
+                    Log.d("FirebaseRepo", "📋 Datos del snapshot: ${snapshot.value}")
+                    
+                    if (snapshot.exists()) {
+                        val user = snapshot.getValue(User::class.java)
+                        if (user != null) {
+                            Log.d("FirebaseRepo", "✅ Usuario cargado exitosamente: ${user.name}")
+                            _currentUser.value = user
+                        } else {
+                            Log.w("FirebaseRepo", "⚠️ Usuario es null después de deserialización")
+                            // Intentar deserialización manual
+                            tryManualUserDeserialization(snapshot)
+                        }
+                    } else {
+                        Log.w("FirebaseRepo", "⚠️ Usuario no existe en Firebase")
+                        _currentUser.value = null
+                    }
+                } catch (e: Exception) {
+                    Log.e("FirebaseRepo", "❌ Error deserializando usuario", e)
+                    // Intentar deserialización manual como fallback
+                    tryManualUserDeserialization(snapshot)
+                }
             }
 
             override fun onCancelled(error: DatabaseError) {
-                Log.e("FirebaseRepo", "Error loading user", error.toException())
+                Log.e("FirebaseRepo", "❌ Error cargando usuario", error.toException())
+                _currentUser.value = null
             }
         })
+    }
+    
+    private fun tryManualUserDeserialization(snapshot: DataSnapshot) {
+        try {
+            Log.d("FirebaseRepo", "🔧 Intentando deserialización manual...")
+            val data = snapshot.value as? Map<String, Any> ?: return
+            
+            val user = User(
+                id = data["id"] as? String ?: "",
+                name = data["name"] as? String ?: "",
+                email = data["email"] as? String ?: "",
+                photoUrl = data["photoUrl"] as? String ?: "",
+                latitude = (data["latitude"] as? Number)?.toDouble() ?: 0.0,
+                longitude = (data["longitude"] as? Number)?.toDouble() ?: 0.0,
+                lastSeen = (data["lastSeen"] as? Number)?.toLong() ?: 0L,
+                fcmToken = data["fcmToken"] as? String ?: "",
+                isActive = data["isActive"] as? Boolean ?: true
+            )
+            
+            Log.d("FirebaseRepo", "✅ Deserialización manual exitosa: ${user.name}")
+            _currentUser.value = user
+            
+        } catch (e: Exception) {
+            Log.e("FirebaseRepo", "❌ Error en deserialización manual", e)
+            _currentUser.value = null
+        }
     }
 
     // ============== UBICACIÓN ==============
@@ -236,6 +325,7 @@ class FirebaseRepository @Inject constructor(
                 override fun onDataChange(snapshot: DataSnapshot) {
                     val messages = snapshot.children.mapNotNull { messageSnapshot ->
                         messageSnapshot.getValue(ChatMessage::class.java)?.copy(
+                            id = messageSnapshot.key ?: "", // Set the Firebase key as the message ID
                             messageType = try {
                                 MessageType.valueOf(
                                     messageSnapshot.child("messageType").getValue(String::class.java) ?: "TEXT"

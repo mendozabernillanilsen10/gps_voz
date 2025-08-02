@@ -1,28 +1,18 @@
 package com.example.demoappchat.data.model
 
 data class User(
-    val id: String = "",
-    val name: String = "",
-    val email: String = "",
-    val photoUrl: String = "",
-    val latitude: Double = 0.0,
-    val longitude: Double = 0.0,
-    val lastSeen: Long = 0L,
-    var fcmToken: String = "", // var para Firebase
-    var isActive: Boolean = true // var para Firebase
+    var id: String = "",
+    var name: String = "",
+    var email: String = "",
+    var photoUrl: String = "",
+    var latitude: Double = 0.0,
+    var longitude: Double = 0.0,
+    var lastSeen: Long = 0L,
+    var fcmToken: String = "",
+    var isActive: Boolean = true
 ) {
     // Constructor vacío requerido por Firebase
-    constructor() : this(
-        id = "",
-        name = "",
-        email = "",
-        photoUrl = "",
-        latitude = 0.0,
-        longitude = 0.0,
-        lastSeen = 0L,
-        fcmToken = "",
-        isActive = true
-    )
+    constructor() : this("", "", "", "", 0.0, 0.0, 0L, "", true)
     fun toMap(): Map<String, Any> {
         return mapOf(
             "id" to id,
