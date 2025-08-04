@@ -1,0 +1,92 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    
+    "users": {
+      "$uid": {
+        ".read": "auth != null",
+        ".write": "$uid === auth.uid"
+      }
+    },
+    
+    "proximity_chats": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      "$chatId": {
+        ".validate": "newData.hasChildren(['creatorId', 'title', 'latitude', 'longitude', 'pin'])"
+      }
+    },
+    
+    "chat_messages": {
+      "$chatId": {
+        ".read": "auth != null",
+        ".write": "auth != null"
+      }
+    },
+    
+    "chat_participants": {
+      "$chatId": {
+        "$uid": {
+          ".read": "auth != null",
+          ".write": "auth != null"
+        }
+      }
+    },
+    
+    "user_locations": {
+      "$uid": {
+        ".read": "auth != null",
+        ".write": "auth != null"
+      }
+    },
+    
+    "group_calls": {
+      "$chatId": {
+        ".read": "auth != null",
+        ".write": "auth != null",
+        "$callId": {
+          ".validate": "newData.hasChildren(['callerId', 'callType', 'status', 'startTime'])",
+          "participants": {
+            "$uid": {
+              ".read": "auth != null",
+              ".write": "auth != null"
+            }
+          },
+          "status": {
+            ".validate": "newData.isString() && newData.val() in ['initiating', 'active', 'ended', 'missed']"
+          },
+          "callType": {
+            ".validate": "newData.isString() && newData.val() in ['audio', 'video']"
+          }
+        }
+      }
+    },
+    
+    "call_notifications": {
+      "$chatId": {
+        "$callId": {
+          ".read": "auth != null",
+          ".write": "auth != null",
+          "recipients": {
+            "$uid": {
+              ".read": "auth != null",
+              ".write": "auth != null"
+            }
+          }
+        }
+      }
+    },
+    
+    "call_tokens": {
+      "$chatId": {
+        "$callId": {
+          "$uid": {
+            ".read": "auth != null && $uid === auth.uid",
+            ".write": "auth != null && $uid === auth.uid"
+          }
+        }
+      }
+    }
+  }
+} 

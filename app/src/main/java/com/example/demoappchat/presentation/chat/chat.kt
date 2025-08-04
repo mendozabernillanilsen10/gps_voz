@@ -39,7 +39,7 @@ import coil.compose.AsyncImage
 import com.example.demoappchat.data.model.ChatMessage
 import com.example.demoappchat.data.model.MessageType
 import com.example.demoappchat.presentation.components.AudioRecorderScreen
-import com.example.demoappchat.presentation.components.MediaOptionsPanel
+import com.example.demoappchat.presentation.components.ModernChatMediaPanel
 import com.example.demoappchat.presentation.components.VideoPlayerScreen
 import com.example.demoappchat.presentation.components.VideoRecorderScreen
 import com.example.demoappchat.ui.theme.EmergencyRed
@@ -87,6 +87,15 @@ fun ChatScreen(
     
     // Launcher para seleccionar imágenes
     val imagePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uri?.let {
+            pendingMediaToUpload = it to "image"
+        }
+    }
+    
+    // Launcher específico para imágenes
+    val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         uri?.let {
@@ -205,7 +214,26 @@ fun ChatScreen(
                         }
                     },
                     onAttachmentClick = { showMediaOptions = !showMediaOptions },
-                    isLoading = isUploading
+                    isLoading = isUploading,
+                    onPhotoClick = {
+                        photoPickerLauncher.launch("image/*")
+                    },
+                    onVideoClick = {
+                        startVideoRecording()
+                    },
+                    onAudioClick = {
+                        showAudioRecorder = true
+                    },
+                    onLocationClick = {
+                        viewModel.sendMessage(chatId, "📍 Ubicación compartida", MessageType.LOCATION)
+                    },
+                    onDocumentClick = {
+                        // Implementar selección de documentos
+                    },
+                    onCameraClick = {
+                        // Implementar cámara directa
+                        photoPickerLauncher.launch("image/*")
+                    }
                 )
             }
         ) { paddingValues ->
@@ -228,6 +256,26 @@ fun ChatScreen(
                                 viewModel.activateVoiceServiceForGroupChat(chatId)
                             } else {
                                 viewModel.deactivateVoiceServiceFromGroupChat()
+                            }
+                        }
+                    )
+                    
+                    // Barra de estado de llamadas grupales
+                    GroupCallStatusBar(
+                        isActive = uiState.isGroupCallActive,
+                        callType = uiState.groupCallType,
+                        onJoinCall = {
+                            // Unirse a la llamada grupal
+                            viewModel.groupCallId?.let { callId ->
+                                // Aquí implementarías la lógica para unirse a la llamada
+                                startVideoCall(context, chatId, uiState.currentChat?.title ?: "Chat")
+                            }
+                        },
+                        onEndCall = {
+                            // Terminar la llamada grupal
+                            viewModel.groupCallId?.let { callId ->
+                                // Aquí implementarías la lógica para terminar la llamada
+                                viewModel.endGroupCall(chatId, callId)
                             }
                         }
                     )
@@ -367,11 +415,19 @@ fun ChatScreen(
             Box(
                 modifier = Modifier.align(Alignment.BottomCenter)
             ) {
-                MediaOptionsPanel(
+                ModernChatMediaPanel(
+                    isVisible = showMediaOptions,
+                    onDismiss = { showMediaOptions = false },
                     onPhotoClick = { startPhotoCapture() },
                     onVideoClick = { startVideoRecording() },
                     onAudioClick = { startAudioRecording() },
-                    onDismiss = { showMediaOptions = false }
+                    onLocationClick = {
+                        viewModel.sendMessage(chatId, "📍 Ubicación compartida", MessageType.LOCATION)
+                    },
+                    onDocumentClick = {
+                        // Implementar selección de documentos
+                    },
+                    onCameraClick = { startPhotoCapture() }
                 )
             }
         }

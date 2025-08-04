@@ -34,6 +34,10 @@ class ChatViewModel @Inject constructor(
     val messages: StateFlow<List<ChatMessage>> = _messages.asStateFlow()
 
     val currentUser = repository.currentUser
+    
+    // Getter para el ID de la llamada grupal
+    val groupCallId: String?
+        get() = _uiState.value.groupCallId
 
     fun loadChat(chatId: String) {
         viewModelScope.launch {
@@ -86,8 +90,8 @@ class ChatViewModel @Inject constructor(
                         when (type) {
                             "audio" -> ".mp3"
                             "video" -> ".mp4"
-                            "photo" -> ".jpg"
-                            else -> ".mp4"
+                            "photo", "image" -> ".jpg"
+                            else -> ".jpg"
                         },
                         context.cacheDir
                     )
@@ -106,12 +110,17 @@ class ChatViewModel @Inject constructor(
                 repository.sendMediaMessage(
                     chatId = chatId,
                     mediaUrl = downloadUrl,
-                    messageType = type.uppercase(),
+                    messageType = when (type) {
+                        "audio" -> "AUDIO"
+                        "video" -> "VIDEO"
+                        "photo", "image" -> "PHOTO"
+                        else -> "PHOTO"
+                    },
                     content = when (type) {
                         "audio" -> "Audio enviado"
                         "video" -> "Video enviado"
-                        "photo" -> "Foto enviada"
-                        else -> "Archivo enviado"
+                        "photo", "image" -> "Foto enviada"
+                        else -> "Foto enviada"
                     }
                 )
 
@@ -183,19 +192,26 @@ class ChatViewModel @Inject constructor(
                 currentUser.value?.let { user ->
                     Log.d("ChatViewModel", "📹 Iniciando videollamada grupal en chat: $chatId")
                     
-                    // Enviar notificaciones FCM a todos los participantes
-                    repository.sendGroupCallNotification(
+                    // Iniciar llamada grupal con notificaciones
+                    repository.startGroupCallWithNotifications(
                         chatId = chatId,
                         callType = "video_call",
                         callerName = user.name
                     ).onSuccess { result ->
-                        Log.d("ChatViewModel", "✅ Notificaciones FCM enviadas: $result")
+                        Log.d("ChatViewModel", "✅ Videollamada grupal iniciada: $result")
                         
                         // Enviar mensaje al chat informando del inicio de llamada
                         sendGroupCallMessage(chatId, "📹 Videollamada iniciada", "video")
                         
+                        // Actualizar estado de la UI
+                        _uiState.value = _uiState.value.copy(
+                            isGroupCallActive = true,
+                            groupCallType = "video",
+                            groupCallId = "temp_call_id" // Temporal, se actualizará con el ID real
+                        )
+                        
                     }.onFailure { error ->
-                        Log.e("ChatViewModel", "❌ Error enviando notificaciones FCM", error)
+                        Log.e("ChatViewModel", "❌ Error iniciando videollamada", error)
                         _uiState.value = _uiState.value.copy(
                             error = "Error iniciando videollamada: ${error.message}"
                         )
@@ -219,19 +235,26 @@ class ChatViewModel @Inject constructor(
                 currentUser.value?.let { user ->
                     Log.d("ChatViewModel", "🎤 Iniciando llamada de audio grupal en chat: $chatId")
                     
-                    // Enviar notificaciones FCM a todos los participantes
-                    repository.sendGroupCallNotification(
+                    // Iniciar llamada grupal con notificaciones
+                    repository.startGroupCallWithNotifications(
                         chatId = chatId,
                         callType = "audio_call",
                         callerName = user.name
                     ).onSuccess { result ->
-                        Log.d("ChatViewModel", "✅ Notificaciones FCM enviadas: $result")
+                        Log.d("ChatViewModel", "✅ Llamada de audio grupal iniciada: $result")
                         
                         // Enviar mensaje al chat informando del inicio de llamada
                         sendGroupCallMessage(chatId, "🎤 Llamada de audio iniciada", "audio")
                         
+                        // Actualizar estado de la UI
+                        _uiState.value = _uiState.value.copy(
+                            isGroupCallActive = true,
+                            groupCallType = "audio",
+                            groupCallId = "temp_call_id" // Temporal, se actualizará con el ID real
+                        )
+                        
                     }.onFailure { error ->
-                        Log.e("ChatViewModel", "❌ Error enviando notificaciones FCM", error)
+                        Log.e("ChatViewModel", "❌ Error iniciando llamada de audio", error)
                         _uiState.value = _uiState.value.copy(
                             error = "Error iniciando llamada de audio: ${error.message}"
                         )
@@ -391,6 +414,36 @@ class ChatViewModel @Inject constructor(
             deactivateVoiceServiceFromGroupChat()
         }
     }
+    
+    /**
+     * Terminar llamada grupal
+     */
+    fun endGroupCall(chatId: String, callId: String) {
+        viewModelScope.launch {
+            try {
+                Log.d("ChatViewModel", "📞 Terminando llamada grupal: $callId")
+                
+                // Aquí implementarías la lógica para terminar la llamada
+                // Por ahora, solo actualizar el estado de la UI
+                _uiState.value = _uiState.value.copy(
+                    isGroupCallActive = false,
+                    groupCallType = null,
+                    groupCallId = null
+                )
+                
+                // Enviar mensaje al chat informando del fin de llamada
+                sendGroupCallMessage(chatId, "📞 Llamada terminada", "ended")
+                
+                Log.d("ChatViewModel", "✅ Llamada grupal terminada")
+                
+            } catch (e: Exception) {
+                Log.e("ChatViewModel", "❌ Error terminando llamada grupal", e)
+                _uiState.value = _uiState.value.copy(
+                    error = "Error terminando llamada: ${e.message}"
+                )
+            }
+        }
+    }
 }
 
 data class ChatUiState(
@@ -398,5 +451,8 @@ data class ChatUiState(
     val currentChat: ProximityChat? = null,
     val error: String? = null,
     val isVoiceServiceActive: Boolean = false,
-    val voiceServiceStatus: String = "⏸️ Servicio pausado"
+    val voiceServiceStatus: String = "⏸️ Servicio pausado",
+    val isGroupCallActive: Boolean = false,
+    val groupCallType: String? = null,
+    val groupCallId: String? = null
 )

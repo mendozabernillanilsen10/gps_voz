@@ -39,5 +39,5 @@ enum class ChatCategory {
 }
 
 enum class MessageType {
-    TEXT, PHOTO, VIDEO, AUDIO, LOCATION, SYSTEM, VOICE_COMMAND
+    TEXT, PHOTO, VIDEO, AUDIO, LOCATION, SYSTEM, VOICE_COMMAND, CALL
 }

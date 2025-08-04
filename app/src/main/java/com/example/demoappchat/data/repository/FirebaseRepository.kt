@@ -395,7 +395,12 @@ class FirebaseRepository @Inject constructor(
                 userId = currentUser.id,
                 userName = currentUser.name,
                 userPhotoUrl = currentUser.photoUrl,
-                messageType = if (messageType == "AUDIO") MessageType.AUDIO else MessageType.VIDEO,
+                messageType = when (messageType) {
+                    "AUDIO" -> MessageType.AUDIO
+                    "VIDEO" -> MessageType.VIDEO
+                    "PHOTO" -> MessageType.PHOTO
+                    else -> MessageType.PHOTO
+                },
                 content = content,
                 mediaUrl = mediaUrl,
                 timestamp = System.currentTimeMillis()
@@ -656,6 +661,53 @@ class FirebaseRepository @Inject constructor(
             }
             
             Result.failure(Exception("Notificación simulada debido a permisos limitados"))
+        }
+    }
+
+    // ============== GROUP CALLS INTEGRATION ==============
+    
+    /**
+     * Iniciar llamada grupal con notificaciones FCM
+     */
+    suspend fun startGroupCallWithNotifications(
+        chatId: String,
+        callType: String,
+        callerName: String
+    ): Result<String> {
+        return try {
+            Log.d("FirebaseRepo", "📞 Iniciando llamada grupal: $callType en chat: $chatId")
+            
+            // Enviar notificaciones FCM a todos los participantes
+            val notificationResult = sendGroupCallNotification(chatId, callType, callerName)
+            
+            if (notificationResult.isSuccess) {
+                Log.d("FirebaseRepo", "✅ Llamada grupal iniciada: ${notificationResult.getOrNull()}")
+                Result.success("Llamada grupal iniciada exitosamente")
+            } else {
+                Log.w("FirebaseRepo", "⚠️ Llamada iniciada con errores: ${notificationResult.exceptionOrNull()?.message}")
+                Result.success("Llamada iniciada (con errores de notificación)")
+            }
+            
+        } catch (e: Exception) {
+            Log.e("FirebaseRepo", "❌ Error iniciando llamada grupal", e)
+            Result.failure(e)
+        }
+    }
+    
+    /**
+     * Obtener participantes de un chat para llamadas
+     */
+    suspend fun getChatParticipantsForCall(chatId: String): Result<List<String>> {
+        return try {
+            val participantsSnapshot = participantsRef.child(chatId).get().await()
+            val participantIds = participantsSnapshot.children.mapNotNull { it.key }
+            
+            Log.d("FirebaseRepo", "👥 Participantes obtenidos para chat $chatId: ${participantIds.size}")
+            Result.success(participantIds)
+            
+        } catch (e: Exception) {
+            Log.e("FirebaseRepo", "❌ Error obteniendo participantes", e)
+            Result.failure(e)
         }
     }
 

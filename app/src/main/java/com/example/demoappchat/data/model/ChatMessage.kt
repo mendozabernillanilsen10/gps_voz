@@ -33,5 +33,5 @@ data class ChatMessage(
 }
 
 enum class MessageType {
-    TEXT, PHOTO, VIDEO, AUDIO, LOCATION, SYSTEM
+    TEXT, PHOTO, VIDEO, AUDIO, LOCATION, SYSTEM, VOICE_COMMAND, CALL
 }
