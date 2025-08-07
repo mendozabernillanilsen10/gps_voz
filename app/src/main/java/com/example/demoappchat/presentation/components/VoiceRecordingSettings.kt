@@ -48,12 +48,12 @@ fun VoiceRecordingSettings(
             text = "Configuración de Grabación",
             fontSize = 20.sp,
             fontWeight = FontWeight.Bold,
-            color = Gray900
+            color = MaterialTheme.colorScheme.onSurface
         )
         
         // Duración de grabación de audio
         Card(
-            colors = CardDefaults.cardColors(containerColor = Color.White),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
         ) {
             Column(
@@ -67,20 +67,21 @@ fun VoiceRecordingSettings(
                     Icon(
                         Icons.Default.Mic,
                         contentDescription = null,
-                        tint = PrimaryBlue,
+                        tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(20.dp)
                     )
                     Text(
                         text = "Duración de Audio",
                         fontSize = 16.sp,
-                        fontWeight = FontWeight.Medium
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 }
                 
                 Text(
                     text = "Configura cuánto tiempo grabar audio cuando se detecte un comando",
                     fontSize = 14.sp,
-                    color = Gray600
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 
                 Row(
@@ -91,7 +92,7 @@ fun VoiceRecordingSettings(
                         text = "${audioDuration}s",
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold,
-                        color = PrimaryBlue
+                        color = MaterialTheme.colorScheme.primary
                     )
                     
                     Slider(
@@ -99,22 +100,27 @@ fun VoiceRecordingSettings(
                         onValueChange = { onAudioDurationChange(it.toInt()) },
                         valueRange = 5f..300f,
                         steps = 58, // (300-5)/5 = 59 steps
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f),
+                        colors = SliderDefaults.colors(
+                            thumbColor = MaterialTheme.colorScheme.primary,
+                            activeTrackColor = MaterialTheme.colorScheme.primary,
+                            inactiveTrackColor = MaterialTheme.colorScheme.surfaceVariant
+                        )
                     )
                 }
                 
                 Row(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Text("5s", fontSize = 12.sp, color = Gray500)
-                    Text("300s", fontSize = 12.sp, color = Gray500)
+                    Text("5s", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("300s", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }
         
         // Duración de grabación de video
         Card(
-            colors = CardDefaults.cardColors(containerColor = Color.White),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
         ) {
             Column(
@@ -128,20 +134,21 @@ fun VoiceRecordingSettings(
                     Icon(
                         Icons.Default.Videocam,
                         contentDescription = null,
-                        tint = EmergencyRed,
+                        tint = MaterialTheme.colorScheme.error,
                         modifier = Modifier.size(20.dp)
                     )
                     Text(
                         text = "Duración de Video",
                         fontSize = 16.sp,
-                        fontWeight = FontWeight.Medium
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 }
                 
                 Text(
                     text = "Configura cuánto tiempo grabar video cuando se detecte un comando",
                     fontSize = 14.sp,
-                    color = Gray600
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 
                 Row(
@@ -152,7 +159,7 @@ fun VoiceRecordingSettings(
                         text = "${videoDuration}s",
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold,
-                        color = EmergencyRed
+                        color = MaterialTheme.colorScheme.error
                     )
                     
                     Slider(
@@ -160,22 +167,27 @@ fun VoiceRecordingSettings(
                         onValueChange = { onVideoDurationChange(it.toInt()) },
                         valueRange = 5f..60f,
                         steps = 10, // (60-5)/5 = 11 steps
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f),
+                        colors = SliderDefaults.colors(
+                            thumbColor = MaterialTheme.colorScheme.error,
+                            activeTrackColor = MaterialTheme.colorScheme.error,
+                            inactiveTrackColor = MaterialTheme.colorScheme.surfaceVariant
+                        )
                     )
                 }
                 
                 Row(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Text("5s", fontSize = 12.sp, color = Gray500)
-                    Text("60s", fontSize = 12.sp, color = Gray500)
+                    Text("5s", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("60s", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }
         
         // Calidad de grabación
         Card(
-            colors = CardDefaults.cardColors(containerColor = Color.White),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
         ) {
             Column(
@@ -189,13 +201,14 @@ fun VoiceRecordingSettings(
                     Icon(
                         Icons.Default.HighQuality,
                         contentDescription = null,
-                        tint = SafetyGreen,
+                        tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(20.dp)
                     )
                     Text(
                         text = "Calidad de Grabación",
                         fontSize = 16.sp,
-                        fontWeight = FontWeight.Medium
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 }
                 
@@ -209,7 +222,11 @@ fun VoiceRecordingSettings(
                     ) {
                         RadioButton(
                             selected = recordingQuality == quality,
-                            onClick = { onQualityChange(quality) }
+                            onClick = { onQualityChange(quality) },
+                            colors = RadioButtonDefaults.colors(
+                                selectedColor = MaterialTheme.colorScheme.primary,
+                                unselectedColor = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
@@ -220,7 +237,8 @@ fun VoiceRecordingSettings(
                                 "ULTRA" -> "Ultra (Máxima calidad)"
                                 else -> quality
                             },
-                            fontSize = 14.sp
+                            fontSize = 14.sp,
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                     }
                 }
@@ -229,7 +247,7 @@ fun VoiceRecordingSettings(
         
         // Opciones de envío
         Card(
-            colors = CardDefaults.cardColors(containerColor = Color.White),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
         ) {
             Column(
@@ -243,13 +261,14 @@ fun VoiceRecordingSettings(
                     Icon(
                         Icons.Default.Send,
                         contentDescription = null,
-                        tint = WarningOrange,
+                        tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(20.dp)
                     )
                     Text(
                         text = "Opciones de Envío",
                         fontSize = 16.sp,
-                        fontWeight = FontWeight.Medium
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 }
                 
@@ -262,20 +281,23 @@ fun VoiceRecordingSettings(
                         Text(
                             text = "Envío Automático",
                             fontSize = 14.sp,
-                            fontWeight = FontWeight.Medium
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
                             text = "Enviar automáticamente al grupo",
                             fontSize = 12.sp,
-                            color = Gray600
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                     Switch(
                         checked = autoSendEnabled,
                         onCheckedChange = onAutoSendToggle,
                         colors = SwitchDefaults.colors(
-                            checkedThumbColor = SafetyGreen,
-                            checkedTrackColor = SafetyGreen.copy(alpha = 0.3f)
+                            checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
+                            checkedTrackColor = MaterialTheme.colorScheme.primary,
+                            uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
                         )
                     )
                 }
@@ -289,20 +311,23 @@ fun VoiceRecordingSettings(
                         Text(
                             text = "Captura de Fotos",
                             fontSize = 14.sp,
-                            fontWeight = FontWeight.Medium
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
                             text = "Permitir comandos de foto",
                             fontSize = 12.sp,
-                            color = Gray600
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                     Switch(
                         checked = photoCaptureEnabled,
                         onCheckedChange = onPhotoCaptureToggle,
                         colors = SwitchDefaults.colors(
-                            checkedThumbColor = SafetyGreen,
-                            checkedTrackColor = SafetyGreen.copy(alpha = 0.3f)
+                            checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
+                            checkedTrackColor = MaterialTheme.colorScheme.primary,
+                            uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
                         )
                     )
                 }
@@ -311,7 +336,7 @@ fun VoiceRecordingSettings(
         
         // Botón para ir a configuración de comandos
         Card(
-            colors = CardDefaults.cardColors(containerColor = Color.White),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
         ) {
             Column(
@@ -325,33 +350,38 @@ fun VoiceRecordingSettings(
                     Icon(
                         Icons.Default.Settings,
                         contentDescription = null,
-                        tint = PrimaryBlue,
+                        tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(20.dp)
                     )
                     Text(
                         text = "Comandos de Voz Personalizados",
                         fontSize = 16.sp,
-                        fontWeight = FontWeight.Medium
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 }
                 
                 Text(
                     text = "Configura comandos personalizados y sus acciones",
                     fontSize = 14.sp,
-                    color = Gray600
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 
                 Button(
                     onClick = { /* TODO: Navegar a pantalla de comandos */ },
                     modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue)
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                 ) {
                     Icon(
                         Icons.Default.Settings,
                         contentDescription = null,
-                        modifier = Modifier.padding(end = 8.dp)
+                        modifier = Modifier.padding(end = 8.dp),
+                        tint = MaterialTheme.colorScheme.onPrimary
                     )
-                    Text("Configurar Comandos")
+                    Text(
+                        "Configurar Comandos",
+                        color = MaterialTheme.colorScheme.onPrimary
+                    )
                 }
             }
         }

@@ -68,20 +68,20 @@ fun VoiceCommandsScreen(
                         Icon(
                             Icons.Default.ArrowBack,
                             contentDescription = "Volver",
-                            tint = Color.White
+                            tint = MaterialTheme.colorScheme.onPrimary
                         )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color(0xFF1877F2)
+                    containerColor = MaterialTheme.colorScheme.primary
                 )
             )
         },
         floatingActionButton = {
             FloatingActionButton(
                 onClick = { showAddDialog = true },
-                containerColor = Color(0xFF1877F2),
-                contentColor = Color.White
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
             ) {
                 Icon(
                     Icons.Default.Add,
@@ -94,8 +94,8 @@ fun VoiceCommandsScreen(
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
-                .background(Color(0xFFF0F2F5)),
+                .background(MaterialTheme.colorScheme.background)
+                .padding(paddingValues),
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
@@ -104,7 +104,7 @@ fun VoiceCommandsScreen(
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                     elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
                 ) {
                     Column(
@@ -115,13 +115,13 @@ fun VoiceCommandsScreen(
                             text = "Comandos Predefinidos",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFF1C1E21)
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                         
                         Text(
                             text = "Comandos de voz estándar con acciones predefinidas",
                             style = MaterialTheme.typography.bodySmall,
-                            color = Color(0xFF65676B)
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         
                         LazyRow(
@@ -152,7 +152,7 @@ fun VoiceCommandsScreen(
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                     elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
                 ) {
                     Column(
@@ -163,14 +163,14 @@ fun VoiceCommandsScreen(
                             text = "Comandos Personalizados",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFF1C1E21)
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                         
                         if (commandActions.isEmpty()) {
                             Text(
                                 text = "No hay comandos personalizados configurados",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = Color(0xFF65676B)
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         } else {
                             Column(

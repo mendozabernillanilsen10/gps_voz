@@ -23,9 +23,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import com.example.demoappchat.ui.theme.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -43,9 +43,9 @@ fun ModernMessageInputBar(
     onCameraClick: () -> Unit = {}
 ) {
     var showAttachmentOptions by remember { mutableStateOf(false) }
-    
+
     Surface(
-        color = Color.White,
+        color = MaterialTheme.colorScheme.surface,
         shadowElevation = 8.dp
     ) {
         Column {
@@ -62,7 +62,7 @@ fun ModernMessageInputBar(
                         .size(44.dp)
                         .clip(CircleShape)
                         .background(
-                            if (showAttachmentOptions) PrimaryBlue else Gray100,
+                            if (showAttachmentOptions) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
                             CircleShape
                         )
                         .clickable { showAttachmentOptions = !showAttachmentOptions },
@@ -71,7 +71,7 @@ fun ModernMessageInputBar(
                     Icon(
                         if (showAttachmentOptions) Icons.Default.Close else Icons.Default.Add,
                         contentDescription = "Adjuntar",
-                        tint = if (showAttachmentOptions) Color.White else Gray600,
+                        tint = if (showAttachmentOptions) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(24.dp)
                     )
                 }
@@ -86,188 +86,120 @@ fun ModernMessageInputBar(
                     placeholder = {
                         Text(
                             "Mensaje...",
-                            color = Gray500,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = 16.sp
                         )
                     },
                     shape = RoundedCornerShape(28.dp),
                     maxLines = 4,
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = PrimaryBlue.copy(alpha = 0.5f),
-                        unfocusedBorderColor = Gray300,
-                        focusedContainerColor = Gray50,
-                        unfocusedContainerColor = Gray50
+                        focusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                        focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        cursorColor = MaterialTheme.colorScheme.primary
                     ),
                     textStyle = LocalTextStyle.current.copy(
-                        fontSize = 16.sp
+                        fontSize = 16.sp,
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 )
 
                 Spacer(modifier = Modifier.width(12.dp))
 
-                // Enhanced send button
-                val sendButtonScale by animateFloatAsState(
-                    targetValue = if (messageText.isNotBlank()) 1f else 0.9f,
-                    animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
-                    label = "send_button_scale"
-                )
-
+                // Send button with modern design
                 Box(
                     modifier = Modifier
                         .size(44.dp)
-                        .scale(sendButtonScale)
                         .clip(CircleShape)
                         .background(
-                            if (messageText.isNotBlank()) PrimaryBlue else Gray300,
+                            if (messageText.isNotBlank()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
                             CircleShape
                         )
-                        .clickable(
-                            enabled = messageText.isNotBlank() && !isLoading
-                        ) { onSendMessage() },
+                        .clickable {
+                            if (messageText.isNotBlank()) {
+                                onSendMessage()
+                            }
+                        },
                     contentAlignment = Alignment.Center
                 ) {
-                    if (isLoading) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(20.dp),
-                            color = Color.White,
-                            strokeWidth = 2.dp
-                        )
-                    } else {
-                        Icon(
-                            Icons.Default.Send,
-                            contentDescription = "Enviar",
-                            tint = Color.White,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
+                    Icon(
+                        Icons.Default.Send,
+                        contentDescription = "Enviar",
+                        tint = if (messageText.isNotBlank()) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(20.dp)
+                    )
                 }
             }
-            
-            // Attachment options panel (Instagram style)
+
+            // Attachment options grid
             AnimatedVisibility(
                 visible = showAttachmentOptions,
-                enter = slideInVertically(
-                    initialOffsetY = { -it },
-                    animationSpec = tween(300)
-                ) + fadeIn(animationSpec = tween(300)),
-                exit = slideOutVertically(
-                    targetOffsetY = { -it },
-                    animationSpec = tween(300)
-                ) + fadeOut(animationSpec = tween(300))
+                enter = expandVertically() + fadeIn(),
+                exit = shrinkVertically() + fadeOut()
             ) {
-                AttachmentOptionsPanel(
-                    onPhotoClick = {
-                        onPhotoClick()
-                        showAttachmentOptions = false
-                    },
-                    onVideoClick = {
-                        onVideoClick()
-                        showAttachmentOptions = false
-                    },
-                    onAudioClick = {
-                        onAudioClick()
-                        showAttachmentOptions = false
-                    },
-                    onLocationClick = {
-                        onLocationClick()
-                        showAttachmentOptions = false
-                    },
-                    onDocumentClick = {
-                        onDocumentClick()
-                        showAttachmentOptions = false
-                    },
-                    onCameraClick = {
-                        onCameraClick()
-                        showAttachmentOptions = false
+                Surface(
+                    color = MaterialTheme.colorScheme.surface,
+                    shadowElevation = 4.dp
+                ) {
+                    LazyVerticalGrid(
+                        columns = GridCells.Fixed(4),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        item {
+                            AttachmentOption(
+                                icon = Icons.Rounded.PhotoCamera,
+                                label = "Foto",
+                                color = MaterialTheme.colorScheme.primary,
+                                onClick = onPhotoClick
+                            )
+                        }
+                        item {
+                            AttachmentOption(
+                                icon = Icons.Rounded.Videocam,
+                                label = "Video",
+                                color = MaterialTheme.colorScheme.primary,
+                                onClick = onVideoClick
+                            )
+                        }
+                        item {
+                            AttachmentOption(
+                                icon = Icons.Rounded.Mic,
+                                label = "Audio",
+                                color = MaterialTheme.colorScheme.primary,
+                                onClick = onAudioClick
+                            )
+                        }
+                        item {
+                            AttachmentOption(
+                                icon = Icons.Rounded.LocationOn,
+                                label = "Ubicación",
+                                color = MaterialTheme.colorScheme.primary,
+                                onClick = onLocationClick
+                            )
+                        }
+                        item {
+                            AttachmentOption(
+                                icon = Icons.Rounded.Description,
+                                label = "Documento",
+                                color = MaterialTheme.colorScheme.primary,
+                                onClick = onDocumentClick
+                            )
+                        }
+                        item {
+                            AttachmentOption(
+                                icon = Icons.Rounded.Camera,
+                                label = "Cámara",
+                                color = MaterialTheme.colorScheme.primary,
+                                onClick = onCameraClick
+                            )
+                        }
                     }
-                )
-            }
-        }
-    }
-}
-
-@Composable
-fun AttachmentOptionsPanel(
-    onPhotoClick: () -> Unit,
-    onVideoClick: () -> Unit,
-    onAudioClick: () -> Unit,
-    onLocationClick: () -> Unit,
-    onDocumentClick: () -> Unit,
-    onCameraClick: () -> Unit
-) {
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        shape = RoundedCornerShape(20.dp),
-        color = Gray50,
-        shadowElevation = 4.dp
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp)
-        ) {
-            Text(
-                text = "Adjuntar",
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
-                color = Gray900,
-                modifier = Modifier.padding(bottom = 16.dp)
-            )
-            
-            // First row
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly
-            ) {
-                AttachmentOption(
-                    icon = Icons.Default.PhotoCamera,
-                    label = "Cámara",
-                    color = Color(0xFF4CAF50),
-                    onClick = onCameraClick
-                )
-                
-                AttachmentOption(
-                    icon = Icons.Default.Photo,
-                    label = "Galería",
-                    color = Color(0xFF2196F3),
-                    onClick = onPhotoClick
-                )
-                
-                AttachmentOption(
-                    icon = Icons.Default.Videocam,
-                    label = "Video",
-                    color = Color(0xFFE91E63),
-                    onClick = onVideoClick
-                )
-            }
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            // Second row
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly
-            ) {
-                AttachmentOption(
-                    icon = Icons.Default.Mic,
-                    label = "Audio",
-                    color = Color(0xFF9C27B0),
-                    onClick = onAudioClick
-                )
-                
-                AttachmentOption(
-                    icon = Icons.Default.LocationOn,
-                    label = "Ubicación",
-                    color = Color(0xFFFF9800),
-                    onClick = onLocationClick
-                )
-                
-                AttachmentOption(
-                    icon = Icons.Default.Description,
-                    label = "Documento",
-                    color = Color(0xFF607D8B),
-                    onClick = onDocumentClick
-                )
+                }
             }
         }
     }
@@ -282,14 +214,11 @@ fun AttachmentOption(
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier
-            .clickable { onClick() }
-            .padding(8.dp)
+        modifier = Modifier.clickable { onClick() }
     ) {
         Box(
             modifier = Modifier
-                .size(56.dp)
-                .clip(CircleShape)
+                .size(48.dp)
                 .background(color.copy(alpha = 0.1f), CircleShape),
             contentAlignment = Alignment.Center
         ) {
@@ -297,16 +226,16 @@ fun AttachmentOption(
                 icon,
                 contentDescription = label,
                 tint = color,
-                modifier = Modifier.size(28.dp)
+                modifier = Modifier.size(24.dp)
             )
         }
-        
-        Spacer(modifier = Modifier.height(8.dp))
-        
+
+        Spacer(modifier = Modifier.height(4.dp))
+
         Text(
             text = label,
             fontSize = 12.sp,
-            color = Gray700,
+            color = MaterialTheme.colorScheme.onSurface,
             fontWeight = FontWeight.Medium
         )
     }
@@ -331,7 +260,7 @@ fun ModernMediaPickerDialog(
     ) {
         Surface(
             shape = RoundedCornerShape(24.dp),
-            color = Color.White,
+            color = MaterialTheme.colorScheme.surface,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp)
@@ -343,7 +272,7 @@ fun ModernMediaPickerDialog(
                     text = "Seleccionar opción",
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Gray900,
+                    color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.padding(bottom = 24.dp)
                 )
                 
@@ -436,7 +365,7 @@ fun ModernMediaPickerDialog(
                 ) {
                     Text(
                         text = "Cancelar",
-                        color = Gray600,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 16.sp
                     )
                 }

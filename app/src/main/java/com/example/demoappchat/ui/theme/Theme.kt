@@ -11,30 +11,86 @@ import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
-import com.example.demoappchat.ui.theme.EmergencyRed
-import com.example.demoappchat.ui.theme.InfoBlue
-import com.example.demoappchat.ui.theme.WarningOrange
 
 private val DarkColorScheme = darkColorScheme(
     primary = EmergencyRed,
-    secondary = WarningOrange,
-    tertiary = InfoBlue
+    onPrimary = Color.White,
+    primaryContainer = EmergencyRedDark,
+    onPrimaryContainer = Color.White,
+    
+    secondary = SafetyGreen,
+    onSecondary = Color.White,
+    secondaryContainer = SafetyGreenDark,
+    onSecondaryContainer = Color.White,
+    
+    tertiary = WarningOrange,
+    onTertiary = Color.White,
+    tertiaryContainer = WarningOrangeDark,
+    onTertiaryContainer = Color.White,
+    
+    background = BackgroundPrimaryDark,
+    onBackground = TextPrimaryDark,
+    surface = SurfacePrimaryDark,
+    onSurface = TextPrimaryDark,
+    surfaceVariant = SurfaceSecondaryDark,
+    onSurfaceVariant = TextSecondaryDark,
+    
+    error = SystemRed,
+    onError = Color.White,
+    errorContainer = SystemRed.copy(alpha = 0.2f),
+    onErrorContainer = Color.White,
+    
+    outline = BorderPrimaryDark,
+    outlineVariant = BorderSecondaryDark,
+    
+    scrim = Color.Black.copy(alpha = 0.32f),
+    surfaceTint = EmergencyRed.copy(alpha = 0.05f)
 )
 
 private val LightColorScheme = lightColorScheme(
     primary = EmergencyRed,
-    secondary = WarningOrange,
-    tertiary = InfoBlue
+    onPrimary = Color.White,
+    primaryContainer = EmergencyRedLight,
+    onPrimaryContainer = Color.White,
+    
+    secondary = SafetyGreen,
+    onSecondary = Color.White,
+    secondaryContainer = SafetyGreenLight,
+    onSecondaryContainer = Color.White,
+    
+    tertiary = WarningOrange,
+    onTertiary = Color.White,
+    tertiaryContainer = WarningOrangeLight,
+    onTertiaryContainer = Color.White,
+    
+    background = BackgroundPrimary,
+    onBackground = TextPrimary,
+    surface = SurfacePrimary,
+    onSurface = TextPrimary,
+    surfaceVariant = SurfaceSecondary,
+    onSurfaceVariant = TextSecondary,
+    
+    error = SystemRed,
+    onError = Color.White,
+    errorContainer = SystemRed.copy(alpha = 0.1f),
+    onErrorContainer = Color.White,
+    
+    outline = BorderPrimary,
+    outlineVariant = BorderSecondary,
+    
+    scrim = Color.Black.copy(alpha = 0.32f),
+    surfaceTint = EmergencyRed.copy(alpha = 0.05f)
 )
 
 @Composable
 fun SecurityChatTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = true,
+    dynamicColor: Boolean = false, // Desactivado para mantener consistencia
     content: @Composable () -> Unit
 ) {
     val colorScheme = when {
@@ -45,12 +101,19 @@ fun SecurityChatTheme(
         darkTheme -> DarkColorScheme
         else -> LightColorScheme
     }
+    
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
-            window.statusBarColor = colorScheme.primary.toArgb()
-            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = darkTheme
+            // Configurar color de la barra de estado
+            window.statusBarColor = if (darkTheme) {
+                BackgroundPrimaryDark.toArgb()
+            } else {
+                EmergencyRed.toArgb()
+            }
+            // Configurar iconos de la barra de estado
+            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
         }
     }
 

@@ -15,6 +15,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.VideoCall
 import androidx.compose.material.icons.filled.Videocam
+import androidx.compose.material.icons.filled.Camera
+import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material.icons.rounded.PhotoCamera
 import androidx.compose.material.icons.rounded.Videocam
@@ -35,10 +37,8 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
 import com.example.demoappchat.ui.theme.EmergencyRed
-import com.example.demoappchat.ui.theme.Gray300
-import com.example.demoappchat.ui.theme.Gray700
-import com.example.demoappchat.ui.theme.Gray900
-import com.example.demoappchat.ui.theme.PrimaryBlue
+import com.example.demoappchat.ui.theme.SafetyGreen
+import com.example.demoappchat.ui.theme.WarningOrange
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
 import java.io.File
@@ -46,6 +46,7 @@ import java.text.SimpleDateFormat
 import java.util.*
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+
 @Composable
 fun MediaOptionsPanel(
     onPhotoClick: () -> Unit,
@@ -54,7 +55,7 @@ fun MediaOptionsPanel(
     onDismiss: () -> Unit
 ) {
     Surface(
-        color = Color.White,
+        color = MaterialTheme.colorScheme.surface,
         shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
         shadowElevation = 12.dp
     ) {
@@ -68,7 +69,7 @@ fun MediaOptionsPanel(
                 modifier = Modifier
                     .width(40.dp)
                     .height(4.dp)
-                    .background(Gray300, RoundedCornerShape(2.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(2.dp))
                     .align(Alignment.CenterHorizontally)
             )
 
@@ -78,7 +79,7 @@ fun MediaOptionsPanel(
                 text = "Enviar multimedia",
                 fontSize = 18.sp,
                 fontWeight = FontWeight.SemiBold,
-                color = Gray900,
+                color = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.padding(bottom = 20.dp)
             )
 
@@ -89,26 +90,24 @@ fun MediaOptionsPanel(
                 MediaOptionButton(
                     icon = Icons.Rounded.PhotoCamera,
                     label = "Foto",
-                    color = Color(0xFF34C759), // Verde iOS
+                    color = SafetyGreen,
                     onClick = onPhotoClick
                 )
 
                 MediaOptionButton(
                     icon = Icons.Rounded.Videocam,
                     label = "Video",
-                    color = PrimaryBlue,
+                    color = MaterialTheme.colorScheme.primary,
                     onClick = onVideoClick
                 )
 
                 MediaOptionButton(
                     icon = Icons.Rounded.Mic,
                     label = "Audio",
-                    color = Color(0xFFFF9500), // Naranja iOS
+                    color = WarningOrange,
                     onClick = onAudioClick
                 )
             }
-
-            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }
@@ -122,32 +121,127 @@ fun MediaOptionButton(
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier
-            .clickable { onClick() }
-            .padding(8.dp)
+        modifier = Modifier.clickable { onClick() }
     ) {
-        Box(
-            modifier = Modifier
-                .size(60.dp)
-                .background(color.copy(alpha = 0.1f), CircleShape),
-            contentAlignment = Alignment.Center
+        Surface(
+            shape = CircleShape,
+            color = color.copy(alpha = 0.1f),
+            modifier = Modifier.size(60.dp)
         ) {
             Icon(
-                icon,
+                imageVector = icon,
                 contentDescription = label,
                 tint = color,
-                modifier = Modifier.size(26.dp)
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp)
             )
         }
-
+        
         Spacer(modifier = Modifier.height(8.dp))
-
+        
         Text(
             text = label,
             fontSize = 12.sp,
-            fontWeight = FontWeight.Medium,
-            color = Gray700,
-            textAlign = TextAlign.Center
+            color = MaterialTheme.colorScheme.onSurface,
+            fontWeight = FontWeight.Medium
         )
+    }
+}
+
+@Composable
+fun ModernChatMediaPanel(
+    messageText: String,
+    onMessageTextChange: (String) -> Unit,
+    onSendMessage: () -> Unit,
+    onImageClick: () -> Unit,
+    onVideoClick: () -> Unit,
+    onAudioClick: () -> Unit,
+    onCameraClick: () -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.surface,
+        shadowElevation = 4.dp
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
+            // Campo de texto
+            OutlinedTextField(
+                value = messageText,
+                onValueChange = onMessageTextChange,
+                placeholder = {
+                    Text(
+                        text = "Escribe un mensaje...",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                },
+                modifier = Modifier.fillMaxWidth(),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                    cursorColor = MaterialTheme.colorScheme.primary
+                ),
+                maxLines = 4
+            )
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            // Botones de media
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                MediaOptionButton(
+                    icon = Icons.Rounded.PhotoCamera,
+                    label = "Foto",
+                    color = SafetyGreen,
+                    onClick = onImageClick
+                )
+                
+                MediaOptionButton(
+                    icon = Icons.Rounded.Videocam,
+                    label = "Video",
+                    color = MaterialTheme.colorScheme.primary,
+                    onClick = onVideoClick
+                )
+                
+                MediaOptionButton(
+                    icon = Icons.Rounded.Mic,
+                    label = "Audio",
+                    color = WarningOrange,
+                    onClick = onAudioClick
+                )
+                
+                MediaOptionButton(
+                    icon = Icons.Default.Camera,
+                    label = "Cámara",
+                    color = EmergencyRed,
+                    onClick = onCameraClick
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            // Botón de enviar
+            Button(
+                onClick = onSendMessage,
+                modifier = Modifier.fillMaxWidth(),
+                enabled = messageText.isNotBlank(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant
+                )
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Send,
+                    contentDescription = "Enviar",
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Enviar mensaje")
+            }
+        }
     }
 }
