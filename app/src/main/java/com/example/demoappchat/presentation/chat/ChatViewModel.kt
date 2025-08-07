@@ -9,9 +9,15 @@ import androidx.lifecycle.viewModelScope
 import com.example.demoappchat.data.model.ChatMessage
 import com.example.demoappchat.data.model.MessageType
 import com.example.demoappchat.data.model.ProximityChat
+import com.example.demoappchat.data.model.CallType
+import com.example.demoappchat.data.model.WebRTCCallType
+import com.example.demoappchat.data.model.WebRTCCall
+import com.example.demoappchat.data.model.WebRTCCallStatus
 import com.example.demoappchat.data.repository.FirebaseRepository
 import com.example.demoappchat.data.UserPreferences
 import com.example.demoappchat.data.service.VoiceRecognitionService
+import com.example.demoappchat.data.service.WebRTCSignalingService
+import com.example.demoappchat.data.webrtc.WebRTCClient
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.*
@@ -24,6 +30,8 @@ import kotlinx.coroutines.withContext
 class ChatViewModel @Inject constructor(
     private val repository: FirebaseRepository,
     private val userPreferences: UserPreferences,
+    private val webRTCClient: WebRTCClient,
+    private val signalingService: WebRTCSignalingService,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
 
@@ -38,11 +46,21 @@ class ChatViewModel @Inject constructor(
     // Getter para el ID de la llamada grupal
     val groupCallId: String?
         get() = _uiState.value.groupCallId
+    
+    // 🆕 Estados para llamadas activas
+    private val _activeCalls = MutableStateFlow<List<WebRTCCall>>(emptyList())
+    val activeCalls: StateFlow<List<WebRTCCall>> = _activeCalls.asStateFlow()
+    
+    private val _hasActiveCall = MutableStateFlow(false)
+    val hasActiveCall: StateFlow<Boolean> = _hasActiveCall.asStateFlow()
 
     fun loadChat(chatId: String) {
         viewModelScope.launch {
             // Cargar información del chat
             // Implementar método en repository para obtener chat específico
+            
+            // 🆕 Iniciar monitoreo de llamadas activas en este chat
+            startMonitoringActiveCalls(chatId)
         }
     }
 
@@ -123,7 +141,6 @@ class ChatViewModel @Inject constructor(
                         else -> "Foto enviada"
                     }
                 )
-
                 _uiState.value = _uiState.value.copy(isLoading = false)
             } catch (e: Exception) {
                 Log.e("ChatViewModel", "❌ Error subiendo archivo", e)
@@ -135,10 +152,6 @@ class ChatViewModel @Inject constructor(
         }
     }
 
-    fun clearError() {
-        _uiState.value = _uiState.value.copy(error = null)
-    }
-    
     // Voice service integration methods
     fun setCurrentChatId(chatId: String) {
         viewModelScope.launch {
@@ -190,32 +203,38 @@ class ChatViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 currentUser.value?.let { user ->
-                    Log.d("ChatViewModel", "📹 Iniciando videollamada grupal en chat: $chatId")
-                    
-                    // Iniciar llamada grupal con notificaciones
-                    repository.startGroupCallWithNotifications(
+                    // Notificar a todos los participantes del chat
+                    signalingService.notifyChatParticipants(
                         chatId = chatId,
-                        callType = "video_call",
-                        callerName = user.name
-                    ).onSuccess { result ->
-                        Log.d("ChatViewModel", "✅ Videollamada grupal iniciada: $result")
-                        
-                        // Enviar mensaje al chat informando del inicio de llamada
+                        message = "📹 ${user.name} inició una videollamada grupal",
+                        type = "video_call_started"
+                    )
+                    
+                    // Iniciar la llamada WebRTC
+                    val callId = webRTCClient.startCall(
+                        chatId = chatId,
+                        userId = user.id,
+                        userName = user.name,
+                        callType = WebRTCCallType.VIDEO
+                    )
+                    
+                    if (callId != null) {
                         sendGroupCallMessage(chatId, "📹 Videollamada iniciada", "video")
                         
-                        // Actualizar estado de la UI
                         _uiState.value = _uiState.value.copy(
                             isGroupCallActive = true,
                             groupCallType = "video",
-                            groupCallId = "temp_call_id" // Temporal, se actualizará con el ID real
+                            groupCallId = callId
                         )
-                        
-                    }.onFailure { error ->
-                        Log.e("ChatViewModel", "❌ Error iniciando videollamada", error)
+                    } else {
                         _uiState.value = _uiState.value.copy(
-                            error = "Error iniciando videollamada: ${error.message}"
+                            error = "Error al iniciar videollamada"
                         )
                     }
+                } ?: run {
+                    _uiState.value = _uiState.value.copy(
+                        error = "Usuario no autenticado"
+                    )
                 }
             } catch (e: Exception) {
                 Log.e("ChatViewModel", "❌ Error en videollamada grupal", e)
@@ -233,30 +252,32 @@ class ChatViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 currentUser.value?.let { user ->
-                    Log.d("ChatViewModel", "🎤 Iniciando llamada de audio grupal en chat: $chatId")
-                    
-                    // Iniciar llamada grupal con notificaciones
-                    repository.startGroupCallWithNotifications(
+                    // Notificar a todos los participantes del chat
+                    signalingService.notifyChatParticipants(
                         chatId = chatId,
-                        callType = "audio_call",
-                        callerName = user.name
-                    ).onSuccess { result ->
-                        Log.d("ChatViewModel", "✅ Llamada de audio grupal iniciada: $result")
-                        
-                        // Enviar mensaje al chat informando del inicio de llamada
+                        message = "🎤 ${user.name} inició una llamada de audio grupal",
+                        type = "audio_call_started"
+                    )
+                    
+                    // Iniciar la llamada WebRTC
+                    val callId = webRTCClient.startCall(
+                        chatId = chatId,
+                        userId = user.id,
+                        userName = user.name,
+                        callType = WebRTCCallType.AUDIO
+                    )
+                    
+                    if (callId != null) {
                         sendGroupCallMessage(chatId, "🎤 Llamada de audio iniciada", "audio")
                         
-                        // Actualizar estado de la UI
                         _uiState.value = _uiState.value.copy(
                             isGroupCallActive = true,
                             groupCallType = "audio",
-                            groupCallId = "temp_call_id" // Temporal, se actualizará con el ID real
+                            groupCallId = callId
                         )
-                        
-                    }.onFailure { error ->
-                        Log.e("ChatViewModel", "❌ Error iniciando llamada de audio", error)
+                    } else {
                         _uiState.value = _uiState.value.copy(
-                            error = "Error iniciando llamada de audio: ${error.message}"
+                            error = "Error al iniciar llamada de audio"
                         )
                     }
                 }
@@ -332,39 +353,40 @@ class ChatViewModel @Inject constructor(
 
     /**
      * FUNCIÓN NUEVA: Activa el servicio de voz cuando el usuario entra a un chat grupal
+     * 🚫 TEMPORALMENTE DESHABILITADO para evitar mensajes automáticos
      */
     fun activateVoiceServiceForGroupChat(chatId: String) {
         viewModelScope.launch {
             try {
-                Log.d("ChatViewModel", "🏢 Activando servicio de voz para chat grupal: $chatId")
+                Log.d("ChatViewModel", "🏢 Servicio de voz DESHABILITADO temporalmente")
                 
                 // Guardar el chat activo en las preferencias
                 userPreferences.setCurrentChatId(chatId)
                 
-                // Iniciar el servicio de voz en segundo plano
-                val intent = Intent(context, VoiceRecognitionService::class.java).apply {
-                    action = VoiceRecognitionService.ACTION_START_LISTENING
-                    putExtra("chat_id", chatId)
-                }
-                
-                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-                    context.startForegroundService(intent)
-                } else {
-                    context.startService(intent)
-                }
+                // 🚫 NO iniciar el servicio de voz para evitar mensajes automáticos
+                // val intent = Intent(context, VoiceRecognitionService::class.java).apply {
+                //     action = VoiceRecognitionService.ACTION_START_LISTENING
+                //     putExtra("chat_id", chatId)
+                // }
+                // 
+                // if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                //     context.startForegroundService(intent)
+                // } else {
+                //     context.startService(intent)
+                // }
                 
                 // Actualizar el estado de la UI
                 _uiState.value = _uiState.value.copy(
-                    isVoiceServiceActive = true,
-                    voiceServiceStatus = "🎤 Escuchando comandos de voz"
+                    isVoiceServiceActive = false, // Cambiado a false
+                    voiceServiceStatus = "⏸️ Servicio de voz deshabilitado"
                 )
                 
-                Log.d("ChatViewModel", "✅ Servicio de voz activado para chat grupal")
+                Log.d("ChatViewModel", "✅ Servicio de voz deshabilitado temporalmente")
                 
             } catch (e: Exception) {
-                Log.e("ChatViewModel", "❌ Error activando servicio de voz", e)
+                Log.e("ChatViewModel", "❌ Error configurando servicio de voz", e)
                 _uiState.value = _uiState.value.copy(
-                    voiceServiceStatus = "❌ Error activando servicio"
+                    voiceServiceStatus = "❌ Error configurando servicio"
                 )
             }
         }
@@ -423,8 +445,8 @@ class ChatViewModel @Inject constructor(
             try {
                 Log.d("ChatViewModel", "📞 Terminando llamada grupal: $callId")
                 
-                // Aquí implementarías la lógica para terminar la llamada
-                // Por ahora, solo actualizar el estado de la UI
+                webRTCClient.endCall()
+                
                 _uiState.value = _uiState.value.copy(
                     isGroupCallActive = false,
                     groupCallType = null,
@@ -444,6 +466,247 @@ class ChatViewModel @Inject constructor(
             }
         }
     }
+    
+    // 🆕 NUEVAS FUNCIONES PARA DETECTAR Y UNIRSE A LLAMADAS ACTIVAS
+    
+    /**
+     * Iniciar monitoreo de llamadas activas en un chat
+     */
+    private fun startMonitoringActiveCalls(chatId: String) {
+        viewModelScope.launch {
+            try {
+                Log.d("ChatViewModel", "📡 Iniciando monitoreo de llamadas activas en chat: $chatId")
+                
+                // 🆕 MONITOREO 1: Llamadas activas
+                signalingService.listenForActiveCallsInChat(chatId).collect { activeCalls ->
+                    _activeCalls.value = activeCalls
+                    _hasActiveCall.value = activeCalls.isNotEmpty()
+                    
+                    Log.d("ChatViewModel", "📞 Llamadas activas detectadas: ${activeCalls.size}")
+                    
+                    // Si hay una llamada activa y el usuario no está en ella, mostrar opción para unirse
+                    if (activeCalls.isNotEmpty()) {
+                        val firstCall = activeCalls.first()
+                        currentUser.value?.let { user ->
+                            val isUserInCall = firstCall.participants.containsKey(user.id)
+                            
+                            if (!isUserInCall) {
+                                Log.d("ChatViewModel", "📞 Usuario puede unirse a llamada: ${firstCall.callId}")
+                                _uiState.value = _uiState.value.copy(
+                                    hasIncomingCall = true,
+                                    incomingCallId = firstCall.callId,
+                                    incomingCallType = if (firstCall.callType == WebRTCCallType.VIDEO) "video" else "audio",
+                                    incomingCallerName = firstCall.initiatorName
+                                )
+                            }
+                        }
+                    } else {
+                        // No hay llamadas activas
+                        _uiState.value = _uiState.value.copy(
+                            hasIncomingCall = false,
+                            incomingCallId = null,
+                            incomingCallType = null,
+                            incomingCallerName = null
+                        )
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("ChatViewModel", "❌ Error monitoreando llamadas activas", e)
+            }
+        }
+        
+        // 🆕 MONITOREO 2: Notificaciones de chat
+        viewModelScope.launch {
+            try {
+                Log.d("ChatViewModel", "📢 Iniciando monitoreo de notificaciones de chat: $chatId")
+                
+                signalingService.listenForChatNotifications(chatId).collect { notification ->
+                    Log.d("ChatViewModel", "📢 Notificación recibida: $notification")
+                    
+                    val type = notification["type"] as? String
+                    val message = notification["message"] as? String
+                    
+                    when (type) {
+                        "video_call_started" -> {
+                            Log.d("ChatViewModel", "📹 Notificación de videollamada recibida: $message")
+                            // Verificar si hay llamadas activas para unirse
+                            checkForActiveCalls(chatId)
+                        }
+                        "audio_call_started" -> {
+                            Log.d("ChatViewModel", "🎤 Notificación de llamada de audio recibida: $message")
+                            // Verificar si hay llamadas activas para unirse
+                            checkForActiveCalls(chatId)
+                        }
+                        else -> {
+                            Log.d("ChatViewModel", "📢 Notificación general: $message")
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("ChatViewModel", "❌ Error monitoreando notificaciones de chat", e)
+            }
+        }
+    }
+    
+    /**
+     * Unirse a una llamada activa
+     */
+    fun joinActiveCall(chatId: String, callId: String) {
+        viewModelScope.launch {
+            try {
+                currentUser.value?.let { user ->
+                    // Unirse a la llamada WebRTC
+                    val success = webRTCClient.joinCall(callId, user.id, user.name)
+                    
+                    if (success) {
+                        // Obtener información de la llamada
+                        val callInfo = signalingService.getCallInfo(callId)
+                        callInfo?.let { call ->
+                            // Actualizar estado de la UI
+                            _uiState.value = _uiState.value.copy(
+                                isGroupCallActive = true,
+                                groupCallType = if (call.callType == WebRTCCallType.VIDEO) "video" else "audio",
+                                groupCallId = callId,
+                                hasIncomingCall = false,
+                                incomingCallId = null,
+                                incomingCallType = null,
+                                incomingCallerName = null
+                            )
+                            
+                            // Enviar mensaje al chat
+                            sendGroupCallMessage(chatId, "📞 ${user.name} se unió a la llamada", "joined")
+                            
+                            // Abrir la actividad de videollamada
+                            val intent = Intent(context, com.example.demoappchat.presentation.chat.VideoCallActivity::class.java).apply {
+                                putExtra(com.example.demoappchat.presentation.chat.VideoCallActivity.EXTRA_CHAT_ID, chatId)
+                                putExtra(com.example.demoappchat.presentation.chat.VideoCallActivity.EXTRA_PARTICIPANT_NAME, call.initiatorName)
+                                putExtra(com.example.demoappchat.presentation.chat.VideoCallActivity.EXTRA_IS_INCOMING_CALL, false)
+                                putExtra("call_id", callId)
+                                putExtra("call_type", if (call.callType == WebRTCCallType.VIDEO) "video" else "audio")
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            }
+                            
+                            context.startActivity(intent)
+                        } ?: run {
+                            _uiState.value = _uiState.value.copy(
+                                error = "Error obteniendo información de la llamada"
+                            )
+                        }
+                    } else {
+                        _uiState.value = _uiState.value.copy(
+                            error = "Error al unirse a la llamada"
+                        )
+                    }
+                } ?: run {
+                    _uiState.value = _uiState.value.copy(
+                        error = "Usuario no autenticado"
+                    )
+                }
+            } catch (e: Exception) {
+                Log.e("ChatViewModel", "❌ Error uniéndose a llamada activa", e)
+                _uiState.value = _uiState.value.copy(
+                    error = "Error inesperado: ${e.message}"
+                )
+            }
+        }
+    }
+    
+    /**
+     * Rechazar llamada entrante
+     */
+    fun rejectIncomingCall() {
+        viewModelScope.launch {
+            try {
+                Log.d("ChatViewModel", "❌ Rechazando llamada entrante")
+                
+                // Limpiar estado de llamada entrante
+                _uiState.value = _uiState.value.copy(
+                    hasIncomingCall = false,
+                    incomingCallId = null,
+                    incomingCallType = null,
+                    incomingCallerName = null
+                )
+                
+                Log.d("ChatViewModel", "✅ Llamada rechazada exitosamente")
+                
+            } catch (e: Exception) {
+                Log.e("ChatViewModel", "❌ Error rechazando llamada", e)
+            }
+        }
+    }
+    
+    /**
+     * Enviar mensaje de rechazo de llamada
+     */
+    fun sendCallRejectionMessage(chatId: String) {
+        viewModelScope.launch {
+            try {
+                currentUser.value?.let { user ->
+                    sendGroupCallMessage(chatId, "📞 ${user.name} rechazó la llamada", "rejected")
+                }
+            } catch (e: Exception) {
+                Log.e("ChatViewModel", "❌ Error enviando mensaje de rechazo", e)
+            }
+        }
+    }
+    
+    /**
+     * Limpiar error
+     */
+    fun clearError() {
+        _uiState.value = _uiState.value.copy(error = null)
+    }
+    
+    /**
+     * Verificar si hay llamadas activas al cargar el chat
+     */
+    fun checkForActiveCalls(chatId: String) {
+        viewModelScope.launch {
+            try {
+                val hasActive = signalingService.hasActiveCallInChat(chatId)
+                _hasActiveCall.value = hasActive
+                
+                if (hasActive) {
+                    val activeCall = signalingService.getFirstActiveCallInChat(chatId)
+                    activeCall?.let { call ->
+                        currentUser.value?.let { user ->
+                            val isUserInCall = call.participants.containsKey(user.id)
+                            
+                            if (!isUserInCall) {
+                                // Mostrar banner de llamada entrante
+                                _uiState.value = _uiState.value.copy(
+                                    hasIncomingCall = true,
+                                    incomingCallId = call.callId,
+                                    incomingCallType = if (call.callType == WebRTCCallType.VIDEO) "video" else "audio",
+                                    incomingCallerName = call.initiatorName
+                                )
+                            } else {
+                                // Usuario ya está en la llamada
+                                _uiState.value = _uiState.value.copy(
+                                    isGroupCallActive = true,
+                                    groupCallType = if (call.callType == WebRTCCallType.VIDEO) "video" else "audio",
+                                    groupCallId = call.callId
+                                )
+                            }
+                        }
+                    }
+                } else {
+                    // Limpiar estado si no hay llamadas activas
+                    _uiState.value = _uiState.value.copy(
+                        hasIncomingCall = false,
+                        incomingCallId = null,
+                        incomingCallType = null,
+                        incomingCallerName = null,
+                        isGroupCallActive = false,
+                        groupCallType = null,
+                        groupCallId = null
+                    )
+                }
+            } catch (e: Exception) {
+                Log.e("ChatViewModel", "❌ Error verificando llamadas activas", e)
+            }
+        }
+    }
 }
 
 data class ChatUiState(
@@ -454,5 +717,10 @@ data class ChatUiState(
     val voiceServiceStatus: String = "⏸️ Servicio pausado",
     val isGroupCallActive: Boolean = false,
     val groupCallType: String? = null,
-    val groupCallId: String? = null
+    val groupCallId: String? = null,
+    // 🆕 Estados para llamadas entrantes
+    val hasIncomingCall: Boolean = false,
+    val incomingCallId: String? = null,
+    val incomingCallType: String? = null,
+    val incomingCallerName: String? = null
 )

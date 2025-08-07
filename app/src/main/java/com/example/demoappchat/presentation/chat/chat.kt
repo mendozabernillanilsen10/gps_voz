@@ -147,6 +147,8 @@ fun ChatScreen(
     LaunchedEffect(chatId) {
         viewModel.loadChat(chatId)
         viewModel.loadMessages(chatId)
+        // 🆕 Verificar llamadas activas al cargar el chat
+        viewModel.checkForActiveCalls(chatId)
     }
 
     // Auto scroll
@@ -277,27 +279,39 @@ fun ChatScreen(
                         }
                     )
                     
-                    // Barra de estado de llamadas grupales
-                    if (uiState.isGroupCallActive && uiState.groupCallType != null) {
-                        GroupCallStatusBar(
-                            callType = uiState.groupCallType ?: "audio",
-                            participantCount = 1, // Valor por defecto para participantes
-                            onJoinCall = {
-                                // Unirse a la llamada grupal
-                                viewModel.groupCallId?.let { callId ->
-                                    // Aquí implementarías la lógica para unirse a la llamada
-                                    startVideoCall(context, chatId, uiState.currentChat?.title ?: "Chat")
+
+                    
+                    // 🆕 Banner de llamada entrante
+                    if (uiState.hasIncomingCall && uiState.incomingCallId != null && uiState.incomingCallerName != null) {
+                        IncomingCallBanner(
+                            callerName = uiState.incomingCallerName!!,
+                            callType = uiState.incomingCallType ?: "audio",
+                            onAcceptCall = {
+                                uiState.incomingCallId?.let { callId ->
+                                    viewModel.joinActiveCall(chatId, callId)
                                 }
                             },
+                            onRejectCall = {
+                                viewModel.rejectIncomingCall()
+                                viewModel.sendCallRejectionMessage(chatId)
+                            }
+                        )
+                    }
+                    
+                    // 🆕 Banner de llamada activa
+                    if (uiState.isGroupCallActive && uiState.groupCallType != null && uiState.groupCallId != null) {
+                        ActiveCallBanner(
+                            callType = uiState.groupCallType!!,
+                            participantCount = 1, // TODO: Obtener número real de participantes
                             onEndCall = {
-                                // Terminar la llamada grupal
                                 viewModel.groupCallId?.let { callId ->
-                                    // Aquí implementarías la lógica para terminar la llamada
                                     viewModel.endGroupCall(chatId, callId)
                                 }
                             }
                         )
                     }
+                    
+
 
                     // Contenido del chat
                     if (messages.isEmpty() && !uiState.isLoading) {
