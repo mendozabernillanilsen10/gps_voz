@@ -150,6 +150,12 @@ dependencies {
     // 🆕 NOTIFICACIONES PUSH PARA OPERACIONES
     implementation("com.google.firebase:firebase-messaging")
     implementation("com.google.firebase:firebase-functions")
+    
+    // 🆕 WebRTC para llamadas de voz y video
+    implementation("io.pristine:libjingle:11139@aar")
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("com.squareup.retrofit2:retrofit:2.9.0")
+    implementation("com.squareup.retrofit2:converter-gson:2.9.0")
 
     // Testing
     testImplementation(libs.junit)

@@ -19,7 +19,7 @@ playServicesAuth = "20.7.0"
 # Hilt
 hilt = "2.48"
 hiltNavigationCompose = "1.1.0"
-ksp = "2.0.0-1.0.21"
+ksp = "2.0.0-1.0.24"
 
 # Navigation y Lifecycle
 navigation = "2.7.5"

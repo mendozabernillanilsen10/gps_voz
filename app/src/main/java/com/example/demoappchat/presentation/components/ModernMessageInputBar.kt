@@ -43,7 +43,7 @@ fun ModernMessageInputBar(
     onCameraClick: () -> Unit = {}
 ) {
     var showAttachmentOptions by remember { mutableStateOf(false) }
-
+    
     Surface(
         color = MaterialTheme.colorScheme.surface,
         shadowElevation = 8.dp
@@ -123,15 +123,15 @@ fun ModernMessageInputBar(
                         },
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(
-                        Icons.Default.Send,
-                        contentDescription = "Enviar",
+                        Icon(
+                            Icons.Default.Send,
+                            contentDescription = "Enviar",
                         tint = if (messageText.isNotBlank()) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(20.dp)
-                    )
+                            modifier = Modifier.size(20.dp)
+                        )
                 }
             }
-
+            
             // Attachment options grid
             AnimatedVisibility(
                 visible = showAttachmentOptions,
@@ -144,51 +144,51 @@ fun ModernMessageInputBar(
                 ) {
                     LazyVerticalGrid(
                         columns = GridCells.Fixed(4),
-                        modifier = Modifier
-                            .fillMaxWidth()
+        modifier = Modifier
+            .fillMaxWidth()
                             .padding(16.dp),
                         horizontalArrangement = Arrangement.spacedBy(16.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
                         item {
-                            AttachmentOption(
+                AttachmentOption(
                                 icon = Icons.Rounded.PhotoCamera,
                                 label = "Foto",
                                 color = MaterialTheme.colorScheme.primary,
-                                onClick = onPhotoClick
-                            )
+                    onClick = onPhotoClick
+                )
                         }
                         item {
-                            AttachmentOption(
+                AttachmentOption(
                                 icon = Icons.Rounded.Videocam,
-                                label = "Video",
+                    label = "Video",
                                 color = MaterialTheme.colorScheme.primary,
-                                onClick = onVideoClick
-                            )
-                        }
+                    onClick = onVideoClick
+                )
+            }
                         item {
-                            AttachmentOption(
+                AttachmentOption(
                                 icon = Icons.Rounded.Mic,
-                                label = "Audio",
+                    label = "Audio",
                                 color = MaterialTheme.colorScheme.primary,
-                                onClick = onAudioClick
-                            )
+                    onClick = onAudioClick
+                )
                         }
                         item {
-                            AttachmentOption(
+                AttachmentOption(
                                 icon = Icons.Rounded.LocationOn,
-                                label = "Ubicación",
+                    label = "Ubicación",
                                 color = MaterialTheme.colorScheme.primary,
-                                onClick = onLocationClick
-                            )
+                    onClick = onLocationClick
+                )
                         }
                         item {
-                            AttachmentOption(
+                AttachmentOption(
                                 icon = Icons.Rounded.Description,
-                                label = "Documento",
+                    label = "Documento",
                                 color = MaterialTheme.colorScheme.primary,
-                                onClick = onDocumentClick
-                            )
+                    onClick = onDocumentClick
+                )
                         }
                         item {
                             AttachmentOption(
@@ -229,9 +229,9 @@ fun AttachmentOption(
                 modifier = Modifier.size(24.dp)
             )
         }
-
+        
         Spacer(modifier = Modifier.height(4.dp))
-
+        
         Text(
             text = label,
             fontSize = 12.sp,

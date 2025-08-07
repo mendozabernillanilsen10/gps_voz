@@ -348,15 +348,58 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
     }
 
     private fun sendTokenToServer(token: String) {
-        // TODO: Implementar envío del token al servidor Firebase
-        // Esto se debe hacer cuando tengas un backend configurado
-        Log.d(TAG, "💾 Token guardado localmente: ${token.take(20)}...")
-        
-        // Guardar token localmente por ahora
-        val sharedPrefs = getSharedPreferences("fcm_prefs", Context.MODE_PRIVATE)
-        sharedPrefs.edit()
-            .putString("fcm_token", token)
-            .putLong("token_timestamp", System.currentTimeMillis())
-            .apply()
+        try {
+            Log.d(TAG, "🔄 Registrando token FCM en Firebase: ${token.take(20)}...")
+            
+            // Guardar token localmente
+            val sharedPrefs = getSharedPreferences("fcm_prefs", Context.MODE_PRIVATE)
+            sharedPrefs.edit()
+                .putString("fcm_token", token)
+                .putLong("token_timestamp", System.currentTimeMillis())
+                .apply()
+            
+            // 🆕 Registrar token en Firebase Database
+            val database = com.google.firebase.database.FirebaseDatabase.getInstance()
+            val auth = com.google.firebase.auth.FirebaseAuth.getInstance()
+            
+            val currentUser = auth.currentUser
+            if (currentUser != null) {
+                // Actualizar token en el perfil del usuario
+                database.getReference("users")
+                    .child(currentUser.uid)
+                    .child("fcmToken")
+                    .setValue(token)
+                    .addOnSuccessListener {
+                        Log.d(TAG, "✅ Token FCM registrado exitosamente en Firebase")
+                    }
+                    .addOnFailureListener { e ->
+                        Log.e(TAG, "❌ Error registrando token FCM en Firebase", e)
+                    }
+                
+                // También guardar en colección separada para notificaciones
+                val tokenData = mapOf(
+                    "userId" to currentUser.uid,
+                    "token" to token,
+                    "timestamp" to System.currentTimeMillis(),
+                    "platform" to "android",
+                    "appVersion" to "1.0.0"
+                )
+                
+                database.getReference("fcm_tokens")
+                    .child(currentUser.uid)
+                    .setValue(tokenData)
+                    .addOnSuccessListener {
+                        Log.d(TAG, "✅ Token FCM guardado en colección separada")
+                    }
+                    .addOnFailureListener { e ->
+                        Log.e(TAG, "❌ Error guardando token en colección separada", e)
+                    }
+            } else {
+                Log.w(TAG, "⚠️ Usuario no autenticado, no se puede registrar token FCM")
+            }
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Error en sendTokenToServer", e)
+        }
     }
 }
