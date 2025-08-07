@@ -1,6 +1,6 @@
 package com.example.demoappchat.presentation.components
 
-import androidx.compose.animation.*
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -14,19 +14,19 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.demoappchat.ui.theme.SafetyGreen
+import com.example.demoappchat.ui.theme.SystemRed
 
 @Composable
 fun GroupCallStatusBar(
-    isActive: Boolean,
-    callType: String?,
+    callType: String,
+    participantCount: Int,
     onJoinCall: () -> Unit,
     onEndCall: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     AnimatedVisibility(
-        visible = isActive,
-        enter = slideInVertically(initialOffsetY = { -it }) + fadeIn(),
-        exit = slideOutVertically(targetOffsetY = { -it }) + fadeOut(),
+        visible = true,
         modifier = modifier
     ) {
         Surface(
@@ -35,9 +35,9 @@ fun GroupCallStatusBar(
                 .padding(16.dp),
             shape = RoundedCornerShape(12.dp),
             color = when (callType) {
-                "video" -> Color(0xFF1976D2)
-                "audio" -> Color(0xFF388E3C)
-                else -> Color(0xFF757575)
+                "video" -> MaterialTheme.colorScheme.primary
+                "audio" -> SafetyGreen
+                else -> MaterialTheme.colorScheme.onSurfaceVariant
             },
             shadowElevation = 4.dp
         ) {
@@ -110,7 +110,7 @@ fun GroupCallStatusBar(
                         modifier = Modifier
                             .size(40.dp)
                             .background(
-                                color = Color.Red.copy(alpha = 0.8f),
+                                color = SystemRed.copy(alpha = 0.8f),
                                 shape = RoundedCornerShape(8.dp)
                             )
                     ) {
@@ -140,7 +140,7 @@ fun IncomingCallNotification(
             .fillMaxWidth()
             .padding(16.dp),
         shape = RoundedCornerShape(12.dp),
-        color = Color(0xFF1976D2),
+        color = MaterialTheme.colorScheme.primary,
         shadowElevation = 8.dp
     ) {
         Column(
@@ -192,7 +192,7 @@ fun IncomingCallNotification(
                 Button(
                     onClick = onAccept,
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF4CAF50)
+                        containerColor = SafetyGreen
                     ),
                     modifier = Modifier.weight(1f)
                 ) {
@@ -210,7 +210,7 @@ fun IncomingCallNotification(
                 Button(
                     onClick = onDecline,
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFFF44336)
+                        containerColor = SystemRed
                     ),
                     modifier = Modifier.weight(1f)
                 ) {

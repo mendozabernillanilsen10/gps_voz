@@ -57,14 +57,7 @@ fun ModernChatUI(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(
-                        Color(0xFFF8F9FA),
-                        Color(0xFFE9ECEF)
-                    )
-                )
-            )
+            .background(MaterialTheme.colorScheme.background)
     ) {
         // Header elegante - FIXED
         ModernChatHeader(
@@ -103,10 +96,10 @@ fun ModernChatUI(
         }
         
         // Input moderno
-        ModernMessageInput(
+        ModernChatInput(
             value = messageText,
             onValueChange = { messageText = it },
-            onSendMessage = {
+            onSend = {
                 if (messageText.isNotBlank()) {
                     onSendMessage(messageText)
                     messageText = ""
@@ -124,18 +117,10 @@ fun ModernChatHeader(
     isVoiceServiceActive: Boolean,
     onToggleVoiceService: (Boolean) -> Unit
 ) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(16.dp)
-            .shadow(
-                elevation = 8.dp,
-                shape = RoundedCornerShape(16.dp)
-            ),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = Color.White
-        )
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.surface,
+        shadowElevation = 2.dp
     ) {
         Row(
             modifier = Modifier
@@ -144,50 +129,30 @@ fun ModernChatHeader(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                // Avatar
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape)
-                        .background(PrimaryBlue),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        Icons.Default.Chat,
-                        contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
-                
-                Column {
-                    Text(
-                        text = "Chat Grupal",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = Gray900
-                    )
-                    Text(
-                        text = if (isVoiceServiceActive) "🎤 Escuchando comandos" else "💬 Chat activo",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Gray600
-                    )
-                }
+            // Título y estado
+            Column {
+                Text(
+                    text = "Chat de Emergencia",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = if (isVoiceServiceActive) "Servicio de voz activo" else "Servicio de voz inactivo",
+                    fontSize = 14.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
             
-            // Toggle de servicio de voz
+            // Switch del servicio de voz
             Switch(
                 checked = isVoiceServiceActive,
                 onCheckedChange = onToggleVoiceService,
                 colors = SwitchDefaults.colors(
-                    checkedThumbColor = PrimaryBlue,
-                    checkedTrackColor = PrimaryBlue.copy(alpha = 0.3f),
-                    uncheckedThumbColor = Gray600,
-                    uncheckedTrackColor = Gray600.copy(alpha = 0.3f)
+                    checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
+                    checkedTrackColor = MaterialTheme.colorScheme.primary,
+                    uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
                 )
             )
         }
@@ -201,34 +166,24 @@ fun ModernMessageBubble(
     modifier: Modifier = Modifier
 ) {
     val alignment = if (isFromCurrentUser) Alignment.End else Alignment.Start
-    val backgroundColor = if (isFromCurrentUser) PrimaryBlue else Color.White
-    val textColor = if (isFromCurrentUser) Color.White else Gray900
+    val backgroundColor = if (isFromCurrentUser) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface
+    val textColor = if (isFromCurrentUser) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
     
     Column(
         modifier = modifier.fillMaxWidth(),
         horizontalAlignment = alignment
     ) {
-        Card(
-            modifier = Modifier
-                .widthIn(max = 280.dp)
-                .shadow(
-                    elevation = 2.dp,
-                    shape = RoundedCornerShape(
-                        topStart = 16.dp,
-                        topEnd = 16.dp,
-                        bottomStart = if (isFromCurrentUser) 16.dp else 4.dp,
-                        bottomEnd = if (isFromCurrentUser) 4.dp else 16.dp
-                    )
-                ),
+        // Burbuja del mensaje
+        Surface(
             shape = RoundedCornerShape(
-                topStart = 16.dp,
-                topEnd = 16.dp,
-                bottomStart = if (isFromCurrentUser) 16.dp else 4.dp,
-                bottomEnd = if (isFromCurrentUser) 4.dp else 16.dp
+                topStart = if (isFromCurrentUser) 20.dp else 4.dp,
+                topEnd = if (isFromCurrentUser) 4.dp else 20.dp,
+                bottomStart = 20.dp,
+                bottomEnd = 20.dp
             ),
-            colors = CardDefaults.cardColors(
-                containerColor = backgroundColor
-            )
+            color = backgroundColor,
+            shadowElevation = if (isFromCurrentUser) 0.dp else 1.dp,
+            modifier = Modifier.widthIn(max = 280.dp)
         ) {
             when (message.messageType) {
                 MessageType.TEXT -> {
@@ -255,14 +210,14 @@ fun ModernMessageBubble(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(200.dp)
-                            .background(Gray600)
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
                             .clip(RoundedCornerShape(12.dp)),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             Icons.Default.PlayArrow,
                             contentDescription = "Reproducir video",
-                            tint = Color.White,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(48.dp)
                         )
                     }
@@ -307,7 +262,7 @@ fun ModernMessageBubble(
                 Text(
                     text = message.userName,
                     style = MaterialTheme.typography.bodySmall,
-                    color = Gray600,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontWeight = FontWeight.Medium
                 )
             }
@@ -315,147 +270,75 @@ fun ModernMessageBubble(
             Text(
                 text = formatMessageTime(message.timestamp),
                 style = MaterialTheme.typography.bodySmall,
-                color = Gray600
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }
 }
 
 @Composable
-fun ModernMessageInput(
+fun ModernChatInput(
     value: String,
     onValueChange: (String) -> Unit,
-    onSendMessage: () -> Unit,
+    onSend: () -> Unit,
     onSendImage: () -> Unit,
     onSendVideo: () -> Unit,
-    onSendAudio: () -> Unit,
-    modifier: Modifier = Modifier
+    onSendAudio: () -> Unit
 ) {
-    Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(16.dp)
-            .shadow(
-                elevation = 12.dp,
-                shape = RoundedCornerShape(24.dp)
-            ),
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = Color.White
-        )
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.surface,
+        shadowElevation = 4.dp
     ) {
-        Column(
-            modifier = Modifier.padding(16.dp)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            // Barra de herramientas de medios
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
+            // Botón de adjuntar
+            IconButton(
+                onClick = { /* Mostrar opciones de media */ },
+                modifier = Modifier.size(40.dp)
             ) {
-                // Botón de imagen
-                IconButton(
-                    onClick = onSendImage,
-                    modifier = Modifier
-                        .size(40.dp)
-                        .background(
-                            color = Gray600.copy(alpha = 0.1f),
-                            shape = CircleShape
-                        )
-                ) {
-                    Icon(
-                        Icons.Default.Image,
-                        contentDescription = "Enviar imagen",
-                        tint = Gray600,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-                
-                // Botón de video
-                IconButton(
-                    onClick = onSendVideo,
-                    modifier = Modifier
-                        .size(40.dp)
-                        .background(
-                            color = Gray600.copy(alpha = 0.1f),
-                            shape = CircleShape
-                        )
-                ) {
-                    Icon(
-                        Icons.Default.Videocam,
-                        contentDescription = "Enviar video",
-                        tint = Gray600,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-                
-                // Botón de audio
-                IconButton(
-                    onClick = onSendAudio,
-                    modifier = Modifier
-                        .size(40.dp)
-                        .background(
-                            color = Gray600.copy(alpha = 0.1f),
-                            shape = CircleShape
-                        )
-                ) {
-                    Icon(
-                        Icons.Default.Mic,
-                        contentDescription = "Enviar audio",
-                        tint = Gray600,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-                
-                Spacer(modifier = Modifier.weight(1f))
+                Icon(
+                    Icons.Default.AttachFile,
+                    contentDescription = "Adjuntar archivo",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
             
-            Spacer(modifier = Modifier.height(8.dp))
-            
-            // Input de texto
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                OutlinedTextField(
-                    value = value,
-                    onValueChange = onValueChange,
-                    modifier = Modifier.weight(1f),
-                    placeholder = {
-                        Text(
-                            text = "Escribe un mensaje...",
-                            color = Gray600
-                        )
-                    },
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = PrimaryBlue,
-                        unfocusedBorderColor = Gray600.copy(alpha = 0.3f),
-                        focusedContainerColor = Color.Transparent,
-                        unfocusedContainerColor = Color.Transparent
-                    ),
-                    shape = RoundedCornerShape(20.dp),
-                    singleLine = true
-                )
-                
-                // Botón de enviar
-                IconButton(
-                    onClick = onSendMessage,
-                    modifier = Modifier
-                        .size(48.dp)
-                        .background(
-                            color = if (value.isNotBlank()) PrimaryBlue else Gray600.copy(alpha = 0.3f),
-                            shape = CircleShape
-                        ),
-                    enabled = value.isNotBlank()
-                ) {
-                    Icon(
-                        Icons.AutoMirrored.Filled.Send,
-                        contentDescription = "Enviar",
-                        tint = Color.White,
-                        modifier = Modifier.size(24.dp)
+            // Campo de texto
+            OutlinedTextField(
+                value = value,
+                onValueChange = onValueChange,
+                placeholder = {
+                    Text(
+                        text = "Escribe un mensaje...",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                }
+                },
+                modifier = Modifier.weight(1f),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                    cursorColor = MaterialTheme.colorScheme.primary
+                ),
+                maxLines = 4
+            )
+            
+            // Botón de enviar
+            FloatingActionButton(
+                onClick = onSend,
+                modifier = Modifier.size(40.dp),
+                containerColor = if (value.isNotBlank()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
+            ) {
+                Icon(
+                    Icons.AutoMirrored.Filled.Send,
+                    contentDescription = "Enviar",
+                    tint = if (value.isNotBlank()) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
     }
@@ -465,11 +348,11 @@ private fun formatMessageTime(timestamp: Long): String {
     val date = Date(timestamp)
     val now = Date()
     val diff = now.time - timestamp
-    
+
     return when {
-        diff < 60000 -> "Ahora"
-        diff < 3600000 -> "${diff / 60000}m"
-        diff < 86400000 -> "${diff / 3600000}h"
+        diff < 60 * 1000 -> "Ahora"
+        diff < 60 * 60 * 1000 -> "${diff / (60 * 1000)}m"
+        diff < 24 * 60 * 60 * 1000 -> "${diff / (60 * 60 * 1000)}h"
         else -> SimpleDateFormat("dd/MM", Locale.getDefault()).format(date)
     }
 } 

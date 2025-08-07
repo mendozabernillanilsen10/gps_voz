@@ -28,16 +28,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
 import com.example.demoappchat.ui.theme.EmergencyRed
-import com.example.demoappchat.ui.theme.Gray600
-import com.example.demoappchat.ui.theme.Gray700
-import com.example.demoappchat.ui.theme.Gray900
-import com.example.demoappchat.ui.theme.PrimaryBlue
 import com.example.demoappchat.ui.theme.SafetyGreen
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.rememberPermissionState
 import kotlinx.coroutines.delay
 import java.io.File
 import java.io.IOException
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ModernChatTopBar(
@@ -60,8 +57,8 @@ fun ModernChatTopBar(
                         .background(
                             Brush.radialGradient(
                                 colors = listOf(
-                                    PrimaryBlue.copy(alpha = 0.2f),
-                                    PrimaryBlue.copy(alpha = 0.1f)
+                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
+                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
                                 )
                             ),
                             CircleShape
@@ -71,7 +68,7 @@ fun ModernChatTopBar(
                     Icon(
                         Icons.Default.Groups,
                         contentDescription = null,
-                        tint = PrimaryBlue,
+                        tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(22.dp)
                     )
                 }
@@ -81,24 +78,26 @@ fun ModernChatTopBar(
                 Column {
                     Text(
                         text = chatTitle,
+                        fontSize = 18.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = Gray900,
-                        fontSize = 17.sp
+                        color = MaterialTheme.colorScheme.onPrimary
                     )
                     Row(
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
+                        Text(
+                            text = "$participantCount participantes",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f)
+                        )
                         Box(
                             modifier = Modifier
                                 .size(6.dp)
-                                .background(SafetyGreen, CircleShape)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = "$participantCount participantes",
-                            color = Gray600,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Medium
+                                .background(
+                                    SafetyGreen,
+                                    CircleShape
+                                )
                         )
                     }
                 }
@@ -109,20 +108,20 @@ fun ModernChatTopBar(
                 Icon(
                     Icons.Rounded.ArrowBack,
                     contentDescription = "Volver",
-                    tint = Gray700,
+                    tint = MaterialTheme.colorScheme.onPrimary,
                     modifier = Modifier.size(24.dp)
                 )
             }
         },
         colors = TopAppBarDefaults.topAppBarColors(
-            containerColor = Color.White
+            containerColor = MaterialTheme.colorScheme.primary
         ),
         actions = {
             IconButton(onClick = onVideoCall) {
                 Icon(
                     Icons.Rounded.Videocam,
                     contentDescription = "Videollamada",
-                    tint = PrimaryBlue,
+                    tint = MaterialTheme.colorScheme.onPrimary,
                     modifier = Modifier.size(22.dp)
                 )
             }
@@ -130,7 +129,7 @@ fun ModernChatTopBar(
                 Icon(
                     Icons.Rounded.Call,
                     contentDescription = "Llamada",
-                    tint = PrimaryBlue,
+                    tint = MaterialTheme.colorScheme.onPrimary,
                     modifier = Modifier.size(22.dp)
                 )
             }

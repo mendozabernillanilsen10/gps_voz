@@ -240,9 +240,13 @@ class FirebaseRepository @Inject constructor(
     }
 
     fun startListeningToNearbyChats(userLatitude: Double, userLongitude: Double) {
+        Log.d("FirebaseRepo", "🔍 Iniciando escucha de chats cercanos en: $userLatitude, $userLongitude")
+        
         chatsRef.orderByChild("isActive").equalTo(true)
             .addValueEventListener(object : ValueEventListener {
                 override fun onDataChange(snapshot: DataSnapshot) {
+                    Log.d("FirebaseRepo", "📡 Datos recibidos de Firebase: ${snapshot.childrenCount} chats")
+                    
                     val chats = mutableListOf<ProximityChat>()
 
                     snapshot.children.forEach { chatSnapshot ->
@@ -253,13 +257,19 @@ class FirebaseRepository @Inject constructor(
                                 it.latitude, it.longitude
                             )
 
+                            Log.d("FirebaseRepo", "📍 Chat: ${it.title} - Distancia: ${distance}m, Radio: ${it.radius}m")
+
                             // Solo mostrar chats dentro del radio
                             if (distance <= it.radius) {
                                 chats.add(it)
+                                Log.d("FirebaseRepo", "✅ Chat agregado: ${it.title}")
+                            } else {
+                                Log.d("FirebaseRepo", "❌ Chat fuera de rango: ${it.title}")
                             }
                         }
                     }
 
+                    Log.d("FirebaseRepo", "📋 Total de chats en rango: ${chats.size}")
                     _nearbyChats.value = chats.sortedByDescending { it.createdAt }
                 }
 

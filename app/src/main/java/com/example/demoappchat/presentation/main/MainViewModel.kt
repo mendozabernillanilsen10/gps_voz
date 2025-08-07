@@ -42,10 +42,13 @@ class MainViewModel @Inject constructor(
     val currentLocation: StateFlow<Location?> = _currentLocation.asStateFlow()
 
     fun updateLocation(location: Location) {
+        Log.d("MainViewModel", "📍 Actualizando ubicación: ${location.latitude}, ${location.longitude}")
         _currentLocation.value = location
 
         viewModelScope.launch {
+            Log.d("MainViewModel", "🔄 Actualizando ubicación en Firebase")
             repository.updateUserLocation(location.latitude, location.longitude)
+            Log.d("MainViewModel", "🎧 Iniciando escucha de chats cercanos")
             repository.startListeningToNearbyChats(location.latitude, location.longitude)
         }
     }

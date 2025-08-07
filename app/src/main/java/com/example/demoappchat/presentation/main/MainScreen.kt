@@ -106,6 +106,8 @@ fun MainScreen(
         }
     }
 
+
+
     // Navegar a chat creado/unido
     LaunchedEffect(uiState.createdChatId, uiState.joinedChatId) {
         uiState.createdChatId?.let { chatId ->
@@ -128,13 +130,13 @@ fun MainScreen(
                         Text(
                             "SafeVoice",
                             fontWeight = FontWeight.Bold,
-                            color = Color.White,
+                            color = MaterialTheme.colorScheme.onPrimary,
                             fontSize = 22.sp
                         )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color(0xFF1877F2) // Facebook blue
+                    containerColor = MaterialTheme.colorScheme.primary
                 ),
                 actions = {
                     // Indicador de grabación compacto
@@ -148,7 +150,7 @@ fun MainScreen(
                         // Indicador de voz activa cuando no está grabando
                         Surface(
                             shape = CircleShape,
-                            color = Color(0xFF42C85F), // WhatsApp green
+                            color = SafetyGreen,
                             modifier = Modifier.size(32.dp)
                         ) {
                             Icon(
@@ -165,7 +167,7 @@ fun MainScreen(
                         Icon(
                             Icons.Default.Settings,
                             contentDescription = "Configuración",
-                            tint = Color.White
+                            tint = MaterialTheme.colorScheme.onPrimary
                         )
                     }
                     
@@ -174,7 +176,7 @@ fun MainScreen(
                             Icon(
                                 Icons.Default.MoreVert,
                                 contentDescription = "Menú",
-                                tint = Color.White
+                                tint = MaterialTheme.colorScheme.onPrimary
                             )
                         }
 
@@ -232,6 +234,7 @@ fun MainScreen(
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.background)
                     .padding(paddingValues),
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -242,7 +245,7 @@ fun MainScreen(
                         Card(
                             modifier = Modifier.fillMaxWidth(),
                             colors = CardDefaults.cardColors(
-                                containerColor = Color.White
+                                containerColor = MaterialTheme.colorScheme.surface
                             ),
                             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
                             shape = RoundedCornerShape(20.dp)
@@ -281,12 +284,12 @@ fun MainScreen(
                                             text = "Hola, ${user.name}",
                                             fontWeight = FontWeight.Bold,
                                             fontSize = 22.sp,
-                                            color = Color.Black
+                                            color = MaterialTheme.colorScheme.onSurface
                                         )
                                         Spacer(modifier = Modifier.height(4.dp))
                                         Text(
                                             text = "Sistema de emergencias activo",
-                                            color = Color.Gray,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                                             fontSize = 14.sp,
                                             fontWeight = FontWeight.Medium
                                         )
@@ -364,7 +367,11 @@ fun MainScreen(
                         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
                         shape = RoundedCornerShape(16.dp),
                         colors = CardDefaults.cardColors(
-                            containerColor = if (isVoiceServiceEnabled) SafetyGreen.copy(alpha = 0.1f) else Color.White
+                            containerColor = if (isVoiceServiceEnabled) {
+                                SafetyGreen.copy(alpha = 0.1f)
+                            } else {
+                                MaterialTheme.colorScheme.surface
+                            }
                         )
                     ) {
                         Row(
@@ -380,7 +387,7 @@ fun MainScreen(
                                 Icon(
                                     Icons.Default.Mic,
                                     contentDescription = "Servicio de voz",
-                                    tint = if (isVoiceServiceEnabled) SafetyGreen else Color.Gray,
+                                    tint = if (isVoiceServiceEnabled) SafetyGreen else MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.size(24.dp)
                                 )
                                 Spacer(modifier = Modifier.width(12.dp))
@@ -389,7 +396,7 @@ fun MainScreen(
                                         text = "Detección de Voz",
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 16.sp,
-                                        color = Color.Black
+                                        color = MaterialTheme.colorScheme.onSurface
                                     )
                                     Text(
                                         text = when {
@@ -401,7 +408,7 @@ fun MainScreen(
                                         color = when {
                                             isVoiceServiceEnabled -> SafetyGreen
                                             !audioPermissions.allPermissionsGranted -> WarningOrange
-                                            else -> Color.Gray
+                                            else -> MaterialTheme.colorScheme.onSurfaceVariant
                                         }
                                     )
                                 }
@@ -422,7 +429,7 @@ fun MainScreen(
                                     checkedThumbColor = Color.White,
                                     checkedTrackColor = SafetyGreen,
                                     uncheckedThumbColor = Color.White,
-                                    uncheckedTrackColor = Color.Gray
+                                    uncheckedTrackColor = MaterialTheme.colorScheme.outline
                                 )
                             )
                         }
@@ -439,7 +446,7 @@ fun MainScreen(
                     item {
                         Surface(
                             modifier = Modifier.fillMaxWidth(),
-                            color = Color.White
+                            color = MaterialTheme.colorScheme.background
                         ) {
                             Row(
                                 modifier = Modifier
@@ -452,18 +459,20 @@ fun MainScreen(
                                     text = "Chats de Emergencia",
                                     fontSize = 18.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = Color(0xFF1C1E21)
+                                    color = MaterialTheme.colorScheme.onBackground
                                 )
                                 
                                 Text(
                                     text = "${nearbyChats.size} activos",
                                     fontSize = 14.sp,
-                                    color = Color(0xFF65676B)
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
                         }
                     }
                 }
+
+
 
                 // Chat items
                 if (nearbyChats.isEmpty()) {
@@ -544,7 +553,7 @@ fun ModernChatCard(
             .clickable { onClick() },
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Column(
             modifier = Modifier.padding(16.dp)
@@ -563,9 +572,9 @@ fun ModernChatCard(
                         shape = CircleShape,
                         modifier = Modifier.size(48.dp),
                         color = when (chat.category) {
-                            "emergency" -> Color(0xFFE53E3E)
-                            "security" -> Color(0xFFFF6B35)
-                            else -> Color(0xFF1877F2)
+                            "emergency" -> EmergencyRed
+                            "security" -> WarningOrange
+                            else -> MaterialTheme.colorScheme.primary
                         }
                     ) {
                         Box(contentAlignment = Alignment.Center) {
@@ -587,7 +596,7 @@ fun ModernChatCard(
                         text = chat.creatorName,
                         fontWeight = FontWeight.SemiBold,
                         fontSize = 16.sp,
-                        color = Color(0xFF1C1E21)
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     Row(
                         verticalAlignment = Alignment.CenterVertically
@@ -596,9 +605,9 @@ fun ModernChatCard(
                         Surface(
                             shape = RoundedCornerShape(12.dp),
                             color = when (chat.category) {
-                                "emergency" -> Color(0xFFE53E3E).copy(alpha = 0.1f)
-                                "security" -> Color(0xFFFF6B35).copy(alpha = 0.1f)
-                                else -> Color(0xFF1877F2).copy(alpha = 0.1f)
+                                "emergency" -> EmergencyRed.copy(alpha = 0.1f)
+                                "security" -> WarningOrange.copy(alpha = 0.1f)
+                                else -> MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
                             }
                         ) {
                             Text(
@@ -610,9 +619,9 @@ fun ModernChatCard(
                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
                                 fontSize = 12.sp,
                                 color = when (chat.category) {
-                                    "emergency" -> Color(0xFFE53E3E)
-                                    "security" -> Color(0xFFFF6B35)
-                                    else -> Color(0xFF1877F2)
+                                    "emergency" -> EmergencyRed
+                                    "security" -> WarningOrange
+                                    else -> MaterialTheme.colorScheme.primary
                                 },
                                 fontWeight = FontWeight.Medium
                             )
@@ -626,7 +635,7 @@ fun ModernChatCard(
                                 chat.getDistanceText(it.latitude, it.longitude)
                             } ?: "Calculando...",
                             fontSize = 13.sp,
-                            color = Color(0xFF65676B)
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
@@ -635,12 +644,12 @@ fun ModernChatCard(
                 Surface(
                     onClick = onClick,
                     shape = RoundedCornerShape(20.dp),
-                    color = Color(0xFF1877F2)
+                    color = MaterialTheme.colorScheme.primary
                 ) {
                     Text(
                         text = "Unirse",
                         modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
-                        color = Color.White,
+                        color = MaterialTheme.colorScheme.onPrimary,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.SemiBold
                     )
@@ -654,7 +663,7 @@ fun ModernChatCard(
                 text = chat.title,
                 fontWeight = FontWeight.Normal,
                 fontSize = 16.sp,
-                color = Color(0xFF1C1E21),
+                color = MaterialTheme.colorScheme.onSurface,
                 lineHeight = 22.sp
             )
             
@@ -663,7 +672,7 @@ fun ModernChatCard(
                 Text(
                     text = chat.description,
                     fontSize = 14.sp,
-                    color = Color(0xFF65676B),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     lineHeight = 20.sp,
                     maxLines = 3,
                     overflow = TextOverflow.Ellipsis
@@ -684,21 +693,21 @@ fun ModernChatCard(
                     Icon(
                         Icons.Default.Person,
                         contentDescription = null,
-                        tint = Color(0xFF65676B),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(16.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         text = "${chat.participantsCount} participantes",
                         fontSize = 13.sp,
-                        color = Color(0xFF65676B)
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
                 
                 Text(
                     text = "Hace ${((System.currentTimeMillis() - chat.createdAt) / (1000 * 60)).toInt()}min",
                     fontSize = 13.sp,
-                    color = Color(0xFF65676B)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
             
@@ -709,7 +718,7 @@ fun ModernChatCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(0.5.dp)
-                    .background(Color(0xFFDADADA))
+                    .background(MaterialTheme.colorScheme.outline)
             )
         }
     }
@@ -719,7 +728,7 @@ fun ModernChatCard(
 fun EmptyStateContent() {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        color = Color.White
+        color = MaterialTheme.colorScheme.surface
     ) {
         Column(
             modifier = Modifier
@@ -734,7 +743,7 @@ fun EmptyStateContent() {
             ) {
                 Surface(
                     shape = CircleShape,
-                    color = Color(0xFFF0F2F5),
+                    color = MaterialTheme.colorScheme.surfaceVariant,
                     modifier = Modifier.size(100.dp)
                 ) {
                     Icon(
@@ -743,7 +752,7 @@ fun EmptyStateContent() {
                         modifier = Modifier
                             .size(100.dp)
                             .padding(24.dp),
-                        tint = Color(0xFF65676B)
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
@@ -754,7 +763,7 @@ fun EmptyStateContent() {
                 text = "No hay chats en tu área",
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFF1C1E21),
+                color = MaterialTheme.colorScheme.onSurface,
                 textAlign = TextAlign.Center
             )
 
@@ -763,7 +772,7 @@ fun EmptyStateContent() {
             Text(
                 text = "Crea el primer chat de emergencia en tu zona y conecta con personas cercanas",
                 fontSize = 16.sp,
-                color = Color(0xFF65676B),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
                 lineHeight = 22.sp
             )
@@ -772,7 +781,7 @@ fun EmptyStateContent() {
 
             Surface(
                 shape = RoundedCornerShape(8.dp),
-                color = Color(0xFF1877F2)
+                color = MaterialTheme.colorScheme.primary
             ) {
                 Row(
                     modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
@@ -781,14 +790,14 @@ fun EmptyStateContent() {
                     Icon(
                         Icons.Default.Add,
                         contentDescription = null,
-                        tint = Color.White,
+                        tint = MaterialTheme.colorScheme.onPrimary,
                         modifier = Modifier.size(18.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = "Crear primer chat",
                         fontSize = 16.sp,
-                        color = Color.White,
+                        color = MaterialTheme.colorScheme.onPrimary,
                         fontWeight = FontWeight.Medium
                     )
                 }

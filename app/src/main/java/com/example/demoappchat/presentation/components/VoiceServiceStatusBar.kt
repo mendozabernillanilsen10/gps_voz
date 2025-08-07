@@ -1,58 +1,35 @@
 package com.example.demoappchat.presentation.components
 
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
-import androidx.compose.animation.with
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.MicOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.demoappchat.ui.theme.*
 
-/**
- * Barra de estado del servicio de voz para chats grupales
- * Muestra el estado actual y permite controlar el servicio
- */
 @Composable
 fun VoiceServiceStatusBar(
     isActive: Boolean,
     status: String,
-    isGroupChat: Boolean,
-    onToggleService: (Boolean) -> Unit,
-    modifier: Modifier = Modifier
+    isGroupChat: Boolean = false,
+    onToggleService: (Boolean) -> Unit
 ) {
-    if (!isGroupChat) return // Solo mostrar en chats grupales
-    
-    AnimatedVisibility(
-        visible = true,
-        enter = slideInVertically(initialOffsetY = { -it }) + fadeIn(),
-        exit = slideOutVertically(targetOffsetY = { -it }) + fadeOut(),
-        modifier = modifier
-    ) {
+    if (isGroupChat) {
         Card(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             colors = CardDefaults.cardColors(
-                containerColor = if (isActive) SafetyGreen.copy(alpha = 0.1f) else Color(0xFFF0F2F5)
+                containerColor = MaterialTheme.colorScheme.surfaceVariant
             ),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-            shape = RoundedCornerShape(12.dp)
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
         ) {
             Row(
                 modifier = Modifier
@@ -61,46 +38,40 @@ fun VoiceServiceStatusBar(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Icono y estado
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    // Icono simple (sin animación experimental)
                     Icon(
                         imageVector = if (isActive) Icons.Default.Mic else Icons.Default.MicOff,
                         contentDescription = if (isActive) "Micrófono activo" else "Micrófono inactivo",
-                        tint = if (isActive) SafetyGreen else Color.Gray,
-                        modifier = Modifier.size(24.dp)
+                        tint = if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(20.dp)
                     )
                     
-                    // Texto de estado
                     Column {
                         Text(
-                            text = if (isActive) "Servicio de Voz Activo" else "Servicio de Voz Inactivo",
-                            fontWeight = FontWeight.Medium,
+                            text = if (isActive) "Servicio de voz activo" else "Servicio de voz inactivo",
                             fontSize = 14.sp,
-                            color = if (isActive) SafetyGreen else Color.Gray
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        
                         Text(
                             text = status,
                             fontSize = 12.sp,
-                            color = Color.Gray,
-                            maxLines = 1
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                         )
                     }
                 }
                 
-                // Switch de control
                 Switch(
                     checked = isActive,
                     onCheckedChange = onToggleService,
                     colors = SwitchDefaults.colors(
-                        checkedThumbColor = SafetyGreen,
-                        checkedTrackColor = SafetyGreen.copy(alpha = 0.3f),
-                        uncheckedThumbColor = Color.Gray,
-                        uncheckedTrackColor = Color.Gray.copy(alpha = 0.3f)
+                        checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
+                        checkedTrackColor = MaterialTheme.colorScheme.primary,
+                        uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
                     )
                 )
             }
@@ -122,7 +93,7 @@ fun VoiceServiceIndicator(
         modifier = modifier
             .size(8.dp)
             .background(
-                color = SafetyGreen,
+                color = MaterialTheme.colorScheme.primary,
                 shape = androidx.compose.foundation.shape.CircleShape
             )
     )
@@ -140,8 +111,8 @@ fun VoiceServiceFloatingButton(
     FloatingActionButton(
         onClick = onToggle,
         modifier = modifier,
-        containerColor = if (isActive) SafetyGreen else Color.Gray,
-        contentColor = Color.White
+        containerColor = if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+        contentColor = MaterialTheme.colorScheme.onPrimary
     ) {
         Icon(
             imageVector = if (isActive) Icons.Default.Mic else Icons.Default.MicOff,

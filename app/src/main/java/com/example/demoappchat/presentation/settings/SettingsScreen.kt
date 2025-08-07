@@ -22,6 +22,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
 import com.example.demoappchat.presentation.components.VoiceRecordingSettings
+import com.example.demoappchat.ui.theme.InfoBlue
+import com.example.demoappchat.ui.theme.WarningOrange
 
 @OptIn(ExperimentalPermissionsApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -54,7 +56,7 @@ fun SettingsScreen(
                     Text(
                         "Configuración",
                         fontWeight = FontWeight.Bold,
-                        color = Color.White,
+                        color = MaterialTheme.colorScheme.onPrimary,
                         fontSize = 20.sp
                     )
                 },
@@ -63,12 +65,12 @@ fun SettingsScreen(
                         Icon(
                             Icons.Default.ArrowBack,
                             contentDescription = "Volver",
-                            tint = Color.White
+                            tint = MaterialTheme.colorScheme.onPrimary
                         )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color(0xFF1877F2)
+                    containerColor = MaterialTheme.colorScheme.primary
                 )
             )
         }
@@ -76,8 +78,8 @@ fun SettingsScreen(
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
-                .background(Color(0xFFF0F2F5)),
+                .background(MaterialTheme.colorScheme.background)
+                .padding(paddingValues),
             contentPadding = PaddingValues(0.dp),
             verticalArrangement = Arrangement.spacedBy(1.dp)
         ) {
@@ -209,7 +211,7 @@ fun SettingsSection(
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        color = Color.White
+        color = MaterialTheme.colorScheme.surface
     ) {
         Column(
             modifier = Modifier.padding(16.dp)
@@ -218,12 +220,12 @@ fun SettingsSection(
                 text = title,
                 fontWeight = FontWeight.Bold,
                 fontSize = 18.sp,
-                color = Color(0xFF1C1E21)
+                color = MaterialTheme.colorScheme.onSurface
             )
             Text(
                 text = subtitle,
                 fontSize = 14.sp,
-                color = Color(0xFF65676B)
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Spacer(modifier = Modifier.height(16.dp))
             content()
@@ -264,12 +266,12 @@ fun VoiceServiceSettings(
                     text = "Activar Servicio de Voz",
                     fontWeight = FontWeight.Medium,
                     fontSize = 16.sp,
-                    color = Color(0xFF1C1E21)
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
                     text = if (isEnabled) "Escuchando comandos" else "Servicio desactivado",
                     fontSize = 14.sp,
-                    color = if (isEnabled) Color(0xFF42C85F) else Color(0xFF65676B)
+                    color = if (isEnabled) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
             
@@ -284,10 +286,10 @@ fun VoiceServiceSettings(
                     }
                 },
                 colors = SwitchDefaults.colors(
-                    checkedThumbColor = Color.White,
-                    checkedTrackColor = Color(0xFF42C85F),
-                    uncheckedThumbColor = Color.White,
-                    uncheckedTrackColor = Color(0xFFE4E6EA)
+                    checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
+                    checkedTrackColor = MaterialTheme.colorScheme.onPrimary,
+                    uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
                 )
             )
         }
@@ -304,12 +306,12 @@ fun VoiceServiceSettings(
                         text = "Modo Discreto",
                         fontWeight = FontWeight.Medium,
                         fontSize = 16.sp,
-                        color = Color(0xFF1C1E21)
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
                         text = "Funciona sin notificaciones visibles",
                         fontSize = 14.sp,
-                        color = Color(0xFF65676B)
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
                 
@@ -317,10 +319,10 @@ fun VoiceServiceSettings(
                     checked = discreteMode,
                     onCheckedChange = onDiscreteModeToggle,
                     colors = SwitchDefaults.colors(
-                        checkedThumbColor = Color.White,
-                        checkedTrackColor = Color(0xFF1877F2),
-                        uncheckedThumbColor = Color.White,
-                        uncheckedTrackColor = Color(0xFFE4E6EA)
+                        checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
+                        checkedTrackColor = MaterialTheme.colorScheme.onPrimary,
+                        uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
                     )
                 )
             }
@@ -330,7 +332,7 @@ fun VoiceServiceSettings(
         if (!audioPermissions.allPermissionsGranted) {
             Surface(
                 shape = RoundedCornerShape(8.dp),
-                color = Color(0xFFFFF3CD)
+                color = WarningOrange.copy(alpha = 0.1f)
             ) {
                 Row(
                     modifier = Modifier
@@ -341,14 +343,14 @@ fun VoiceServiceSettings(
                     Icon(
                         Icons.Default.Warning,
                         contentDescription = null,
-                        tint = Color(0xFF856404),
+                        tint = WarningOrange,
                         modifier = Modifier.size(20.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = "Se requieren permisos de audio y cámara",
                         fontSize = 14.sp,
-                        color = Color(0xFF856404)
+                        color = WarningOrange
                     )
                 }
             }
@@ -402,7 +404,7 @@ fun VoiceCommandsSettings(
                 text = "Comandos Personalizados",
                 fontWeight = FontWeight.Medium,
                 fontSize = 14.sp,
-                color = Color(0xFF65676B)
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             
             customCommands.forEach { command ->
@@ -418,7 +420,7 @@ fun VoiceCommandsSettings(
             onClick = onNavigateToCommands,
             modifier = Modifier.fillMaxWidth(),
             colors = ButtonDefaults.buttonColors(
-                containerColor = Color(0xFF1877F2)
+                containerColor = MaterialTheme.colorScheme.primary
             ),
             shape = RoundedCornerShape(12.dp)
         ) {
@@ -426,12 +428,12 @@ fun VoiceCommandsSettings(
                 Icons.Default.Settings,
                 contentDescription = null,
                 modifier = Modifier.size(16.dp),
-                tint = Color.White
+                tint = MaterialTheme.colorScheme.onPrimary
             )
             Spacer(modifier = Modifier.width(8.dp))
             Text(
                 "Configurar Comandos de Voz",
-                color = Color.White,
+                color = MaterialTheme.colorScheme.onPrimary,
                 fontWeight = FontWeight.Medium
             )
         }
@@ -441,7 +443,7 @@ fun VoiceCommandsSettings(
             onClick = { showAddDialog = true },
             modifier = Modifier.fillMaxWidth(),
             colors = ButtonDefaults.outlinedButtonColors(
-                contentColor = Color(0xFF1877F2)
+                contentColor = MaterialTheme.colorScheme.primary
             )
         ) {
             Icon(
@@ -499,7 +501,7 @@ fun CommandChip(
     Surface(
         onClick = onToggle,
         shape = RoundedCornerShape(20.dp),
-        color = if (isSelected) Color(0xFF1877F2) else Color(0xFFF0F2F5)
+        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
@@ -508,14 +510,14 @@ fun CommandChip(
             Text(
                 text = description,
                 fontSize = 14.sp,
-                color = if (isSelected) Color.White else Color(0xFF65676B)
+                color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
             )
             Spacer(modifier = Modifier.width(8.dp))
             Text(
                 text = "\"$text\"",
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Medium,
-                color = if (isSelected) Color.White else Color(0xFF1C1E21)
+                color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
             )
         }
     }
@@ -528,7 +530,7 @@ fun CustomCommandItem(
 ) {
     Surface(
         shape = RoundedCornerShape(8.dp),
-        color = Color(0xFFF0F2F5)
+        color = MaterialTheme.colorScheme.surfaceVariant
     ) {
         Row(
             modifier = Modifier
@@ -541,7 +543,7 @@ fun CustomCommandItem(
                 text = "\"$command\"",
                 fontWeight = FontWeight.Medium,
                 fontSize = 14.sp,
-                color = Color(0xFF1C1E21)
+                color = MaterialTheme.colorScheme.onSurface
             )
             IconButton(
                 onClick = onRemove,
@@ -550,7 +552,7 @@ fun CustomCommandItem(
                 Icon(
                     Icons.Default.Close,
                     contentDescription = "Eliminar",
-                    tint = Color(0xFF65676B),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(16.dp)
                 )
             }
@@ -579,16 +581,16 @@ fun AudioTransmissionSettings(
                     text = "Radio de Transmisión",
                     fontWeight = FontWeight.Medium,
                     fontSize = 16.sp,
-                    color = Color(0xFF1C1E21)
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 Surface(
                     shape = RoundedCornerShape(12.dp),
-                    color = Color(0xFF1877F2)
+                    color = MaterialTheme.colorScheme.primary
                 ) {
                     Text(
                         text = "${radius.toInt()} km",
                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
-                        color = Color.White,
+                        color = MaterialTheme.colorScheme.onPrimary,
                         fontWeight = FontWeight.Bold,
                         fontSize = 14.sp
                     )
@@ -616,10 +618,10 @@ fun AudioTransmissionSettings(
                         selected = isSelected,
                         modifier = Modifier.weight(1f),
                         colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = Color(0xFF1877F2),
-                            selectedLabelColor = Color.White,
-                            containerColor = Color(0xFFE4E6EA),
-                            labelColor = Color(0xFF65676B)
+                            selectedContainerColor = MaterialTheme.colorScheme.primary,
+                            selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            labelColor = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     )
                 }
@@ -633,9 +635,9 @@ fun AudioTransmissionSettings(
                 valueRange = 1f..100f,
                 steps = 98, // 99 pasos para tener valores enteros de 1 a 100
                 colors = SliderDefaults.colors(
-                    thumbColor = Color(0xFF1877F2),
-                    activeTrackColor = Color(0xFF1877F2),
-                    inactiveTrackColor = Color(0xFFE4E6EA)
+                    thumbColor = MaterialTheme.colorScheme.primary,
+                    activeTrackColor = MaterialTheme.colorScheme.primary,
+                    inactiveTrackColor = MaterialTheme.colorScheme.surfaceVariant
                 )
             )
             
@@ -646,12 +648,12 @@ fun AudioTransmissionSettings(
                 Text(
                     text = "1 km",
                     fontSize = 12.sp,
-                    color = Color(0xFF65676B)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
                     text = "100 km",
                     fontSize = 12.sp,
-                    color = Color(0xFF65676B)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
             
@@ -661,7 +663,7 @@ fun AudioTransmissionSettings(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(
-                    containerColor = Color(0xFFF0F2F5)
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant
                 ),
                 shape = RoundedCornerShape(8.dp)
             ) {
@@ -672,14 +674,14 @@ fun AudioTransmissionSettings(
                     Icon(
                         imageVector = Icons.Default.Info,
                         contentDescription = null,
-                        tint = Color(0xFF1877F2),
+                        tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(16.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = "Radio actual: ${radius.toInt()} km. Los agentes dentro de este rango recibirán alertas automáticamente.",
                         fontSize = 12.sp,
-                        color = Color(0xFF65676B),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         lineHeight = 16.sp
                     )
                 }
@@ -692,7 +694,7 @@ fun AudioTransmissionSettings(
                 text = "Calidad de Audio",
                 fontWeight = FontWeight.Medium,
                 fontSize = 16.sp,
-                color = Color(0xFF1C1E21)
+                color = MaterialTheme.colorScheme.onSurface
             )
             
             Spacer(modifier = Modifier.height(8.dp))
@@ -708,8 +710,8 @@ fun AudioTransmissionSettings(
                         onClick = { onQualityChange(qualityOption) },
                         label = { Text(qualityOption) },
                         colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = Color(0xFF1877F2),
-                            selectedLabelColor = Color.White
+                            selectedContainerColor = MaterialTheme.colorScheme.primary,
+                            selectedLabelColor = MaterialTheme.colorScheme.onPrimary
                         )
                     )
                 }
@@ -739,12 +741,12 @@ fun EmergencySettings(
                     text = "Subida Automática",
                     fontWeight = FontWeight.Medium,
                     fontSize = 16.sp,
-                    color = Color(0xFF1C1E21)
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
                     text = "Sube grabaciones automáticamente al activarse",
                     fontSize = 14.sp,
-                    color = Color(0xFF65676B)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
             
@@ -752,10 +754,10 @@ fun EmergencySettings(
                 checked = autoUpload,
                 onCheckedChange = onAutoUploadToggle,
                 colors = SwitchDefaults.colors(
-                    checkedThumbColor = Color.White,
-                    checkedTrackColor = Color(0xFF42C85F),
-                    uncheckedThumbColor = Color.White,
-                    uncheckedTrackColor = Color(0xFFE4E6EA)
+                    checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
+                    checkedTrackColor = MaterialTheme.colorScheme.onPrimary,
+                    uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
                 )
             )
         }
@@ -763,7 +765,7 @@ fun EmergencySettings(
         // Emergency Info
         Surface(
             shape = RoundedCornerShape(8.dp),
-            color = Color(0xFFE3F2FD)
+            color = InfoBlue.copy(alpha = 0.1f)
         ) {
             Row(
                 modifier = Modifier
@@ -774,14 +776,14 @@ fun EmergencySettings(
                 Icon(
                     Icons.Default.Info,
                     contentDescription = null,
-                    tint = Color(0xFF1976D2),
+                    tint = InfoBlue,
                     modifier = Modifier.size(20.dp)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = "Las grabaciones se guardan en Firebase Storage con cifrado",
                     fontSize = 14.sp,
-                    color = Color(0xFF1976D2)
+                    color = InfoBlue
                 )
             }
         }
@@ -809,12 +811,12 @@ fun PrivacySettings(
                     text = "Compartir Ubicación",
                     fontWeight = FontWeight.Medium,
                     fontSize = 16.sp,
-                    color = Color(0xFF1C1E21)
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
                     text = "Permite que otros vean tu ubicación en emergencias",
                     fontSize = 14.sp,
-                    color = Color(0xFF65676B)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
             
@@ -822,10 +824,10 @@ fun PrivacySettings(
                 checked = shareLocation,
                 onCheckedChange = onShareLocationToggle,
                 colors = SwitchDefaults.colors(
-                    checkedThumbColor = Color.White,
-                    checkedTrackColor = Color(0xFF1877F2),
-                    uncheckedThumbColor = Color.White,
-                    uncheckedTrackColor = Color(0xFFE4E6EA)
+                    checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
+                    checkedTrackColor = MaterialTheme.colorScheme.onPrimary,
+                    uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
                 )
             )
         }
@@ -836,12 +838,12 @@ fun PrivacySettings(
                 text = "Retención de Datos",
                 fontWeight = FontWeight.Medium,
                 fontSize = 16.sp,
-                color = Color(0xFF1C1E21)
+                color = MaterialTheme.colorScheme.onSurface
             )
             Text(
                 text = "Días para mantener grabaciones: $dataRetention",
                 fontSize = 14.sp,
-                color = Color(0xFF65676B)
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             
             Spacer(modifier = Modifier.height(8.dp))
@@ -852,9 +854,9 @@ fun PrivacySettings(
                 valueRange = 1f..30f,
                 steps = 29,
                 colors = SliderDefaults.colors(
-                    thumbColor = Color(0xFF1877F2),
-                    activeTrackColor = Color(0xFF1877F2),
-                    inactiveTrackColor = Color(0xFFE4E6EA)
+                    thumbColor = MaterialTheme.colorScheme.onPrimary,
+                    activeTrackColor = MaterialTheme.colorScheme.onPrimary,
+                    inactiveTrackColor = MaterialTheme.colorScheme.surfaceVariant
                 )
             )
             
@@ -865,12 +867,12 @@ fun PrivacySettings(
                 Text(
                     text = "1 día",
                     fontSize = 12.sp,
-                    color = Color(0xFF65676B)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
                     text = "30 días",
                     fontSize = 12.sp,
-                    color = Color(0xFF65676B)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }

@@ -76,7 +76,7 @@ fun ModernMessageBubble(
                     .size(32.dp)
                     .background(
                         Brush.radialGradient(
-                            colors = listOf(Gray300, Gray400)
+                            colors = listOf(MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.colorScheme.outline)
                         ),
                         CircleShape
                     ),
@@ -84,7 +84,7 @@ fun ModernMessageBubble(
             ) {
                 Text(
                     text = message.userName.firstOrNull()?.toString()?.uppercase() ?: "U",
-                    color = Color.White,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold
                 )
@@ -101,7 +101,7 @@ fun ModernMessageBubble(
                 Text(
                     text = message.userName,
                     fontSize = 12.sp,
-                    color = Gray600,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontWeight = FontWeight.Medium,
                     modifier = Modifier.padding(start = 12.dp, bottom = 2.dp)
                 )
@@ -115,14 +115,14 @@ fun ModernMessageBubble(
                     bottomStart = 20.dp,
                     bottomEnd = 20.dp
                 ),
-                color = if (isOwnMessage) MessageBubbleOwn else MessageBubbleOther,
+                color = if (isOwnMessage) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
                 shadowElevation = if (isOwnMessage) 0.dp else 1.dp
             ) {
                 when (message.messageType) {
                     MessageType.TEXT -> {
                         Text(
                             text = message.content,
-                            color = if (isOwnMessage) Color.White else Gray900,
+                            color = if (isOwnMessage) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
                             fontSize = 15.sp,
                             lineHeight = 20.sp,
                             modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
@@ -159,7 +159,7 @@ fun ModernMessageBubble(
                     else -> {
                         Text(
                             text = message.content,
-                            color = if (isOwnMessage) Color.White else Gray900,
+                            color = if (isOwnMessage) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
                             fontSize = 15.sp,
                             modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
                         )
@@ -171,7 +171,7 @@ fun ModernMessageBubble(
             Text(
                 text = formatTime(message.timestamp),
                 fontSize = 11.sp,
-                color = Gray500,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(
                     start = if (isOwnMessage) 0.dp else 12.dp,
                     end = if (isOwnMessage) 12.dp else 0.dp,
@@ -203,7 +203,7 @@ fun PhotoMessageContent(
             modifier = Modifier
                 .size(width = 240.dp, height = 180.dp)
                 .clip(RoundedCornerShape(12.dp))
-                .background(Gray100)
+                .background(MaterialTheme.colorScheme.surfaceVariant)
                 .clickable { 
                     showFullScreenImage = true
                     try {
@@ -240,23 +240,23 @@ fun PhotoMessageContent(
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(Gray100),
+                        .background(MaterialTheme.colorScheme.surfaceVariant),
                     contentAlignment = Alignment.Center
                 ) {
                     CircularProgressIndicator(
-                        color = PrimaryBlue,
+                        color = MaterialTheme.colorScheme.primary,
                         strokeWidth = 2.dp,
                         modifier = Modifier.size(24.dp)
                     )
                 }
             }
 
-            // Error state
+            // Error state - Mejorado para modo oscuro
             if (imageLoadError) {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(Gray200),
+                        .background(MaterialTheme.colorScheme.errorContainer),
                     contentAlignment = Alignment.Center
                 ) {
                     Column(
@@ -265,14 +265,22 @@ fun PhotoMessageContent(
                         Icon(
                             Icons.Rounded.BrokenImage,
                             contentDescription = "Error al cargar imagen",
-                            tint = Gray500,
+                            tint = MaterialTheme.colorScheme.error,
                             modifier = Modifier.size(32.dp)
                         )
-                        Spacer(modifier = Modifier.height(4.dp))
+                        Spacer(modifier = Modifier.height(8.dp))
                         Text(
                             text = "Error al cargar",
                             fontSize = 12.sp,
-                            color = Gray500
+                            color = MaterialTheme.colorScheme.error,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "URL: ${mediaUrl.take(30)}...",
+                            fontSize = 10.sp,
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                            maxLines = 2
                         )
                     }
                 }
@@ -323,7 +331,7 @@ fun PhotoMessageContent(
             Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = content,
-                color = if (isOwnMessage) Color.White else Gray900,
+                color = if (isOwnMessage) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
                 fontSize = 14.sp,
                 lineHeight = 18.sp,
                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
@@ -449,15 +457,19 @@ fun FullScreenImageViewer(
 
 // Funciones auxiliares
 private fun formatTime(timestamp: Long): String {
-    val formatter = SimpleDateFormat("HH:mm", Locale.getDefault())
-    return formatter.format(Date(timestamp))
+    val date = Date(timestamp)
+    val now = Date()
+    val diff = now.time - timestamp
+
+    return when {
+        diff < 60 * 1000 -> "Ahora"
+        diff < 60 * 60 * 1000 -> "${diff / (60 * 1000)}m"
+        diff < 24 * 60 * 60 * 1000 -> "${diff / (60 * 60 * 1000)}h"
+        else -> SimpleDateFormat("dd/MM", Locale.getDefault()).format(date)
+    }
 }
 
-private fun formatRecordingTime(seconds: Int): String {
-    val minutes = seconds / 60
-    val remainingSeconds = seconds % 60
-    return String.format("%02d:%02d", minutes, remainingSeconds)
-}
+
 
 private fun startRecording(filePath: String, onStarted: () -> Unit): MediaRecorder? {
     return try {
@@ -485,6 +497,8 @@ private fun stopRecording(mediaRecorder: MediaRecorder?, onStopped: (Uri) -> Uni
         // Handle error
     }
 }
+
+
 
 @Composable
 fun VideoMessageContent(
@@ -544,41 +558,16 @@ fun VideoMessageContent(
                     )
                 }
             } else {
-                // Video thumbnail con ícono de play
-                AsyncImage(
-                    model = ImageRequest.Builder(LocalContext.current)
-                        .data(mediaUrl)
-                        .crossfade(true)
-                        .build(),
-                    contentDescription = "Video thumbnail",
+                // Video thumbnail (placeholder)
+                Box(
                     modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop,
-                    onLoading = { isVideoLoading = true },
-                    onSuccess = { isVideoLoading = false },
-                    onError = { 
-                        isVideoLoading = false
-                        videoLoadError = true
-                    }
-                )
-            }
-
-            // Overlay con ícono de play
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                Surface(
-                    modifier = Modifier.size(64.dp),
-                    shape = CircleShape,
-                    color = Color.Black.copy(alpha = 0.7f)
+                    contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        imageVector = Icons.Default.PlayArrow,
+                        Icons.Default.PlayArrow,
                         contentDescription = "Reproducir video",
                         tint = Color.White,
-                        modifier = Modifier
-                            .size(32.dp)
-                            .padding(8.dp)
+                        modifier = Modifier.size(48.dp)
                     )
                 }
             }
@@ -604,7 +593,7 @@ fun VideoMessageContent(
         if (content.isNotBlank()) {
             Text(
                 text = content,
-                color = if (isOwnMessage) Color.White else Gray900,
+                color = if (isOwnMessage) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
                 fontSize = 14.sp,
                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
             )

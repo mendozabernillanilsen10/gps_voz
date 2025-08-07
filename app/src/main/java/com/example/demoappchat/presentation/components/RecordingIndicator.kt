@@ -55,7 +55,7 @@ fun RecordingIndicator(
             modifier = modifier
                 .padding(8.dp),
             colors = CardDefaults.cardColors(
-                containerColor = Color.Red.copy(alpha = 0.9f)
+                containerColor = MaterialTheme.colorScheme.error.copy(alpha = 0.9f)
             ),
             elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
         ) {
@@ -77,7 +77,7 @@ fun RecordingIndicator(
                     Icon(
                         imageVector = Icons.Default.Mic,
                         contentDescription = "Grabando",
-                        tint = Color.Red,
+                        tint = MaterialTheme.colorScheme.error,
                         modifier = Modifier.size(20.dp)
                     )
                 }
@@ -190,7 +190,7 @@ fun CompactRecordingIndicator(
 
         Surface(
             modifier = modifier,
-            color = Color.Red.copy(alpha = alpha),
+            color = MaterialTheme.colorScheme.error.copy(alpha = alpha),
             shape = CircleShape
         ) {
             Row(

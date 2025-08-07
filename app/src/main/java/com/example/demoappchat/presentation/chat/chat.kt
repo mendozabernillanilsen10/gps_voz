@@ -58,7 +58,6 @@ import com.example.demoappchat.presentation.chat.VideoCallActivity
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-
 fun ChatScreen(
     chatId: String,
     onNavigateBack: () -> Unit,
@@ -100,6 +99,24 @@ fun ChatScreen(
     ) { uri: Uri? ->
         uri?.let {
             pendingMediaToUpload = it to "image"
+        }
+    }
+    
+    // Launcher para seleccionar videos
+    val videoPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uri?.let {
+            pendingMediaToUpload = it to "video"
+        }
+    }
+    
+    // Launcher para seleccionar archivos de audio
+    val audioPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uri?.let {
+            pendingMediaToUpload = it to "audio"
         }
     }
 
@@ -241,7 +258,7 @@ fun ChatScreen(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(MessageBackground)
+                    .background(MaterialTheme.colorScheme.background)
             ) {
                 Column(
                     modifier = Modifier.fillMaxSize()
@@ -261,25 +278,27 @@ fun ChatScreen(
                     )
                     
                     // Barra de estado de llamadas grupales
-                    GroupCallStatusBar(
-                        isActive = uiState.isGroupCallActive,
-                        callType = uiState.groupCallType,
-                        onJoinCall = {
-                            // Unirse a la llamada grupal
-                            viewModel.groupCallId?.let { callId ->
-                                // Aquí implementarías la lógica para unirse a la llamada
-                                startVideoCall(context, chatId, uiState.currentChat?.title ?: "Chat")
+                    if (uiState.isGroupCallActive && uiState.groupCallType != null) {
+                        GroupCallStatusBar(
+                            callType = uiState.groupCallType ?: "audio",
+                            participantCount = 1, // Valor por defecto para participantes
+                            onJoinCall = {
+                                // Unirse a la llamada grupal
+                                viewModel.groupCallId?.let { callId ->
+                                    // Aquí implementarías la lógica para unirse a la llamada
+                                    startVideoCall(context, chatId, uiState.currentChat?.title ?: "Chat")
+                                }
+                            },
+                            onEndCall = {
+                                // Terminar la llamada grupal
+                                viewModel.groupCallId?.let { callId ->
+                                    // Aquí implementarías la lógica para terminar la llamada
+                                    viewModel.endGroupCall(chatId, callId)
+                                }
                             }
-                        },
-                        onEndCall = {
-                            // Terminar la llamada grupal
-                            viewModel.groupCallId?.let { callId ->
-                                // Aquí implementarías la lógica para terminar la llamada
-                                viewModel.endGroupCall(chatId, callId)
-                            }
-                        }
-                    )
-                    
+                        )
+                    }
+
                     // Contenido del chat
                     if (messages.isEmpty() && !uiState.isLoading) {
                         ModernEmptyChatContent(
@@ -297,75 +316,49 @@ fun ChatScreen(
                             verticalArrangement = Arrangement.spacedBy(12.dp),
                             reverseLayout = false
                         ) {
-                        // Indicador de carga al inicio (mensajes más antiguos)
-                        if (isLoadingMoreMessages) {
-                            item {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(16.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    CircularProgressIndicator(
-                                        modifier = Modifier.size(24.dp),
-                                        color = PrimaryBlue,
-                                        strokeWidth = 2.dp
-                                    )
+                            // Indicador de carga al inicio (mensajes más antiguos)
+                            if (isLoadingMoreMessages) {
+                                item {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(16.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(24.dp),
+                                            color = MaterialTheme.colorScheme.primary,
+                                            strokeWidth = 2.dp
+                                        )
+                                    }
                                 }
                             }
-                        }
 
-                        items(
-                            items = messages,
-                            key = { message -> 
-                                // Use a combination of fields to ensure uniqueness
-                                // If id is empty, use timestamp + userId as fallback
-                                if (message.id.isNotBlank()) {
-                                    message.id
-                                } else {
-                                    "${message.timestamp}_${message.userId}"
+                            items(
+                                items = messages,
+                                key = { message -> 
+                                    // Use a combination of fields to ensure uniqueness
+                                    // If id is empty, use timestamp + userId as fallback
+                                    if (message.id.isNotBlank()) {
+                                        message.id
+                                    } else {
+                                        "${message.timestamp}_${message.userId}"
+                                    }
                                 }
+                            ) { message ->
+                                ModernMessageBubble(
+                                    message = message,
+                                    isOwnMessage = message.userId == currentUser?.id,
+                                    onVideoClick = { uri ->
+                                        showVideoPlayer = uri
+                                    },
+                                    onImageClick = { uri ->
+                                        // Implementar visualizador de imágenes
+                                    }
+                                )
                             }
-                        ) { message ->
-                            ModernMessageBubble(
-                                message = message,
-                                isOwnMessage = message.userId == currentUser?.id,
-                                onVideoClick = { uri ->
-                                    showVideoPlayer = uri
-                                },
-                                onImageClick = { uri ->
-                                    // Implementar visualizador de imágenes
-                                }
-                            )
                         }
                     }
-                }
-            }
-
-                // Indicador de grabación mejorado (mejor posicionado)
-                AnimatedVisibility(
-                    visible = recordingState.isRecording,
-                    enter = slideInVertically(
-                        initialOffsetY = { -it },
-                        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy)
-                    ) + fadeIn(),
-                    exit = slideOutVertically(
-                        targetOffsetY = { -it },
-                        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy)
-                    ) + fadeOut(),
-                    modifier = Modifier
-                        .align(Alignment.TopCenter)
-                        .padding(
-                            top = paddingValues.calculateTopPadding() + 16.dp,
-                            start = 16.dp,
-                            end = 16.dp
-                        )
-                ) {
-                    RecordingIndicator(
-                        isRecording = recordingState.isRecording,
-                        recordingTime = recordingState.recordingTime,
-                        recordingType = recordingState.recordingType
-                    )
                 }
 
                 // Indicador de micrófono mejorado (mejor posicionado y más discreto)
@@ -447,7 +440,7 @@ fun ChatScreen(
                 Card(
                     modifier = Modifier.padding(32.dp),
                     shape = RoundedCornerShape(20.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                     elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
                 ) {
                     Column(
@@ -455,7 +448,7 @@ fun ChatScreen(
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         CircularProgressIndicator(
-                            color = PrimaryBlue,
+                            color = MaterialTheme.colorScheme.primary,
                             strokeWidth = 3.dp
                         )
                         Spacer(modifier = Modifier.height(16.dp))
@@ -463,7 +456,7 @@ fun ChatScreen(
                             "Subiendo archivo...",
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Medium,
-                            color = Gray700
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                     }
                 }
@@ -618,14 +611,6 @@ fun RecordingIndicator(
     }
 }
 
-private fun formatRecordingTime(timeInMillis: Long): String {
-    val seconds = timeInMillis / 1000
-    val minutes = seconds / 60
-    val remainingSeconds = seconds % 60
-    return String.format("%02d:%02d", minutes, remainingSeconds)
-}
-
-
 @Composable
 fun ModernEmptyChatContent(
     modifier: Modifier = Modifier
@@ -640,7 +625,7 @@ fun ModernEmptyChatContent(
             modifier = Modifier
                 .size(120.dp)
                 .background(
-                    PrimaryBlue.copy(alpha = 0.1f),
+                    MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
                     CircleShape
                 ),
             contentAlignment = Alignment.Center
@@ -649,7 +634,7 @@ fun ModernEmptyChatContent(
                 Icons.Rounded.ChatBubbleOutline,
                 contentDescription = null,
                 modifier = Modifier.size(60.dp),
-                tint = PrimaryBlue.copy(alpha = 0.7f)
+                tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
             )
         }
 
@@ -659,7 +644,7 @@ fun ModernEmptyChatContent(
             text = "¡Comienza la conversación!",
             fontSize = 22.sp,
             fontWeight = FontWeight.SemiBold,
-            color = Gray900,
+            color = MaterialTheme.colorScheme.onSurface,
             textAlign = TextAlign.Center
         )
 
@@ -668,10 +653,17 @@ fun ModernEmptyChatContent(
         Text(
             text = "Envía el primer mensaje para conectar con tu grupo",
             fontSize = 15.sp,
-            color = Gray600,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
             lineHeight = 22.sp,
             modifier = Modifier.padding(horizontal = 32.dp)
         )
     }
+}
+
+fun formatRecordingTime(timeInMillis: Long): String {
+    val seconds = timeInMillis / 1000
+    val minutes = seconds / 60
+    val remainingSeconds = seconds % 60
+    return String.format("%02d:%02d", minutes, remainingSeconds)
 }
