@@ -13,6 +13,9 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import javax.inject.Inject
 
 @HiltViewModel
@@ -55,10 +58,13 @@ class ChatViewModel @Inject constructor(
     fun loadMessages(chatId: String) {
         viewModelScope.launch {
             try {
+                Log.d("ChatViewModel", "📥 Cargando mensajes del chat: $chatId")
                 repository.getChatMessages(chatId).collect { messagesList ->
+                    Log.d("ChatViewModel", "📥 Mensajes cargados: ${messagesList.size}")
                     _messages.value = messagesList
                 }
             } catch (e: Exception) {
+                Log.e("ChatViewModel", "❌ Error cargando mensajes", e)
                 _uiState.value = _uiState.value.copy(
                     error = "Error cargando mensajes: ${e.message}"
                 )
@@ -109,15 +115,29 @@ class ChatViewModel @Inject constructor(
     fun sendMediaMessage(chatId: String, uri: Uri, type: String) {
         viewModelScope.launch {
             try {
+                Log.d("ChatViewModel", "🎬 Iniciando envío de media: $type")
                 _uiState.value = _uiState.value.copy(isLoading = true)
                 
-                // Subir archivo primero
-                val file = createTempFileFromUri(uri, context)
-                val mediaUrl = repository.uploadMediaFile(file, type, chatId)
+                // Subir archivo primero en hilo de IO
+                Log.d("ChatViewModel", "📁 Creando archivo temporal...")
+                val file = withContext(Dispatchers.IO) {
+                    createTempFileFromUri(uri, context)
+                }
+                Log.d("ChatViewModel", "📁 Archivo temporal creado: ${file.absolutePath}")
+                
+                Log.d("ChatViewModel", "☁️ Subiendo archivo a Firebase...")
+                val mediaUrl = withContext(Dispatchers.IO) {
+                    withTimeout(30000) { // 30 segundos de timeout
+                        repository.uploadMediaFile(file, type, chatId)
+                    }
+                }
+                Log.d("ChatViewModel", "☁️ Archivo subido exitosamente: $mediaUrl")
                 
                 // Enviar mensaje con media
+                Log.d("ChatViewModel", "💬 Enviando mensaje al chat...")
                 repository.sendMediaMessage(chatId, mediaUrl, type, "")
                 
+                Log.d("ChatViewModel", "✅ Media enviado exitosamente")
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     error = null
@@ -181,14 +201,26 @@ class ChatViewModel @Inject constructor(
     }
 
     private fun createTempFileFromUri(uri: Uri, context: Context): java.io.File {
-        val inputStream = context.contentResolver.openInputStream(uri)
-        val file = java.io.File.createTempFile("media_", ".tmp", context.cacheDir)
-        inputStream?.use { input ->
-            file.outputStream().use { output ->
-                input.copyTo(output)
+        return try {
+            val inputStream = context.contentResolver.openInputStream(uri)
+            val file = java.io.File.createTempFile("media_", ".tmp", context.cacheDir)
+            
+            inputStream?.use { input ->
+                file.outputStream().use { output ->
+                    val buffer = ByteArray(8192)
+                    var bytesRead: Int
+                    while (input.read(buffer).also { bytesRead = it } != -1) {
+                        output.write(buffer, 0, bytesRead)
+                    }
+                }
             }
+            
+            Log.d("ChatViewModel", "📁 Archivo temporal creado exitosamente: ${file.absolutePath} (${file.length()} bytes)")
+            file
+        } catch (e: Exception) {
+            Log.e("ChatViewModel", "❌ Error creando archivo temporal", e)
+            throw e
         }
-        return file
     }
 
     override fun onCleared() {

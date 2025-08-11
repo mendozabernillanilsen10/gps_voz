@@ -58,6 +58,9 @@ import com.example.demoappchat.presentation.components.VideoRecorderScreen
 import com.example.demoappchat.ui.theme.*
 import com.example.demoappchat.presentation.recording.RecordingViewModel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import android.media.MediaRecorder
 import android.content.Context
 import android.util.Log
@@ -452,42 +455,59 @@ fun AudioPlayerBubble(
     else 
         MaterialTheme.colorScheme.primary
     
-    // Inicializar MediaPlayer
+    // Inicializar MediaPlayer de forma asíncrona
     LaunchedEffect(audioUrl) {
-        try {
-            mediaPlayer?.release()
-            mediaPlayer = MediaPlayer().apply {
-                setDataSource(audioUrl)
-                prepareAsync()
-                setOnPreparedListener { mp ->
-                    duration = mp.duration
+        withContext(Dispatchers.IO) {
+            try {
+                mediaPlayer?.release()
+                val newMediaPlayer = MediaPlayer().apply {
+                    setDataSource(audioUrl)
+                    prepareAsync()
+                    setOnPreparedListener { mp ->
+                        duration = mp.duration
+                    }
+                    setOnCompletionListener {
+                        isPlaying = false
+                        currentPosition = 0
+                    }
+                    setOnErrorListener { mp, what, extra ->
+                        Log.e("AudioPlayerBubble", "MediaPlayer error: what=$what, extra=$extra")
+                        true
+                    }
                 }
-                setOnCompletionListener {
-                    isPlaying = false
-                    currentPosition = 0
+                
+                withContext(Dispatchers.Main) {
+                    mediaPlayer = newMediaPlayer
                 }
+            } catch (e: Exception) {
+                Log.e("AudioPlayerBubble", "Error inicializando MediaPlayer: ${e.message}")
             }
-        } catch (e: Exception) {
-            Log.e("AudioPlayerBubble", "Error inicializando MediaPlayer: ${e.message}")
         }
     }
     
     // Cleanup
     DisposableEffect(Unit) {
         onDispose {
-            mediaPlayer?.apply {
-                if (isPlaying) stop()
-                release()
+            try {
+                mediaPlayer?.apply {
+                    if (isPlaying) stop()
+                    release()
+                }
+            } catch (e: Exception) {
+                Log.e("AudioPlayerBubble", "Error during cleanup: ${e.message}")
             }
         }
     }
     
-    // Actualizar posición
+    // Actualizar posición de forma asíncrona
     LaunchedEffect(isPlaying) {
         if (isPlaying) {
             while (isPlaying) {
                 delay(100)
-                currentPosition = mediaPlayer?.currentPosition ?: 0
+                val position = withContext(Dispatchers.IO) {
+                    mediaPlayer?.currentPosition ?: 0
+                }
+                currentPosition = position
             }
         }
     }
@@ -571,6 +591,45 @@ fun VideoPlayerBubble(
     isFromCurrentUser: Boolean
 ) {
     var showVideoPlayer by remember { mutableStateOf(false) }
+    var videoDuration by remember { mutableStateOf(0) }
+    var isLoading by remember { mutableStateOf(true) }
+    val context = LocalContext.current
+    
+    // Obtener duración del video de forma asíncrona con timeout
+    LaunchedEffect(videoUrl) {
+        withContext(Dispatchers.IO) {
+            val mediaPlayer = MediaPlayer()
+            
+            runCatching {
+                withTimeout(15000) { // 15 segundos de timeout
+                    mediaPlayer.setDataSource(videoUrl)
+                    mediaPlayer.prepare()
+                    val duration = mediaPlayer.duration
+                    mediaPlayer.release()
+                    
+                    // Actualizar en el hilo principal
+                    withContext(Dispatchers.Main) {
+                        videoDuration = duration
+                        isLoading = false
+                    }
+                }
+            }.onFailure { e ->
+                Log.e("VideoPlayerBubble", "Error getting video duration: ${e.message}")
+                try {
+                    mediaPlayer.release()
+                } catch (releaseError: Exception) {
+                    Log.e("VideoPlayerBubble", "Error releasing MediaPlayer: ${releaseError.message}")
+                }
+                
+                // Actualizar en el hilo principal
+                withContext(Dispatchers.Main) {
+                    isLoading = false
+                    // Si falla, establecer una duración por defecto
+                    videoDuration = 0
+                }
+            }
+        }
+    }
     
     Surface(
         modifier = Modifier
@@ -588,44 +647,93 @@ fun VideoPlayerBubble(
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
         ) {
-            // Thumbnail del video (placeholder)
+            // Thumbnail del video
             AsyncImage(
                 model = videoUrl,
                 contentDescription = "Video thumbnail",
                 modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop
+                contentScale = ContentScale.Crop,
+                onSuccess = { isLoading = false }
             )
             
-            // Overlay con botón de reproducción
+            // Overlay con gradiente para mejor contraste
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        androidx.compose.ui.graphics.Brush.verticalGradient(
+                            colors = listOf(
+                                Color.Transparent,
+                                Color.Black.copy(alpha = 0.3f)
+                            )
+                        )
+                    )
+            )
+            
+            // Botón de reproducción centrado
             Surface(
-                modifier = Modifier.size(60.dp),
+                modifier = Modifier.size(64.dp),
                 shape = CircleShape,
                 color = MaterialTheme.colorScheme.primary.copy(alpha = 0.9f)
             ) {
-                Icon(
-                    Icons.Default.PlayArrow,
-                    contentDescription = "Reproducir video",
-                    tint = MaterialTheme.colorScheme.onPrimary,
-                    modifier = Modifier
-                        .size(32.dp)
-                        .padding(start = 4.dp)
-                )
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        Icons.Default.PlayArrow,
+                        contentDescription = "Reproducir video",
+                        tint = MaterialTheme.colorScheme.onPrimary,
+                        modifier = Modifier
+                            .size(32.dp)
+                            .padding(start = 4.dp)
+                    )
+                }
             }
             
             // Indicador de duración
             Surface(
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
-                    .padding(8.dp),
-                shape = RoundedCornerShape(4.dp),
-                color = Color.Black.copy(alpha = 0.7f)
+                    .padding(12.dp),
+                shape = RoundedCornerShape(8.dp),
+                color = Color.Black.copy(alpha = 0.8f)
             ) {
                 Text(
-                    text = "Video",
-                    fontSize = 10.sp,
+                    text = if (isLoading) "..." else formatVideoDuration(videoDuration),
+                    fontSize = 12.sp,
                     color = Color.White,
-                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                 )
+            }
+            
+            // Indicador de tipo de contenido
+            Surface(
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(12.dp),
+                shape = RoundedCornerShape(8.dp),
+                color = Color.Black.copy(alpha = 0.8f)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Icon(
+                        Icons.Default.Videocam,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Text(
+                        text = "Video",
+                        fontSize = 10.sp,
+                        color = Color.White,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
             }
         }
     }
@@ -644,58 +752,49 @@ fun VideoPlayerDialog(
     videoUrl: String,
     onDismiss: () -> Unit
 ) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cerrar")
-            }
-        },
-        containerColor = Color.Black,
-        properties = DialogProperties(
-            dismissOnBackPress = true,
-            dismissOnClickOutside = true
-        ),
-        text = {
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(300.dp),
-                shape = RoundedCornerShape(16.dp),
-                color = Color.Black
-            ) {
+    val videoUri = runCatching { Uri.parse(videoUrl) }.getOrNull()
+    
+    if (videoUri != null) {
+        AlertDialog(
+            onDismissRequest = onDismiss,
+            confirmButton = {
+                TextButton(onClick = onDismiss) {
+                    Text("Cerrar")
+                }
+            },
+            containerColor = Color.Black,
+            properties = DialogProperties(
+                dismissOnBackPress = true,
+                dismissOnClickOutside = true
+            ),
+            text = {
                 Box(
-                    modifier = Modifier.fillMaxSize()
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(400.dp)
+                        .background(Color.Black)
                 ) {
-                    // Aquí iría el reproductor de video real
-                    // Por ahora mostramos un placeholder
-                    AsyncImage(
-                        model = videoUrl,
-                        contentDescription = "Video",
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop
+                    VideoPlayerScreen(
+                        videoUri = videoUri,
+                        onDismiss = onDismiss
                     )
-                    
-                    // Botón de cerrar
-                    IconButton(
-                        onClick = onDismiss,
-                        modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(8.dp)
-                            .size(32.dp)
-                            .background(Color.Black.copy(alpha = 0.5f), CircleShape)
-                    ) {
-                        Icon(
-                            Icons.Default.Close,
-                            contentDescription = "Cerrar",
-                            tint = Color.White,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
                 }
             }
-        }
-    )
+        )
+    } else {
+        Log.e("VideoPlayerDialog", "Error parsing video URL: $videoUrl")
+        // Fallback a diálogo simple si hay error
+        AlertDialog(
+            onDismissRequest = onDismiss,
+            confirmButton = {
+                TextButton(onClick = onDismiss) {
+                    Text("Cerrar")
+                }
+            },
+            title = { Text("Error de video") },
+            text = { Text("No se pudo reproducir el video") }
+        )
+    }
 }
 
 @Composable
@@ -1086,6 +1185,13 @@ private fun formatRecordingDuration(seconds: Int): String {
 }
 
 private fun formatAudioDuration(milliseconds: Int): String {
+    val seconds = milliseconds / 1000
+    val minutes = seconds / 60
+    val remainingSeconds = seconds % 60
+    return String.format("%d:%02d", minutes, remainingSeconds)
+}
+
+private fun formatVideoDuration(milliseconds: Int): String {
     val seconds = milliseconds / 1000
     val minutes = seconds / 60
     val remainingSeconds = seconds % 60
