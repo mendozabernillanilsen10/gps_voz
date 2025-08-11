@@ -210,6 +210,9 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             userPreferences.setAudioRecordingDuration(duration)
             _uiState.value = _uiState.value.copy(audioRecordingDuration = duration)
+            
+            // Sincronizar con el servicio de voz
+            saveRecordingSettingsToSharedPreferences()
         }
     }
     
@@ -217,6 +220,9 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             userPreferences.setVideoRecordingDuration(duration)
             _uiState.value = _uiState.value.copy(videoRecordingDuration = duration)
+            
+            // Sincronizar con el servicio de voz
+            saveRecordingSettingsToSharedPreferences()
         }
     }
     
@@ -238,6 +244,9 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             userPreferences.setRecordingQuality(quality)
             _uiState.value = _uiState.value.copy(recordingQuality = quality)
+            
+            // Sincronizar con el servicio de voz
+            saveRecordingSettingsToSharedPreferences()
         }
     }
     
@@ -275,6 +284,21 @@ class SettingsViewModel @Inject constructor(
             Log.d("SettingsViewModel", "💾 Comandos sincronizados con servicio: $actionsString")
         } catch (e: Exception) {
             Log.e("SettingsViewModel", "❌ Error sincronizando comandos: ${e.message}")
+        }
+    }
+    
+    private fun saveRecordingSettingsToSharedPreferences() {
+        try {
+            val sharedPrefs = context.getSharedPreferences("voice_prefs", Context.MODE_PRIVATE)
+            sharedPrefs.edit()
+                .putInt("audio_recording_duration", _uiState.value.audioRecordingDuration)
+                .putInt("video_recording_duration", _uiState.value.videoRecordingDuration)
+                .putString("recording_quality", _uiState.value.recordingQuality)
+                .apply()
+            
+            Log.d("SettingsViewModel", "⚙️ Configuraciones de grabación sincronizadas - Audio: ${_uiState.value.audioRecordingDuration}s, Video: ${_uiState.value.videoRecordingDuration}s, Calidad: ${_uiState.value.recordingQuality}")
+        } catch (e: Exception) {
+            Log.e("SettingsViewModel", "❌ Error sincronizando configuraciones: ${e.message}")
         }
     }
     

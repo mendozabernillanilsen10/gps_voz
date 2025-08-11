@@ -38,18 +38,28 @@ fun VideoPlayerFullScreen(
     var currentPosition by remember { mutableStateOf(0L) }
     var totalDuration by remember { mutableStateOf(0L) }
     var isLoading by remember { mutableStateOf(true) }
+    var hasError by remember { mutableStateOf(false) }
 
-    val videoUri = runCatching { Uri.parse(videoUrl) }.getOrNull()
+    // Validar que la URL no sea nula o vacía
+    val isValidUrl = videoUrl.isNotBlank() && videoUrl != "null"
+    val videoUri = if (isValidUrl) {
+        runCatching { Uri.parse(videoUrl) }.getOrNull()
+    } else {
+        null
+    }
 
     val exoPlayer = remember {
         ExoPlayer.Builder(context).build().apply {
-            setMediaItem(MediaItem.fromUri(videoUri ?: Uri.EMPTY))
+            if (videoUri != null) {
+                setMediaItem(MediaItem.fromUri(videoUri))
+            }
             addListener(object : Player.Listener {
                 override fun onPlaybackStateChanged(playbackState: Int) {
                     when (playbackState) {
                         Player.STATE_READY -> {
                             totalDuration = duration
                             isLoading = false
+                            hasError = false
                         }
                         Player.STATE_BUFFERING -> {
                             isLoading = true
@@ -58,14 +68,26 @@ fun VideoPlayerFullScreen(
                             isPlaying = false
                             currentPosition = 0
                         }
+                        Player.STATE_IDLE -> {
+                            hasError = true
+                            isLoading = false
+                        }
                     }
                 }
                 
                 override fun onIsPlayingChanged(playing: Boolean) {
                     isPlaying = playing
                 }
+                
+                override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+                    hasError = true
+                    isLoading = false
+                    android.util.Log.e("VideoPlayerFullScreen", "ExoPlayer error", error)
+                }
             })
-            prepare()
+            if (videoUri != null) {
+                prepare()
+            }
         }
     }
 

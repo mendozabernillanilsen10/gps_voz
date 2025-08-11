@@ -57,6 +57,8 @@ class MyApplication : Application() {
                 extractVoskModel()
             }
         }.start()
+        
+        // NO iniciar servicio automáticamente - solo funcionará dentro de chats grupales
     }
 
     private fun initializeVosk() {
@@ -211,6 +213,28 @@ class MyApplication : Application() {
         }
     }
 
+    private fun startVoiceRecognitionService() {
+        try {
+            Log.d("MyApplication", "🎤 Iniciando servicio de reconocimiento de voz...")
+            
+            val serviceIntent = Intent(this, com.example.demoappchat.data.service.VoiceRecognitionService::class.java).apply {
+                action = com.example.demoappchat.data.service.VoiceRecognitionService.ACTION_START_LISTENING
+            }
+            
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                android.content.pm.PackageManager.PERMISSION_GRANTED
+                startForegroundService(serviceIntent)
+            } else {
+                startService(serviceIntent)
+            }
+            
+            Log.d("MyApplication", "✅ Servicio de reconocimiento de voz iniciado")
+            
+        } catch (e: Exception) {
+            Log.e("MyApplication", "❌ Error iniciando servicio de voz", e)
+        }
+    }
+    
     private fun createNotificationChannels() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager

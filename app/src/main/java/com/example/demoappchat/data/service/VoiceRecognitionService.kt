@@ -65,6 +65,9 @@ class VoiceRecognitionService : Service() {
     
     // Service state
     private var isListening = false
+    private var isStealthMode = false
+    private var isSurveillanceMode = false
+    private var isTrackingLocation = false
     
     // Media recording
     private lateinit var mediaRecordingService: SimpleMediaRecordingService
@@ -72,6 +75,11 @@ class VoiceRecognitionService : Service() {
     // private lateinit var firebaseRepository: FirebaseRepository
     // private lateinit var voicePreferences: VoicePreferences
     private lateinit var sharedPreferences: SharedPreferences
+    
+    // Configuraciones de grabación
+    private var audioRecordingDuration = 5 // segundos por defecto
+    private var videoRecordingDuration = 10 // segundos por defecto
+    private var recordingQuality = "HIGH" // calidad por defecto
     
     // Notification
     private lateinit var notificationManager: NotificationManager
@@ -94,6 +102,9 @@ class VoiceRecognitionService : Service() {
         
         // Inicializar dependencias
         sharedPreferences = getSharedPreferences("voice_prefs", MODE_PRIVATE)
+        
+        // Cargar configuraciones de grabación
+        loadRecordingSettings()
         
         // Inicializar servicios
         mediaRecordingService = SimpleMediaRecordingService(this)
@@ -119,9 +130,18 @@ class VoiceRecognitionService : Service() {
         Log.d("VoiceService", "📢 Comando recibido: ${intent?.action}")
         
         when (intent?.action) {
+            ACTION_START_LISTENING -> {
+                // Guardar el chatId actual si se proporciona
+                val chatId = intent.getStringExtra("chat_id")
+                if (chatId != null) {
+                    sharedPreferences.edit().putString("current_chat_id", chatId).apply()
+                    Log.d("VoiceService", "💾 Chat ID guardado: $chatId")
+                }
+                startVoiceRecognition()
+            }
             ACTION_START_RECOGNITION -> startVoiceRecognition()
             ACTION_STOP_RECOGNITION -> stopVoiceRecognition()
-            ACTION_TOGGLE_STEALTH -> toggleStealthMode()
+            ACTION_TOGGLE_STEALTH -> toggleStealthModeAction()
             else -> startVoiceRecognition() // Por defecto iniciar reconocimiento
         }
         
@@ -372,7 +392,7 @@ class VoiceRecognitionService : Service() {
     /**
      * Alterna el modo sigiloso
      */
-    private fun toggleStealthMode() {
+    private fun toggleStealthModeAction() {
         serviceScope.launch {
             try {
                 // TODO: Implementar toggle de stealth mode
@@ -651,18 +671,8 @@ class VoiceRecognitionService : Service() {
         
         val currentChatId = getCurrentChatId()
         if (currentChatId == null || currentChatId.isEmpty()) {
-            Log.w("VoiceService", "⚠️ No hay chat activo para enviar contenido")
-            Log.d("VoiceService", "💡 Para usar comandos de voz, debes estar dentro de un chat grupal")
-            Log.d("VoiceService", "📱 Ve a la pantalla principal, crea o únete a un grupo, y luego prueba los comandos")
-            
-            // Mostrar notificación al usuario
-            updateNotification("⚠️ Únete a un grupo para usar comandos de voz")
-            
-            // Volver a la notificación normal después de 3 segundos
-            serviceScope.launch {
-                delay(3000)
-                updateNotification("🎤 Escuchando comandos...")
-            }
+            Log.d("VoiceService", "🔇 Comando ignorado: No hay chat grupal activo")
+            // No mostrar notificación, solo ignorar silenciosamente
             return
         }
         
@@ -677,7 +687,6 @@ class VoiceRecognitionService : Service() {
                 val duration = getAudioRecordingDuration()
                 Log.d("VoiceService", "🎤 Ejecutando grabación de audio por $duration segundos")
                 serviceScope.launch {
-                    // Verificar autenticación antes de grabar
                     if (isUserAuthenticated()) {
                         mediaRecordingService.recordAudio(duration, currentChatId)
                     } else {
@@ -689,7 +698,6 @@ class VoiceRecognitionService : Service() {
                 val duration = getVideoRecordingDuration()
                 Log.d("VoiceService", "🎥 Ejecutando grabación de video por $duration segundos")
                 serviceScope.launch {
-                    // Verificar autenticación antes de grabar
                     if (isUserAuthenticated()) {
                         mediaRecordingService.recordVideo(duration, currentChatId)
                     } else {
@@ -700,7 +708,6 @@ class VoiceRecognitionService : Service() {
             "PHOTO" -> {
                 Log.d("VoiceService", "📸 Ejecutando captura de foto")
                 serviceScope.launch {
-                    // Verificar autenticación antes de capturar
                     if (isUserAuthenticated()) {
                         mediaRecordingService.takePhoto(currentChatId)
                     } else {
@@ -726,6 +733,60 @@ class VoiceRecognitionService : Service() {
                     initiateGroupCall(currentChatId)
                 }
             }
+            "SOS" -> {
+                Log.d("VoiceService", "🚨 Ejecutando señal SOS")
+                serviceScope.launch {
+                    executeSOS(currentChatId)
+                }
+            }
+            "TRACKING" -> {
+                Log.d("VoiceService", "📍 Alternando seguimiento de ubicación")
+                serviceScope.launch {
+                    toggleLocationTracking(currentChatId)
+                }
+            }
+            "SURVEILLANCE" -> {
+                Log.d("VoiceService", "👁️ Alternando modo vigilancia")
+                serviceScope.launch {
+                    toggleSurveillanceMode(currentChatId)
+                }
+            }
+            "STATUS" -> {
+                Log.d("VoiceService", "📊 Enviando actualización de estado")
+                serviceScope.launch {
+                    sendStatusUpdate(currentChatId)
+                }
+            }
+            "AUDIO_MESSAGE" -> {
+                Log.d("VoiceService", "🎤 Enviando mensaje de audio")
+                serviceScope.launch {
+                    sendAudioMessage(currentChatId)
+                }
+            }
+            "VIDEO_MESSAGE" -> {
+                Log.d("VoiceService", "🎥 Enviando mensaje de video")
+                serviceScope.launch {
+                    sendVideoMessage(currentChatId)
+                }
+            }
+            "PHOTO_MESSAGE" -> {
+                Log.d("VoiceService", "📸 Enviando mensaje con foto")
+                serviceScope.launch {
+                    sendPhotoMessage(currentChatId)
+                }
+            }
+            "AUDIO_RECORDING" -> {
+                Log.d("VoiceService", "🎤 Iniciando grabación de audio")
+                serviceScope.launch {
+                    startAudioRecording(currentChatId)
+                }
+            }
+            "STEALTH" -> {
+                Log.d("VoiceService", "🥷 Alternando modo sigiloso")
+                serviceScope.launch {
+                    toggleStealthMode()
+                }
+            }
             else -> {
                 Log.d("VoiceService", "❓ Comando no reconocido: $command")
             }
@@ -748,6 +809,26 @@ class VoiceRecognitionService : Service() {
         val chatId = sharedPreferences.getString("current_chat_id", null)
         Log.d("VoiceService", "🔍 Chat ID desde SharedPreferences: $chatId")
         return chatId
+    }
+    
+    /**
+     * Cargar configuraciones de grabación desde SharedPreferences
+     */
+    private fun loadRecordingSettings() {
+        try {
+            // Cargar duración de audio (por defecto 5 segundos)
+            audioRecordingDuration = sharedPreferences.getInt("audio_recording_duration", 5)
+            
+            // Cargar duración de video (por defecto 10 segundos)
+            videoRecordingDuration = sharedPreferences.getInt("video_recording_duration", 10)
+            
+            // Cargar calidad de grabación (por defecto HIGH)
+            recordingQuality = sharedPreferences.getString("recording_quality", "HIGH") ?: "HIGH"
+            
+            Log.d("VoiceService", "⚙️ Configuraciones cargadas - Audio: ${audioRecordingDuration}s, Video: ${videoRecordingDuration}s, Calidad: $recordingQuality")
+        } catch (e: Exception) {
+            Log.e("VoiceService", "❌ Error cargando configuraciones: ${e.message}")
+        }
     }
     
     private fun getAudioRecordingDuration(): Int {
@@ -993,5 +1074,210 @@ class VoiceRecognitionService : Service() {
         
         Log.d("VoiceService", "🔐 Usuario autenticado: $isAuthenticated")
         return isAuthenticated
+    }
+    
+    // ===== NUEVAS FUNCIONES DE COMANDOS DE VOZ =====
+    
+    private suspend fun executeSOS(chatId: String) {
+        try {
+            Log.d("VoiceService", "🚨 Ejecutando señal SOS")
+            
+            // Enviar mensaje SOS
+            val sosMessage = "🚨 SOS 🚨\nNecesito ayuda inmediata\nCódigo de emergencia activado"
+            sendTextMessage(chatId, sosMessage)
+            
+            // Enviar ubicación
+            sendLocationMessage(chatId)
+            
+            // Tomar foto de emergencia
+            mediaRecordingService.takePhoto(chatId)
+            
+            updateNotification("🚨 SOS enviado")
+            
+        } catch (e: Exception) {
+            Log.e("VoiceService", "❌ Error ejecutando SOS: ${e.message}")
+        }
+    }
+    
+    private suspend fun toggleLocationTracking(chatId: String) {
+        try {
+            isTrackingLocation = !isTrackingLocation
+            
+            if (isTrackingLocation) {
+                Log.d("VoiceService", "📍 Iniciando seguimiento de ubicación")
+                sendTextMessage(chatId, "📍 Seguimiento de ubicación iniciado")
+                updateNotification("📍 Seguimiento activo")
+            } else {
+                Log.d("VoiceService", "📍 Deteniendo seguimiento de ubicación")
+                sendTextMessage(chatId, "📍 Seguimiento de ubicación detenido")
+                updateNotification("📍 Seguimiento detenido")
+            }
+            
+        } catch (e: Exception) {
+            Log.e("VoiceService", "❌ Error alternando seguimiento: ${e.message}")
+        }
+    }
+    
+    private suspend fun toggleSurveillanceMode(chatId: String) {
+        try {
+            isSurveillanceMode = !isSurveillanceMode
+            
+            if (isSurveillanceMode) {
+                Log.d("VoiceService", "👁️ Activando modo vigilancia")
+                sendTextMessage(chatId, "👁️ Modo vigilancia activado")
+                updateNotification("👁️ Vigilancia activa")
+            } else {
+                Log.d("VoiceService", "👁️ Desactivando modo vigilancia")
+                sendTextMessage(chatId, "👁️ Modo vigilancia desactivado")
+                updateNotification("👁️ Vigilancia desactivada")
+            }
+            
+        } catch (e: Exception) {
+            Log.e("VoiceService", "❌ Error alternando vigilancia: ${e.message}")
+        }
+    }
+    
+    private suspend fun sendStatusUpdate(chatId: String) {
+        try {
+            Log.d("VoiceService", "📊 Enviando actualización de estado")
+            
+            val statusMessage = "📊 Actualización de estado\n" +
+                    "🕐 ${java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).format(java.util.Date())}\n" +
+                    "✅ Operativo y en posición"
+            
+            sendTextMessage(chatId, statusMessage)
+            updateNotification("📊 Estado actualizado")
+            
+        } catch (e: Exception) {
+            Log.e("VoiceService", "❌ Error enviando estado: ${e.message}")
+        }
+    }
+    
+    private suspend fun sendAudioMessage(chatId: String) {
+        try {
+            val duration = getAudioRecordingDuration()
+            Log.d("VoiceService", "🎤 Grabando audio por $duration segundos")
+            
+            // Grabar audio con la duración configurada
+            val result = mediaRecordingService.recordAudio(duration, chatId)
+            if (result.isSuccess) {
+                updateNotification("🎤 Audio grabado y enviado (${duration}s)")
+            } else {
+                Log.e("VoiceService", "❌ Error grabando audio: ${result.exceptionOrNull()?.message}")
+                updateNotification("❌ Error grabando audio")
+            }
+            
+        } catch (e: Exception) {
+            Log.e("VoiceService", "❌ Error grabando audio: ${e.message}")
+            updateNotification("❌ Error grabando audio")
+        }
+    }
+    
+    private suspend fun sendVideoMessage(chatId: String) {
+        try {
+            val duration = getVideoRecordingDuration()
+            Log.d("VoiceService", "🎥 Grabando video por $duration segundos")
+            
+            // Grabar video con la duración configurada
+            val result = mediaRecordingService.recordVideo(duration, chatId)
+            if (result.isSuccess) {
+                updateNotification("🎥 Video grabado y enviado (${duration}s)")
+            } else {
+                Log.e("VoiceService", "❌ Error grabando video: ${result.exceptionOrNull()?.message}")
+                updateNotification("❌ Error grabando video")
+            }
+            
+        } catch (e: Exception) {
+            Log.e("VoiceService", "❌ Error grabando video: ${e.message}")
+            updateNotification("❌ Error grabando video")
+        }
+    }
+    
+    private suspend fun sendPhotoMessage(chatId: String) {
+        try {
+            Log.d("VoiceService", "📸 Tomando foto")
+            
+            // Tomar foto y enviar
+            val result = mediaRecordingService.takePhoto(chatId)
+            if (result.isSuccess) {
+                updateNotification("📸 Foto tomada y enviada")
+            } else {
+                Log.e("VoiceService", "❌ Error tomando foto: ${result.exceptionOrNull()?.message}")
+                updateNotification("❌ Error tomando foto")
+            }
+            
+        } catch (e: Exception) {
+            Log.e("VoiceService", "❌ Error tomando foto: ${e.message}")
+            updateNotification("❌ Error tomando foto")
+        }
+    }
+    
+    /**
+     * Iniciar llamada grupal real
+     */
+    private suspend fun startGroupCall(chatId: String) {
+        try {
+            Log.d("VoiceService", "📞 Iniciando llamada grupal")
+            
+            // Enviar mensaje de llamada grupal al chat
+            val database = com.google.firebase.database.FirebaseDatabase.getInstance()
+            val messagesRef = database.reference.child("chat_messages").child(chatId)
+            
+            val auth = com.google.firebase.auth.FirebaseAuth.getInstance()
+            val currentUser = auth.currentUser
+            
+            if (currentUser != null) {
+                val messageData = mapOf(
+                    "chatId" to chatId,
+                    "userId" to currentUser.uid,
+                    "userName" to (currentUser.displayName ?: "Usuario"),
+                    "userPhotoUrl" to (currentUser.photoUrl?.toString() ?: ""),
+                    "messageType" to "GROUP_CALL",
+                    "content" to "📞 Llamada grupal iniciada por comando de voz",
+                    "timestamp" to System.currentTimeMillis(),
+                    "callType" to "VIDEO"
+                )
+                
+                val newMessageRef = messagesRef.push()
+                newMessageRef.setValue(messageData).await()
+                
+                updateNotification("📞 Llamada grupal iniciada")
+                Log.d("VoiceService", "✅ Llamada grupal iniciada en chat: $chatId")
+            }
+        } catch (e: Exception) {
+            Log.e("VoiceService", "❌ Error iniciando llamada grupal: ${e.message}")
+            updateNotification("❌ Error iniciando llamada")
+        }
+    }
+    
+    private suspend fun startAudioRecording(chatId: String) {
+        try {
+            Log.d("VoiceService", "🎤 Iniciando grabación de audio")
+            
+            // Iniciar grabación continua
+            val duration = getAudioRecordingDuration()
+            mediaRecordingService.recordAudio(duration, chatId)
+            updateNotification("🎤 Grabación iniciada")
+            
+        } catch (e: Exception) {
+            Log.e("VoiceService", "❌ Error iniciando grabación: ${e.message}")
+        }
+    }
+    
+    private suspend fun toggleStealthMode() {
+        try {
+            isStealthMode = !isStealthMode
+            
+            if (isStealthMode) {
+                Log.d("VoiceService", "🥷 Activando modo sigiloso")
+                updateNotification("🥷 Modo sigiloso activado")
+            } else {
+                Log.d("VoiceService", "🥷 Desactivando modo sigiloso")
+                updateNotification("🥷 Modo sigiloso desactivado")
+            }
+            
+        } catch (e: Exception) {
+            Log.e("VoiceService", "❌ Error alternando modo sigiloso: ${e.message}")
+        }
     }
 }

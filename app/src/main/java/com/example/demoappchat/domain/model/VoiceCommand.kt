@@ -15,15 +15,24 @@ data class VoiceCommand(
 )
 
 enum class VoiceAction {
-    START_AUDIO_RECORDING,
-    START_VIDEO_RECORDING,
-    SEND_EMERGENCY_ALERT,
-    START_GROUP_CALL,
-    SEND_LOCATION,
-    TAKE_PHOTO,
-    SEND_MESSAGE,
-    ACTIVATE_STEALTH_MODE,
-    CUSTOM_ACTION
+    START_AUDIO_RECORDING,    // Grabar audio
+    START_VIDEO_RECORDING,    // Grabar video
+    SEND_EMERGENCY_ALERT,     // Enviar alerta de emergencia
+    START_GROUP_CALL,         // Iniciar llamada grupal
+    SEND_LOCATION,            // Enviar ubicación
+    TAKE_PHOTO,               // Tomar foto
+    SEND_MESSAGE,             // Enviar mensaje de texto
+    ACTIVATE_STEALTH_MODE,    // Activar modo sigiloso
+    SEND_STATUS_UPDATE,       // Enviar actualización de estado
+    START_TRACKING,           // Iniciar seguimiento de ubicación
+    STOP_TRACKING,            // Detener seguimiento
+    SEND_AUDIO_MESSAGE,       // Enviar mensaje de audio
+    SEND_VIDEO_MESSAGE,       // Enviar mensaje de video
+    SEND_PHOTO_MESSAGE,       // Enviar mensaje con foto
+    ACTIVATE_SURVEILLANCE,    // Activar modo vigilancia
+    DEACTIVATE_SURVEILLANCE,  // Desactivar modo vigilancia
+    SEND_SOS,                 // Enviar señal SOS
+    CUSTOM_ACTION             // Acción personalizada
 }
 
 enum class CommandPriority {

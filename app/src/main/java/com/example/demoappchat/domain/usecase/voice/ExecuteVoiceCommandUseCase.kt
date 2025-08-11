@@ -94,6 +94,15 @@ class ExecuteVoiceCommandUseCase @Inject constructor(
             VoiceAction.TAKE_PHOTO -> executeTakePhoto()
             VoiceAction.SEND_EMERGENCY_ALERT -> executeEmergencyAlert()
             VoiceAction.ACTIVATE_STEALTH_MODE -> executeStealthMode()
+            VoiceAction.SEND_STATUS_UPDATE -> executeStatusUpdate()
+            VoiceAction.START_TRACKING -> executeStartTracking()
+            VoiceAction.STOP_TRACKING -> executeStopTracking()
+            VoiceAction.SEND_AUDIO_MESSAGE -> executeSendAudioMessage()
+            VoiceAction.SEND_VIDEO_MESSAGE -> executeSendVideoMessage()
+            VoiceAction.SEND_PHOTO_MESSAGE -> executeSendPhotoMessage()
+            VoiceAction.ACTIVATE_SURVEILLANCE -> executeActivateSurveillance()
+            VoiceAction.DEACTIVATE_SURVEILLANCE -> executeDeactivateSurveillance()
+            VoiceAction.SEND_SOS -> executeSendSOS()
             VoiceAction.CUSTOM_ACTION -> executeCustomAction(command)
         }
     }
@@ -301,6 +310,164 @@ class ExecuteVoiceCommandUseCase @Inject constructor(
             android.util.Log.d("ExecuteVoiceCommand", "🔧 Acción personalizada: $actionType - $actionData")
             Result.success("Acción personalizada ejecutada: $actionType")
             
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+    
+    private suspend fun executeStartTracking(): Result<String> {
+        return try {
+            // Iniciar seguimiento de ubicación
+            val trackingResult = locationRepository.startLocationTracking()
+            if (trackingResult.isSuccess) {
+                android.util.Log.d("ExecuteVoiceCommand", "📍 Seguimiento de ubicación iniciado")
+                Result.success("Seguimiento de ubicación iniciado")
+            } else {
+                Result.failure(Exception("Error iniciando seguimiento"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+    
+    private suspend fun executeStopTracking(): Result<String> {
+        return try {
+            // Detener seguimiento de ubicación
+            val stopResult = locationRepository.stopLocationTracking()
+            if (stopResult.isSuccess) {
+                android.util.Log.d("ExecuteVoiceCommand", "📍 Seguimiento de ubicación detenido")
+                Result.success("Seguimiento de ubicación detenido")
+            } else {
+                Result.failure(Exception("Error deteniendo seguimiento"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+    
+    private suspend fun executeSendAudioMessage(): Result<String> {
+        return try {
+            // Obtener chat activo
+            val activeChat = chatRepository.getActiveChat()
+            if (activeChat == null) {
+                return Result.failure(Exception("No hay chat activo"))
+            }
+            
+            // Grabar audio
+            val audioResult = mediaRepository.startAudioRecording()
+            if (audioResult.isSuccess) {
+                // Esperar 5 segundos y detener
+                kotlinx.coroutines.delay(5000)
+                val stopResult = mediaRepository.stopAudioRecording()
+                
+                if (stopResult.isSuccess) {
+                    android.util.Log.d("ExecuteVoiceCommand", "🎤 Mensaje de audio grabado")
+                    Result.success("Mensaje de audio grabado")
+                } else {
+                    Result.failure(Exception("Error grabando audio"))
+                }
+            } else {
+                Result.failure(Exception("Error iniciando grabación de audio"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+    
+    private suspend fun executeSendVideoMessage(): Result<String> {
+        return try {
+            // Obtener chat activo
+            val activeChat = chatRepository.getActiveChat()
+            if (activeChat == null) {
+                return Result.failure(Exception("No hay chat activo"))
+            }
+            
+            // Grabar video
+            val videoResult = mediaRepository.startVideoRecording()
+            if (videoResult.isSuccess) {
+                // Esperar 10 segundos y detener
+                kotlinx.coroutines.delay(10000)
+                val stopResult = mediaRepository.stopVideoRecording()
+                
+                if (stopResult.isSuccess) {
+                    android.util.Log.d("ExecuteVoiceCommand", "🎥 Mensaje de video grabado")
+                    Result.success("Mensaje de video grabado")
+                } else {
+                    Result.failure(Exception("Error grabando video"))
+                }
+            } else {
+                Result.failure(Exception("Error iniciando grabación de video"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+    
+    private suspend fun executeSendPhotoMessage(): Result<String> {
+        return try {
+            // Obtener chat activo
+            val activeChat = chatRepository.getActiveChat()
+            if (activeChat == null) {
+                return Result.failure(Exception("No hay chat activo"))
+            }
+            
+            // Tomar foto
+            val photoResult = mediaRepository.takePhoto()
+            if (photoResult.isSuccess) {
+                android.util.Log.d("ExecuteVoiceCommand", "📸 Foto tomada")
+                Result.success("Foto tomada")
+            } else {
+                Result.failure(Exception("Error tomando foto"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+    
+    private suspend fun executeActivateSurveillance(): Result<String> {
+        return try {
+            // Activar modo vigilancia (grabación continua)
+            android.util.Log.d("ExecuteVoiceCommand", "👁️ Modo vigilancia activado")
+            Result.success("Modo vigilancia activado")
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+    
+    private suspend fun executeDeactivateSurveillance(): Result<String> {
+        return try {
+            // Desactivar modo vigilancia
+            android.util.Log.d("ExecuteVoiceCommand", "👁️ Modo vigilancia desactivado")
+            Result.success("Modo vigilancia desactivado")
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+    
+    private suspend fun executeSendSOS(): Result<String> {
+        return try {
+            // Obtener chat activo
+            val activeChat = chatRepository.getActiveChat()
+            if (activeChat == null) {
+                return Result.failure(Exception("No hay chat activo"))
+            }
+            
+            // Enviar señal SOS con ubicación
+            val sosMessage = "🚨 SOS 🚨\nNecesito ayuda inmediata\nCódigo de emergencia activado"
+            val messageResult = chatRepository.sendMessage(activeChat.id, sosMessage)
+            
+            // Enviar ubicación
+            val locationResult = chatRepository.sendCurrentLocation(activeChat.id)
+            
+            // Tomar foto de emergencia
+            val photoResult = mediaRepository.takePhoto()
+            
+            if (messageResult.isSuccess && locationResult.isSuccess) {
+                android.util.Log.d("ExecuteVoiceCommand", "🚨 Señal SOS enviada")
+                Result.success("Señal SOS enviada con ubicación y foto")
+            } else {
+                Result.failure(Exception("Error enviando señal SOS"))
+            }
         } catch (e: Exception) {
             Result.failure(e)
         }
