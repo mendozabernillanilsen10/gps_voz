@@ -203,7 +203,13 @@ fun ChatScreen(
                 items(messages) { message ->
                     MessageBubble(
                         message = message,
-                        isFromCurrentUser = message.userId == currentUser?.id
+                        isFromCurrentUser = message.userId == currentUser?.id,
+                                                    onVideoClick = { videoUrl ->
+                                val intent = android.content.Intent(context, VideoPlayerActivity::class.java).apply {
+                                    putExtra("video_url", videoUrl)
+                                }
+                                context.startActivity(intent)
+                            }
                     )
                 }
             }
@@ -269,6 +275,8 @@ fun ChatScreen(
                 onDismiss = { showVideoPlayer = null }
             )
         }
+
+
 
         // Snackbar para errores
         if (uiState.error != null) {
@@ -337,7 +345,8 @@ fun GroupCallBanner(
 @Composable
 fun MessageBubble(
     message: ChatMessage,
-    isFromCurrentUser: Boolean
+    isFromCurrentUser: Boolean,
+    onVideoClick: (String) -> Unit
 ) {
     val alignment = if (isFromCurrentUser) Alignment.End else Alignment.Start
     val backgroundColor = if (isFromCurrentUser) 
@@ -400,7 +409,8 @@ fun MessageBubble(
                     message.mediaUrl?.let { url ->
                         VideoPlayerBubble(
                             videoUrl = url,
-                            isFromCurrentUser = isFromCurrentUser
+                            isFromCurrentUser = isFromCurrentUser,
+                            onVideoClick = onVideoClick
                         )
                     }
                 }
@@ -588,9 +598,9 @@ fun AudioPlayerBubble(
 @Composable
 fun VideoPlayerBubble(
     videoUrl: String,
-    isFromCurrentUser: Boolean
+    isFromCurrentUser: Boolean,
+    onVideoClick: (String) -> Unit
 ) {
-    var showVideoPlayer by remember { mutableStateOf(false) }
     var videoDuration by remember { mutableStateOf(0) }
     var isLoading by remember { mutableStateOf(true) }
     val context = LocalContext.current
@@ -636,7 +646,7 @@ fun VideoPlayerBubble(
             .fillMaxWidth()
             .height(200.dp)
             .padding(12.dp)
-            .clickable { showVideoPlayer = true },
+            .clickable { onVideoClick(videoUrl) },
         shape = RoundedCornerShape(12.dp),
         color = if (isFromCurrentUser) 
             MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
@@ -738,13 +748,6 @@ fun VideoPlayerBubble(
         }
     }
     
-    // Diálogo del reproductor de video
-    if (showVideoPlayer) {
-        VideoPlayerDialog(
-            videoUrl = videoUrl,
-            onDismiss = { showVideoPlayer = false }
-        )
-    }
 }
 
 @Composable
@@ -755,31 +758,9 @@ fun VideoPlayerDialog(
     val videoUri = runCatching { Uri.parse(videoUrl) }.getOrNull()
     
     if (videoUri != null) {
-        AlertDialog(
-            onDismissRequest = onDismiss,
-            confirmButton = {
-                TextButton(onClick = onDismiss) {
-                    Text("Cerrar")
-                }
-            },
-            containerColor = Color.Black,
-            properties = DialogProperties(
-                dismissOnBackPress = true,
-                dismissOnClickOutside = true
-            ),
-            text = {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(400.dp)
-                        .background(Color.Black)
-                ) {
-                    VideoPlayerScreen(
-                        videoUri = videoUri,
-                        onDismiss = onDismiss
-                    )
-                }
-            }
+        VideoPlayerFullScreen(
+            videoUrl = videoUrl,
+            onNavigateBack = onDismiss
         )
     } else {
         Log.e("VideoPlayerDialog", "Error parsing video URL: $videoUrl")

@@ -38,7 +38,6 @@ fun VideoPlayerScreen(
     var currentPosition by remember { mutableStateOf(0L) }
     var totalDuration by remember { mutableStateOf(0L) }
     var isLoading by remember { mutableStateOf(true) }
-    var hasError by remember { mutableStateOf(false) }
 
     val exoPlayer = remember {
         ExoPlayer.Builder(context).build().apply {
@@ -49,7 +48,6 @@ fun VideoPlayerScreen(
                         Player.STATE_READY -> {
                             totalDuration = duration
                             isLoading = false
-                            hasError = false
                         }
                         Player.STATE_BUFFERING -> {
                             isLoading = true
@@ -58,19 +56,11 @@ fun VideoPlayerScreen(
                             isPlaying = false
                             currentPosition = 0
                         }
-                        Player.STATE_IDLE -> {
-                            isLoading = false
-                        }
                     }
                 }
                 
                 override fun onIsPlayingChanged(playing: Boolean) {
                     isPlaying = playing
-                }
-                
-                override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
-                    hasError = true
-                    isLoading = false
                 }
             })
             prepare()
@@ -103,22 +93,18 @@ fun VideoPlayerScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.Black)
+            .clickable { showControls = !showControls }
     ) {
-        // Video Player - Configuración correcta para mostrar video
+        // Video Player
         AndroidView(
             factory = { ctx ->
                 PlayerView(ctx).apply {
                     player = exoPlayer
                     useController = false
                     setShowBuffering(PlayerView.SHOW_BUFFERING_WHEN_PLAYING)
-                    // Configuraciones importantes para mostrar video
-                    setShutterBackgroundColor(android.graphics.Color.TRANSPARENT)
-                    setKeepContentOnPlayerReset(true)
                 }
             },
-            modifier = Modifier
-                .fillMaxSize()
-                .clickable { showControls = !showControls }
+            modifier = Modifier.fillMaxSize()
         )
 
         // Loading indicator
@@ -136,44 +122,14 @@ fun VideoPlayerScreen(
             }
         }
 
-        // Error indicator
-        if (hasError) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.8f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    Text(
-                        text = "Error al reproducir video",
-                        color = Color.White,
-                        fontSize = 16.sp
-                    )
-                    Button(
-                        onClick = {
-                            hasError = false
-                            isLoading = true
-                            exoPlayer.prepare()
-                        }
-                    ) {
-                        Text("Reintentar")
-                    }
-                }
-            }
-        }
-
-        // Controles minimalistas
+        // Controles
         AnimatedVisibility(
-            visible = showControls && !isLoading && !hasError,
+            visible = showControls && !isLoading,
             enter = fadeIn(),
             exit = fadeOut()
         ) {
             Box(modifier = Modifier.fillMaxSize()) {
-                // Botón cerrar (top-right)
+                // Botón cerrar
                 IconButton(
                     onClick = onDismiss,
                     modifier = Modifier
