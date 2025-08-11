@@ -27,8 +27,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
-import com.example.demoappchat.ui.theme.EmergencyRed
-import com.example.demoappchat.ui.theme.SafetyGreen
+import com.example.demoappchat.ui.theme.*
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.rememberPermissionState
 import kotlinx.coroutines.delay
@@ -95,7 +94,7 @@ fun ModernChatTopBar(
                             modifier = Modifier
                                 .size(6.dp)
                                 .background(
-                                    SafetyGreen,
+                                    MinimalistGreen,
                                     CircleShape
                                 )
                         )

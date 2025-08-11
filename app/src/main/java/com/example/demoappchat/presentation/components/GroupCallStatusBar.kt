@@ -14,8 +14,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.demoappchat.ui.theme.SafetyGreen
-import com.example.demoappchat.ui.theme.SystemRed
+import com.example.demoappchat.ui.theme.MinimalistGreen
+import com.example.demoappchat.ui.theme.Error
 
 @Composable
 fun GroupCallStatusBar(
@@ -36,7 +36,7 @@ fun GroupCallStatusBar(
             shape = RoundedCornerShape(12.dp),
             color = when (callType) {
                 "video" -> MaterialTheme.colorScheme.primary
-                "audio" -> SafetyGreen
+                "audio" -> MinimalistGreen
                 else -> MaterialTheme.colorScheme.onSurfaceVariant
             },
             shadowElevation = 4.dp
@@ -110,7 +110,7 @@ fun GroupCallStatusBar(
                         modifier = Modifier
                             .size(40.dp)
                             .background(
-                                color = SystemRed.copy(alpha = 0.8f),
+                                color = Error.copy(alpha = 0.8f),
                                 shape = RoundedCornerShape(8.dp)
                             )
                     ) {
@@ -191,9 +191,7 @@ fun IncomingCallNotification(
             ) {
                 Button(
                     onClick = onAccept,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = SafetyGreen
-                    ),
+                    colors = ButtonDefaults.buttonColors(containerColor = Error),
                     modifier = Modifier.weight(1f)
                 ) {
                     Icon(
@@ -210,7 +208,7 @@ fun IncomingCallNotification(
                 Button(
                     onClick = onDecline,
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = SystemRed
+                        containerColor = Error
                     ),
                     modifier = Modifier.weight(1f)
                 ) {

@@ -36,9 +36,9 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
-import com.example.demoappchat.ui.theme.EmergencyRed
-import com.example.demoappchat.ui.theme.SafetyGreen
-import com.example.demoappchat.ui.theme.WarningOrange
+import com.example.demoappchat.ui.theme.Error
+import com.example.demoappchat.ui.theme.MinimalistGreen
+import com.example.demoappchat.ui.theme.MinimalistPurple
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
 import java.io.File
@@ -90,7 +90,7 @@ fun MediaOptionsPanel(
                 MediaOptionButton(
                     icon = Icons.Rounded.PhotoCamera,
                     label = "Foto",
-                    color = SafetyGreen,
+                    color = MinimalistGreen,
                     onClick = onPhotoClick
                 )
 
@@ -104,7 +104,7 @@ fun MediaOptionsPanel(
                 MediaOptionButton(
                     icon = Icons.Rounded.Mic,
                     label = "Audio",
-                    color = WarningOrange,
+                    color = MinimalistPurple,
                     onClick = onAudioClick
                 )
             }
@@ -196,7 +196,7 @@ fun ModernChatMediaPanel(
                 MediaOptionButton(
                     icon = Icons.Rounded.PhotoCamera,
                     label = "Foto",
-                    color = SafetyGreen,
+                    color = MinimalistGreen,
                     onClick = onImageClick
                 )
                 
@@ -210,14 +210,14 @@ fun ModernChatMediaPanel(
                 MediaOptionButton(
                     icon = Icons.Rounded.Mic,
                     label = "Audio",
-                    color = WarningOrange,
+                    color = MinimalistPurple,
                     onClick = onAudioClick
                 )
                 
                 MediaOptionButton(
                     icon = Icons.Default.Camera,
                     label = "Cámara",
-                    color = EmergencyRed,
+                    color = Error,
                     onClick = onCameraClick
                 )
             }

@@ -15,7 +15,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -32,10 +31,8 @@ import com.example.demoappchat.presentation.components.JoinChatDialog
 import com.example.demoappchat.presentation.components.LocationPermissionDialog
 import com.example.demoappchat.presentation.components.CompactRecordingIndicator
 import com.example.demoappchat.presentation.recording.RecordingViewModel
-import com.example.demoappchat.ui.theme.EmergencyRed
-import com.example.demoappchat.ui.theme.SafetyGreen
-import com.example.demoappchat.ui.theme.WarningOrange
 import com.example.demoappchat.utils.LocationHelper
+import androidx.compose.foundation.BorderStroke
 
 @OptIn(ExperimentalPermissionsApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -106,8 +103,6 @@ fun MainScreen(
         }
     }
 
-
-
     // Navegar a chat creado/unido
     LaunchedEffect(uiState.createdChatId, uiState.joinedChatId) {
         uiState.createdChatId?.let { chatId ->
@@ -124,16 +119,12 @@ fun MainScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            "SafeVoice",
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onPrimary,
-                            fontSize = 22.sp
-                        )
-                    }
+                    Text(
+                        "SafeVoice",
+                        fontWeight = FontWeight.Normal,
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        fontSize = 20.sp
+                    )
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primary
@@ -150,14 +141,14 @@ fun MainScreen(
                         // Indicador de voz activa cuando no está grabando
                         Surface(
                             shape = CircleShape,
-                            color = SafetyGreen,
-                            modifier = Modifier.size(32.dp)
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(28.dp)
                         ) {
                             Icon(
                                 Icons.Default.Mic,
                                 contentDescription = "Voz activa",
-                                tint = Color.White,
-                                modifier = Modifier.size(18.dp)
+                                tint = MaterialTheme.colorScheme.onPrimary,
+                                modifier = Modifier.size(16.dp)
                             )
                         }
                         Spacer(modifier = Modifier.width(8.dp))
@@ -167,7 +158,8 @@ fun MainScreen(
                         Icon(
                             Icons.Default.Settings,
                             contentDescription = "Configuración",
-                            tint = MaterialTheme.colorScheme.onPrimary
+                            tint = MaterialTheme.colorScheme.onPrimary,
+                            modifier = Modifier.size(20.dp)
                         )
                     }
                     
@@ -176,7 +168,8 @@ fun MainScreen(
                             Icon(
                                 Icons.Default.MoreVert,
                                 contentDescription = "Menú",
-                                tint = MaterialTheme.colorScheme.onPrimary
+                                tint = MaterialTheme.colorScheme.onPrimary,
+                                modifier = Modifier.size(20.dp)
                             )
                         }
 
@@ -212,14 +205,14 @@ fun MainScreen(
             if (locationPermissions.allPermissionsGranted && currentLocation != null) {
                 FloatingActionButton(
                     onClick = { showCreateDialog = true },
-                    containerColor = EmergencyRed,
-                    contentColor = Color.White,
-                    modifier = Modifier.size(64.dp)
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                    modifier = Modifier.size(52.dp)
                 ) {
                     Icon(
                         Icons.Default.Add,
                         contentDescription = "Crear Chat",
-                        modifier = Modifier.size(32.dp)
+                        modifier = Modifier.size(22.dp)
                     )
                 }
             }
@@ -236,148 +229,141 @@ fun MainScreen(
                     .fillMaxSize()
                     .background(MaterialTheme.colorScheme.background)
                     .padding(paddingValues),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                contentPadding = PaddingValues(20.dp),
+                verticalArrangement = Arrangement.spacedBy(20.dp)
             ) {
-                // Header con información del usuario modernizado
+                // Header minimalista
                 item {
                     currentUser?.let { user ->
-                        Card(
+                        Column(
                             modifier = Modifier.fillMaxWidth(),
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.surface
-                            ),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-                            shape = RoundedCornerShape(20.dp)
+                            horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            Column(
-                                modifier = Modifier.padding(24.dp)
+                            // Avatar minimalista
+                            Box(
+                                modifier = Modifier
+                                    .size(56.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.primary),
+                                contentAlignment = Alignment.Center
                             ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    // Avatar mejorado con gradiente simulado
-                                    Box(
-                                        modifier = Modifier.size(56.dp),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Surface(
-                                            shape = CircleShape,
-                                            color = EmergencyRed,
-                                            modifier = Modifier.size(56.dp)
-                                        ) {
-                                            Box(contentAlignment = Alignment.Center) {
-                                                Text(
-                                                    text = user.name.firstOrNull()?.toString()?.uppercase() ?: "U",
-                                                    color = Color.White,
-                                                    fontWeight = FontWeight.Bold,
-                                                    fontSize = 20.sp
-                                                )
-                                            }
-                                        }
-                                    }
+                                Text(
+                                    text = user.name.firstOrNull()?.toString()?.uppercase() ?: "U",
+                                    color = MaterialTheme.colorScheme.onPrimary,
+                                    fontWeight = FontWeight.Normal,
+                                    fontSize = 20.sp
+                                )
+                            }
+                            
+                            Spacer(modifier = Modifier.height(16.dp))
+                            
+                            // Título principal
+                            Text(
+                                text = "Hola, ${user.name}",
+                                fontWeight = FontWeight.Normal,
+                                fontSize = 22.sp,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            
+                            Spacer(modifier = Modifier.height(4.dp))
+                            
+                            // Subtítulo
+                            Text(
+                                text = "Sistema activo",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Normal
+                            )
+                        }
+                    }
+                }
 
-                                    Spacer(modifier = Modifier.width(16.dp))
-
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text(
-                                            text = "Hola, ${user.name}",
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 22.sp,
-                                            color = MaterialTheme.colorScheme.onSurface
-                                        )
-                                        Spacer(modifier = Modifier.height(4.dp))
-                                        Text(
-                                            text = "Sistema de emergencias activo",
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            fontSize = 14.sp,
-                                            fontWeight = FontWeight.Medium
-                                        )
-                                    }
-                                }
-                                
-                                Spacer(modifier = Modifier.height(20.dp))
-                                
-                                // Stats row
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(16.dp)
-                                ) {
-                                    // Ubicación
-                                    Surface(
-                                        modifier = Modifier.weight(1f),
-                                        shape = RoundedCornerShape(12.dp),
-                                        color = SafetyGreen.copy(alpha = 0.1f)
-                                    ) {
-                                        Row(
-                                            modifier = Modifier.padding(12.dp),
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Icon(
-                                                Icons.Default.LocationOn,
-                                                contentDescription = null,
-                                                tint = SafetyGreen,
-                                                modifier = Modifier.size(18.dp)
-                                            )
-                                            Spacer(modifier = Modifier.width(8.dp))
-                                            Text(
-                                                text = "Ubicación OK",
-                                                color = SafetyGreen,
-                                                fontSize = 13.sp,
-                                                fontWeight = FontWeight.Medium
-                                            )
-                                        }
-                                    }
-                                    
-                                    // Chats disponibles
-                                    Surface(
-                                        modifier = Modifier.weight(1f),
-                                        shape = RoundedCornerShape(12.dp),
-                                        color = EmergencyRed.copy(alpha = 0.1f)
-                                    ) {
-                                        Row(
-                                            modifier = Modifier.padding(12.dp),
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Icon(
-                                                Icons.Default.Person,
-                                                contentDescription = null,
-                                                tint = EmergencyRed,
-                                                modifier = Modifier.size(18.dp)
-                                            )
-                                            Spacer(modifier = Modifier.width(8.dp))
-                                            Text(
-                                                text = "${nearbyChats.size} Chats",
-                                                color = EmergencyRed,
-                                                fontSize = 13.sp,
-                                                fontWeight = FontWeight.Medium
-                                            )
-                                        }
-                                    }
-                                }
+                // Indicadores de estado minimalistas
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        // Ubicación
+                        Surface(
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(10.dp),
+                            color = MaterialTheme.colorScheme.surface,
+                            border = BorderStroke(
+                                1.dp,
+                                MaterialTheme.colorScheme.outline.copy(alpha = 0.1f)
+                            )
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(14.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    Icons.Default.LocationOn,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Text(
+                                    text = "Ubicación",
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Normal
+                                )
+                            }
+                        }
+                        
+                        // Chats disponibles
+                        Surface(
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(10.dp),
+                            color = MaterialTheme.colorScheme.surface,
+                            border = BorderStroke(
+                                1.dp,
+                                MaterialTheme.colorScheme.outline.copy(alpha = 0.1f)
+                            )
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(14.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    Icons.Default.Chat,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Text(
+                                    text = "${nearbyChats.size}",
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Normal
+                                )
                             }
                         }
                     }
                 }
 
-                // Estado del servicio de voz simplificado
+                // Estado del servicio de voz minimalista
                 item {
-                    Card(
+                    Surface(
                         modifier = Modifier.fillMaxWidth(),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = if (isVoiceServiceEnabled) {
-                                SafetyGreen.copy(alpha = 0.1f)
-                            } else {
-                                MaterialTheme.colorScheme.surface
-                            }
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.surface,
+                        border = BorderStroke(
+                            1.dp,
+                            if (isVoiceServiceEnabled) 
+                                MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
+                            else 
+                                MaterialTheme.colorScheme.outline.copy(alpha = 0.1f)
                         )
                     ) {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(20.dp),
+                                .padding(18.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
@@ -387,29 +373,29 @@ fun MainScreen(
                                 Icon(
                                     Icons.Default.Mic,
                                     contentDescription = "Servicio de voz",
-                                    tint = if (isVoiceServiceEnabled) SafetyGreen else MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.size(24.dp)
+                                    tint = if (isVoiceServiceEnabled) 
+                                        MaterialTheme.colorScheme.primary 
+                                    else 
+                                        MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(20.dp)
                                 )
                                 Spacer(modifier = Modifier.width(12.dp))
                                 Column {
                                     Text(
                                         text = "Detección de Voz",
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.Normal,
+                                        fontSize = 14.sp,
                                         color = MaterialTheme.colorScheme.onSurface
                                     )
+                                    Spacer(modifier = Modifier.height(2.dp))
                                     Text(
-                                        text = when {
-                                            isVoiceServiceEnabled -> "Escuchando comandos de emergencia"
-                                            !audioPermissions.allPermissionsGranted -> "Permisos de micrófono requeridos"
-                                            else -> "Toca para activar"
-                                        },
-                                        fontSize = 14.sp,
-                                        color = when {
-                                            isVoiceServiceEnabled -> SafetyGreen
-                                            !audioPermissions.allPermissionsGranted -> WarningOrange
-                                            else -> MaterialTheme.colorScheme.onSurfaceVariant
-                                        }
+                                        text = if (isVoiceServiceEnabled) 
+                                            "Activo" 
+                                        else 
+                                            "Inactivo",
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Normal
                                     )
                                 }
                             }
@@ -418,7 +404,6 @@ fun MainScreen(
                                 checked = isVoiceServiceEnabled,
                                 onCheckedChange = { enabled ->
                                     if (enabled && !audioPermissions.allPermissionsGranted) {
-                                        // Marcar que el usuario intentó activar y solicitar permisos
                                         userTriedToEnable = true
                                         audioPermissions.launchMultiplePermissionRequest()
                                     } else {
@@ -426,53 +411,28 @@ fun MainScreen(
                                     }
                                 },
                                 colors = SwitchDefaults.colors(
-                                    checkedThumbColor = Color.White,
-                                    checkedTrackColor = SafetyGreen,
-                                    uncheckedThumbColor = Color.White,
-                                    uncheckedTrackColor = MaterialTheme.colorScheme.outline
+                                    checkedThumbColor = MaterialTheme.colorScheme.primary,
+                                    checkedTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
+                                    uncheckedThumbColor = MaterialTheme.colorScheme.outline,
+                                    uncheckedTrackColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.1f)
                                 )
                             )
                         }
                     }
                 }
 
-                // Section divider
-                item {
-                    Spacer(modifier = Modifier.height(8.dp))
-                }
-                
                 // Chats section header
                 if (nearbyChats.isNotEmpty()) {
                     item {
-                        Surface(
-                            modifier = Modifier.fillMaxWidth(),
-                            color = MaterialTheme.colorScheme.background
-                        ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(16.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = "Chats de Emergencia",
-                                    fontSize = 18.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onBackground
-                                )
-                                
-                                Text(
-                                    text = "${nearbyChats.size} activos",
-                                    fontSize = 14.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
+                        Text(
+                            text = "Chats disponibles",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Normal,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.padding(vertical = 8.dp)
+                        )
                     }
                 }
-
-
 
                 // Chat items
                 if (nearbyChats.isEmpty()) {
@@ -483,8 +443,6 @@ fun MainScreen(
                     items(
                         items = nearbyChats,
                         key = { chat -> 
-                            // Use a combination of fields to ensure uniqueness
-                            // If id is empty, use createdAt + creatorId as fallback
                             if (chat.id.isNotBlank()) {
                                 chat.id
                             } else {
@@ -547,45 +505,39 @@ fun ModernChatCard(
     userLocation: android.location.Location?,
     onClick: () -> Unit
 ) {
-    Card(
+    Surface(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onClick() },
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        shape = RoundedCornerShape(14.dp),
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.outline.copy(alpha = 0.08f)
+        )
     ) {
         Column(
-            modifier = Modifier.padding(16.dp)
+            modifier = Modifier.padding(18.dp)
         ) {
-            // Header estilo Instagram/Facebook
+            // Header minimalista
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Avatar circular con gradiente
+                // Avatar minimalista
                 Box(
-                    modifier = Modifier.size(48.dp),
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primary),
                     contentAlignment = Alignment.Center
                 ) {
-                    Surface(
-                        shape = CircleShape,
-                        modifier = Modifier.size(48.dp),
-                        color = when (chat.category) {
-                            "emergency" -> EmergencyRed
-                            "security" -> WarningOrange
-                            else -> MaterialTheme.colorScheme.primary
-                        }
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Text(
-                                text = chat.creatorName.firstOrNull()?.toString()?.uppercase() ?: "?",
-                                color = Color.White,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 18.sp
-                            )
-                        }
-                    }
+                    Text(
+                        text = chat.creatorName.firstOrNull()?.toString()?.uppercase() ?: "?",
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        fontWeight = FontWeight.Normal,
+                        fontSize = 14.sp
+                    )
                 }
                 
                 Spacer(modifier = Modifier.width(12.dp))
@@ -594,53 +546,54 @@ fun ModernChatCard(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = chat.creatorName,
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Normal,
+                        fontSize = 14.sp,
                         color = MaterialTheme.colorScheme.onSurface
                     )
+                    
+                    Spacer(modifier = Modifier.height(4.dp))
+                    
+                    // Categoría y distancia en una línea
                     Row(
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        // Badge de categoría
+                        // Badge de categoría minimalista
                         Surface(
-                            shape = RoundedCornerShape(12.dp),
-                            color = when (chat.category) {
-                                "emergency" -> EmergencyRed.copy(alpha = 0.1f)
-                                "security" -> WarningOrange.copy(alpha = 0.1f)
-                                else -> MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
-                            }
+                            shape = RoundedCornerShape(6.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f),
+                            border = BorderStroke(
+                                0.5.dp,
+                                MaterialTheme.colorScheme.outline.copy(alpha = 0.1f)
+                            )
                         ) {
                             Text(
                                 text = when (chat.category) {
-                                    "emergency" -> "🚨 Emergencia"
-                                    "security" -> "🔒 Seguridad"
-                                    else -> "💬 General"
+                                    "emergency" -> "Emergencia"
+                                    "security" -> "Seguridad"
+                                    "traffic" -> "Tráfico"
+                                    "community" -> "Comunidad"
+                                    else -> "General"
                                 },
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
-                                fontSize = 12.sp,
-                                color = when (chat.category) {
-                                    "emergency" -> EmergencyRed
-                                    "security" -> WarningOrange
-                                    else -> MaterialTheme.colorScheme.primary
-                                },
-                                fontWeight = FontWeight.Medium
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                                fontSize = 10.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontWeight = FontWeight.Normal
                             )
                         }
-                        
-                        Spacer(modifier = Modifier.width(8.dp))
                         
                         // Distancia
                         Text(
                             text = userLocation?.let {
                                 chat.getDistanceText(it.latitude, it.longitude)
                             } ?: "Calculando...",
-                            fontSize = 13.sp,
+                            fontSize = 11.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
                 
-                // Botón de unirse estilo moderno
+                // Botón de unirse minimalista
                 Surface(
                     onClick = onClick,
                     shape = RoundedCornerShape(20.dp),
@@ -648,40 +601,40 @@ fun ModernChatCard(
                 ) {
                     Text(
                         text = "Unirse",
-                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                         color = MaterialTheme.colorScheme.onPrimary,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.SemiBold
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Normal
                     )
                 }
             }
             
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(14.dp))
             
             // Contenido del chat
             Text(
                 text = chat.title,
                 fontWeight = FontWeight.Normal,
-                fontSize = 16.sp,
+                fontSize = 15.sp,
                 color = MaterialTheme.colorScheme.onSurface,
-                lineHeight = 22.sp
+                lineHeight = 20.sp
             )
             
             if (chat.description.isNotBlank()) {
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(6.dp))
                 Text(
                     text = chat.description,
-                    fontSize = 14.sp,
+                    fontSize = 13.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    lineHeight = 20.sp,
-                    maxLines = 3,
+                    lineHeight = 17.sp,
+                    maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
             }
             
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(14.dp))
             
-            // Footer con estadísticas
+            // Footer minimalista
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -694,113 +647,94 @@ fun ModernChatCard(
                         Icons.Default.Person,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(16.dp)
+                        modifier = Modifier.size(14.dp)
                     )
-                    Spacer(modifier = Modifier.width(4.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
                     Text(
                         text = "${chat.participantsCount} participantes",
-                        fontSize = 13.sp,
+                        fontSize = 11.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
                 
                 Text(
                     text = "Hace ${((System.currentTimeMillis() - chat.createdAt) / (1000 * 60)).toInt()}min",
-                    fontSize = 13.sp,
+                    fontSize = 11.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            
-            Spacer(modifier = Modifier.height(8.dp))
-            
-            // Divider
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(0.5.dp)
-                    .background(MaterialTheme.colorScheme.outline)
-            )
         }
     }
 }
 
 @Composable
 fun EmptyStateContent() {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.surface
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(40.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Column(
+        // Icono minimalista
+        Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(32.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .size(72.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f)),
+            contentAlignment = Alignment.Center
         ) {
-            // Modern empty illustration
-            Box(
-                modifier = Modifier.size(100.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Surface(
-                    shape = CircleShape,
-                    color = MaterialTheme.colorScheme.surfaceVariant,
-                    modifier = Modifier.size(100.dp)
-                ) {
-                    Icon(
-                        Icons.Default.Forum,
-                        contentDescription = null,
-                        modifier = Modifier
-                            .size(100.dp)
-                            .padding(24.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            Text(
-                text = "No hay chats en tu área",
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface,
-                textAlign = TextAlign.Center
+            Icon(
+                Icons.Default.Forum,
+                contentDescription = null,
+                modifier = Modifier.size(36.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
+        }
 
-            Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(24.dp))
 
-            Text(
-                text = "Crea el primer chat de emergencia en tu zona y conecta con personas cercanas",
-                fontSize = 16.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-                lineHeight = 22.sp
-            )
+        Text(
+            text = "No hay chats disponibles",
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Normal,
+            color = MaterialTheme.colorScheme.onSurface,
+            textAlign = TextAlign.Center
+        )
 
-            Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(8.dp))
 
-            Surface(
-                shape = RoundedCornerShape(8.dp),
-                color = MaterialTheme.colorScheme.primary
+        Text(
+            text = "Crea el primer chat en tu zona para conectar con personas cercanas",
+            fontSize = 14.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+            lineHeight = 20.sp
+        )
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Surface(
+            onClick = { /* TODO: Implementar acción */ },
+            shape = RoundedCornerShape(10.dp),
+            color = MaterialTheme.colorScheme.primary
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 18.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        Icons.Default.Add,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onPrimary,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "Crear primer chat",
-                        fontSize = 16.sp,
-                        color = MaterialTheme.colorScheme.onPrimary,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
+                Icon(
+                    Icons.Default.Add,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onPrimary,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(10.dp))
+                Text(
+                    text = "Crear chat",
+                    fontSize = 14.sp,
+                    color = MaterialTheme.colorScheme.onPrimary,
+                    fontWeight = FontWeight.Normal
+                )
             }
         }
     }

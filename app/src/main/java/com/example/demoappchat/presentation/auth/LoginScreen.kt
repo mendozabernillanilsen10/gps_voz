@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.demoappchat.ui.theme.*
+import com.example.demoappchat.ui.theme.MinimalistBlue
 
 @Composable
 fun LoginScreen(
@@ -220,7 +221,7 @@ fun CleanLogo() {
                 .size(80.dp)
                 .background(
                     brush = androidx.compose.ui.graphics.Brush.linearGradient(
-                        colors = listOf(PrimaryBlue, SpyBlue)
+                        colors = listOf(PrimaryBlue, MinimalistBlue)
                     ),
                     shape = RoundedCornerShape(20.dp)
                 ),

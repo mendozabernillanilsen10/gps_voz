@@ -8,6 +8,7 @@ import android.net.Uri
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTransformGestures
@@ -23,6 +24,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -45,90 +47,63 @@ import java.io.File
 import java.io.IOException
 import java.text.SimpleDateFormat
 import java.util.*
+import androidx.compose.ui.text.style.TextAlign
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ModernMessageBubble(
     message: ChatMessage,
     isOwnMessage: Boolean,
+    onImageClick: (Uri) -> Unit = {},
     onVideoClick: (Uri) -> Unit = {},
-    onImageClick: (Uri) -> Unit = {}
+    modifier: Modifier = Modifier
 ) {
-    val scale by animateFloatAsState(
-        targetValue = 1f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessLow
-        ),
-        label = "message_scale"
-    )
+    val bubbleColor = if (isOwnMessage) {
+        MaterialTheme.colorScheme.primary
+    } else {
+        MaterialTheme.colorScheme.surface
+    }
+    
+    val textColor = if (isOwnMessage) {
+        MaterialTheme.colorScheme.onPrimary
+    } else {
+        MaterialTheme.colorScheme.onSurface
+    }
 
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .scale(scale),
+        modifier = modifier.fillMaxWidth(),
         horizontalArrangement = if (isOwnMessage) Arrangement.End else Arrangement.Start
     ) {
         if (!isOwnMessage) {
-            // Avatar del usuario
-            Box(
-                modifier = Modifier
-                    .size(32.dp)
-                    .background(
-                        Brush.radialGradient(
-                            colors = listOf(MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.colorScheme.outline)
-                        ),
-                        CircleShape
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = message.userName.firstOrNull()?.toString()?.uppercase() ?: "U",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold
-                )
-            }
             Spacer(modifier = Modifier.width(8.dp))
         }
 
-        Column(
-            horizontalAlignment = if (isOwnMessage) Alignment.End else Alignment.Start,
-            modifier = Modifier.widthIn(max = 280.dp)
-        ) {
-            // Nombre del usuario (solo si no es propio)
-            if (!isOwnMessage) {
-                Text(
-                    text = message.userName,
-                    fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontWeight = FontWeight.Medium,
-                    modifier = Modifier.padding(start = 12.dp, bottom = 2.dp)
-                )
-            }
-
-            // Burbuja del mensaje
-            Surface(
-                shape = RoundedCornerShape(
-                    topStart = if (isOwnMessage) 20.dp else 4.dp,
-                    topEnd = if (isOwnMessage) 4.dp else 20.dp,
-                    bottomStart = 20.dp,
-                    bottomEnd = 20.dp
+        // Burbuja del mensaje con diseño minimalista
+        Surface(
+            modifier = Modifier
+                .widthIn(max = 280.dp)
+                .shadow(
+                    elevation = if (isOwnMessage) 2.dp else 1.dp,
+                    shape = RoundedCornerShape(20.dp),
+                    spotColor = if (isOwnMessage) 
+                        MaterialTheme.colorScheme.primary.copy(alpha = 0.3f) 
+                    else 
+                        Color.Black.copy(alpha = 0.1f)
                 ),
-                color = if (isOwnMessage) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
-                shadowElevation = if (isOwnMessage) 0.dp else 1.dp
+            shape = RoundedCornerShape(20.dp),
+            color = bubbleColor,
+            border = if (!isOwnMessage) {
+                BorderStroke(
+                    1.dp, 
+                    MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
+                )
+            } else null
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp)
             ) {
+                // Contenido del mensaje según el tipo
                 when (message.messageType) {
-                    MessageType.TEXT -> {
-                        Text(
-                            text = message.content,
-                            color = if (isOwnMessage) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
-                            fontSize = 15.sp,
-                            lineHeight = 20.sp,
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
-                        )
-                    }
-
                     MessageType.PHOTO -> {
                         PhotoMessageContent(
                             mediaUrl = message.mediaUrl ?: "",
@@ -137,7 +112,6 @@ fun ModernMessageBubble(
                             onImageClick = onImageClick
                         )
                     }
-
                     MessageType.AUDIO -> {
                         AudioMessageContent(
                             mediaUrl = message.mediaUrl ?: "",
@@ -146,7 +120,6 @@ fun ModernMessageBubble(
                             duration = "0:45"
                         )
                     }
-
                     MessageType.VIDEO -> {
                         VideoMessageContent(
                             mediaUrl = message.mediaUrl ?: "",
@@ -155,29 +128,56 @@ fun ModernMessageBubble(
                             onVideoClick = onVideoClick
                         )
                     }
-
                     else -> {
                         Text(
                             text = message.content,
-                            color = if (isOwnMessage) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
-                            fontSize = 15.sp,
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+                            color = textColor,
+                            fontSize = 16.sp,
+                            lineHeight = 22.sp,
+                            modifier = Modifier.padding(vertical = 4.dp)
                         )
                     }
                 }
             }
+        }
 
+        if (isOwnMessage) {
+            Spacer(modifier = Modifier.width(8.dp))
+        }
+    }
+
+    // Timestamp y estado del mensaje
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp),
+        horizontalArrangement = if (isOwnMessage) Arrangement.End else Arrangement.Start
+    ) {
+        if (!isOwnMessage) {
+            Spacer(modifier = Modifier.width(8.dp))
+        }
+
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
             // Timestamp
             Text(
                 text = formatTime(message.timestamp),
                 fontSize = 11.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(
-                    start = if (isOwnMessage) 0.dp else 12.dp,
-                    end = if (isOwnMessage) 12.dp else 0.dp,
-                    top = 4.dp
-                )
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                fontWeight = FontWeight.Normal
             )
+
+            // Indicador de estado para mensajes propios
+            if (isOwnMessage) {
+                Icon(
+                    Icons.Default.Done,
+                    contentDescription = "Enviado",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                    modifier = Modifier.size(14.dp)
+                )
+            }
         }
 
         if (isOwnMessage) {
@@ -198,12 +198,17 @@ fun PhotoMessageContent(
     var imageLoadError by remember { mutableStateOf(false) }
 
     Column {
-        // Contenedor de la imagen con esquinas redondeadas
+        // Contenedor de la imagen con esquinas redondeadas y diseño minimalista
         Box(
             modifier = Modifier
                 .size(width = 240.dp, height = 180.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .background(MaterialTheme.colorScheme.surfaceVariant)
+                .clip(RoundedCornerShape(16.dp))
+                .background(
+                    if (isOwnMessage) 
+                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.1f)
+                    else 
+                        MaterialTheme.colorScheme.surfaceVariant
+                )
                 .clickable { 
                     showFullScreenImage = true
                     try {
@@ -213,50 +218,78 @@ fun PhotoMessageContent(
                     }
                 }
         ) {
-            AsyncImage(
-                model = ImageRequest.Builder(LocalContext.current)
-                    .data(mediaUrl)
-                    .crossfade(true)
-                    .build(),
-                contentDescription = "Foto enviada",
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop,
-                onLoading = {
-                    isImageLoading = true
-                    imageLoadError = false
-                },
-                onSuccess = {
-                    isImageLoading = false
-                    imageLoadError = false
-                },
-                onError = {
-                    isImageLoading = false
-                    imageLoadError = true
-                }
-            )
+            // Imagen principal con mejor manejo de errores
+            if (mediaUrl.isNotEmpty()) {
+                AsyncImage(
+                    model = ImageRequest.Builder(LocalContext.current)
+                        .data(mediaUrl)
+                        .crossfade(true)
+                        .build(),
+                    contentDescription = "Foto enviada",
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop,
+                    onLoading = {
+                        isImageLoading = true
+                        imageLoadError = false
+                    },
+                    onSuccess = {
+                        isImageLoading = false
+                        imageLoadError = false
+                    },
+                    onError = {
+                        isImageLoading = false
+                        imageLoadError = true
+                    }
+                )
+            } else {
+                // Estado cuando no hay URL
+                imageLoadError = true
+                isImageLoading = false
+            }
 
-            // Loading indicator
+            // Loading indicator mejorado
             if (isImageLoading) {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(MaterialTheme.colorScheme.surfaceVariant),
+                        .background(
+                            if (isOwnMessage) 
+                                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.1f)
+                            else 
+                                MaterialTheme.colorScheme.surfaceVariant
+                        ),
                     contentAlignment = Alignment.Center
                 ) {
-                    CircularProgressIndicator(
-                        color = MaterialTheme.colorScheme.primary,
-                        strokeWidth = 2.dp,
-                        modifier = Modifier.size(24.dp)
-                    )
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        CircularProgressIndicator(
+                            color = MaterialTheme.colorScheme.primary,
+                            strokeWidth = 2.dp,
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Cargando...",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
                 }
             }
 
-            // Error state - Mejorado para modo oscuro
+            // Error state mejorado para modo oscuro/claro
             if (imageLoadError) {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(MaterialTheme.colorScheme.errorContainer),
+                        .background(
+                            if (isOwnMessage) 
+                                MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.1f)
+                            else 
+                                MaterialTheme.colorScheme.errorContainer
+                        ),
                     contentAlignment = Alignment.Center
                 ) {
                     Column(
@@ -277,17 +310,18 @@ fun PhotoMessageContent(
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = "URL: ${mediaUrl.take(30)}...",
+                            text = if (mediaUrl.isNotEmpty()) "URL: ${mediaUrl.take(30)}..." else "Sin URL",
                             fontSize = 10.sp,
                             color = MaterialTheme.colorScheme.onErrorContainer,
-                            maxLines = 2
+                            maxLines = 2,
+                            textAlign = TextAlign.Center
                         )
                     }
                 }
             }
 
             // Overlay con gradiente sutil en la parte inferior para mejor legibilidad
-            if (!isImageLoading && !imageLoadError) {
+            if (!isImageLoading && !imageLoadError && mediaUrl.isNotEmpty()) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -303,38 +337,20 @@ fun PhotoMessageContent(
                         )
                 )
             }
-
-            // Indicador de zoom/ampliar en la esquina
-            if (!isImageLoading && !imageLoadError) {
-                Surface(
-                    color = Color.Black.copy(alpha = 0.6f),
-                    shape = CircleShape,
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(8.dp)
-                        .size(28.dp)
-                ) {
-                    Icon(
-                        Icons.Rounded.ZoomIn,
-                        contentDescription = "Ampliar imagen",
-                        tint = Color.White,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(6.dp)
-                    )
-                }
-            }
         }
 
-        // Texto adicional si existe
-        if (content.isNotBlank()) {
+        // Texto descriptivo si existe
+        if (content.isNotEmpty() && content != mediaUrl) {
             Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = content,
-                color = if (isOwnMessage) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
-                fontSize = 14.sp,
-                lineHeight = 18.sp,
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                fontSize = 13.sp,
+                color = if (isOwnMessage) 
+                    MaterialTheme.colorScheme.onPrimary 
+                else 
+                    MaterialTheme.colorScheme.onSurface,
+                fontWeight = FontWeight.Normal,
+                modifier = Modifier.padding(horizontal = 4.dp)
             )
         }
     }
@@ -511,15 +527,24 @@ fun VideoMessageContent(
     var videoLoadError by remember { mutableStateOf(false) }
 
     Column {
-        // Contenedor del video con preview
+        // Contenedor del video con preview y diseño minimalista
         Box(
             modifier = Modifier
                 .size(width = 280.dp, height = 200.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .background(Color.Black)
+                .clip(RoundedCornerShape(16.dp))
+                .background(
+                    if (isOwnMessage) 
+                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.1f)
+                    else 
+                        Color.Black
+                )
                 .clickable { 
                     try {
-                        onVideoClick(Uri.parse(mediaUrl))
+                        if (mediaUrl.isNotEmpty()) {
+                            onVideoClick(Uri.parse(mediaUrl))
+                        } else {
+                            videoLoadError = true
+                        }
                     } catch (e: Exception) {
                         videoLoadError = true
                     }
@@ -527,7 +552,7 @@ fun VideoMessageContent(
         ) {
             // Thumbnail del video o loading
             if (videoLoadError) {
-                // Error state
+                // Error state mejorado
                 Column(
                     modifier = Modifier.fillMaxSize(),
                     horizontalAlignment = Alignment.CenterHorizontally,
@@ -536,39 +561,112 @@ fun VideoMessageContent(
                     Icon(
                         imageVector = Icons.Default.ErrorOutline,
                         contentDescription = "Error",
-                        tint = Color.White,
+                        tint = if (isOwnMessage) 
+                            MaterialTheme.colorScheme.error 
+                        else 
+                            Color.White,
                         modifier = Modifier.size(48.dp)
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
                         text = "Error al cargar video",
-                        color = Color.White,
-                        fontSize = 12.sp
+                        color = if (isOwnMessage) 
+                            MaterialTheme.colorScheme.error 
+                        else 
+                            Color.White,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium
                     )
+                    if (mediaUrl.isEmpty()) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "Sin URL de video",
+                            color = if (isOwnMessage) 
+                                MaterialTheme.colorScheme.onErrorContainer 
+                            else 
+                                Color.White.copy(alpha = 0.7f),
+                            fontSize = 12.sp
+                        )
+                    }
                 }
             } else if (isVideoLoading) {
-                // Loading state
+                // Loading state mejorado
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
-                    CircularProgressIndicator(
-                        color = Color.White,
-                        strokeWidth = 2.dp
-                    )
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        CircularProgressIndicator(
+                            color = if (isOwnMessage) 
+                                MaterialTheme.colorScheme.primary 
+                            else 
+                                Color.White,
+                            strokeWidth = 2.dp,
+                            modifier = Modifier.size(32.dp)
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Cargando video...",
+                            color = if (isOwnMessage) 
+                                MaterialTheme.colorScheme.onSurfaceVariant 
+                            else 
+                                Color.White.copy(alpha = 0.8f),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
                 }
             } else {
-                // Video thumbnail (placeholder)
+                // Video thumbnail (placeholder mejorado)
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(
-                        Icons.Default.PlayArrow,
-                        contentDescription = "Reproducir video",
-                        tint = Color.White,
-                        modifier = Modifier.size(48.dp)
+                    // Fondo con gradiente sutil
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(
+                                Brush.radialGradient(
+                                    colors = listOf(
+                                        if (isOwnMessage) 
+                                            MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+                                        else 
+                                            Color.Black.copy(alpha = 0.8f),
+                                        if (isOwnMessage) 
+                                            MaterialTheme.colorScheme.primary.copy(alpha = 0.05f)
+                                        else 
+                                            Color.Black.copy(alpha = 0.6f)
+                                    )
+                                )
+                            )
                     )
+                    
+                    // Icono de play centrado
+                    Surface(
+                        color = if (isOwnMessage) 
+                            MaterialTheme.colorScheme.primary 
+                        else 
+                            Color.White,
+                        shape = CircleShape,
+                        modifier = Modifier.size(64.dp)
+                    ) {
+                        Box(
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                Icons.Default.PlayArrow,
+                                contentDescription = "Reproducir video",
+                                tint = if (isOwnMessage) 
+                                    MaterialTheme.colorScheme.onPrimary 
+                                else 
+                                    Color.Black,
+                                modifier = Modifier.size(32.dp)
+                            )
+                        }
+                    }
                 }
             }
 
@@ -576,26 +674,38 @@ fun VideoMessageContent(
             Surface(
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
-                    .padding(8.dp),
-                shape = RoundedCornerShape(4.dp),
-                color = Color.Black.copy(alpha = 0.7f)
+                    .padding(12.dp),
+                shape = RoundedCornerShape(8.dp),
+                color = if (isOwnMessage) 
+                    MaterialTheme.colorScheme.primary.copy(alpha = 0.9f)
+                else 
+                    Color.Black.copy(alpha = 0.8f)
             ) {
                 Text(
                     text = "0:15", // Placeholder duration
-                    color = Color.White,
-                    fontSize = 10.sp,
-                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                    color = if (isOwnMessage) 
+                        MaterialTheme.colorScheme.onPrimary 
+                    else 
+                        Color.White,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                 )
             }
         }
 
-        // Mensaje de texto si existe
-        if (content.isNotBlank()) {
+        // Texto descriptivo si existe
+        if (content.isNotEmpty() && content != mediaUrl) {
+            Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = content,
-                color = if (isOwnMessage) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
-                fontSize = 14.sp,
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                fontSize = 13.sp,
+                color = if (isOwnMessage) 
+                    MaterialTheme.colorScheme.onPrimary 
+                else 
+                    MaterialTheme.colorScheme.onSurface,
+                fontWeight = FontWeight.Normal,
+                modifier = Modifier.padding(horizontal = 4.dp)
             )
         }
     }

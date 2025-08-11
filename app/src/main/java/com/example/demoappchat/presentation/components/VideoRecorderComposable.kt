@@ -35,6 +35,7 @@ import java.text.SimpleDateFormat
 import java.util.*
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import com.example.demoappchat.ui.theme.Error
 
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
@@ -155,7 +156,7 @@ fun VideoRecorderScreen(
 
                     if (isRecording) {
                         Surface(
-                            color = SystemRed,
+                            color = Error,
                             shape = RoundedCornerShape(24.dp)
                         ) {
                             Row(
@@ -217,13 +218,13 @@ fun VideoRecorderScreen(
                                 )
                             }
                         },
-                        containerColor = if (isRecording) SystemRed else Color.White,
+                        containerColor = if (isRecording) Error else Color.White,
                         modifier = Modifier.size(80.dp)
                     ) {
                         Icon(
                             if (isRecording) Icons.Default.Stop else Icons.Default.Videocam,
                             contentDescription = if (isRecording) "Detener" else "Grabar",
-                            tint = if (isRecording) Color.White else SystemRed,
+                            tint = if (isRecording) Color.White else Error,
                             modifier = Modifier.size(36.dp)
                         )
                     }

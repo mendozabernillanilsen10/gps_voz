@@ -14,6 +14,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.demoappchat.ui.theme.*
+import com.example.demoappchat.ui.theme.Error
+import com.example.demoappchat.ui.theme.MinimalistGreen
+import com.example.demoappchat.ui.theme.MinimalistPurple
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -69,12 +72,12 @@ fun VoiceCommandsSetup(
                                 Box(
                                     modifier = Modifier
                                         .size(8.dp)
-                                        .background(SystemRed, androidx.compose.foundation.shape.CircleShape)
+                                        .background(Error, androidx.compose.foundation.shape.CircleShape)
                                 )
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text(
                                     text = "Grabando: $recordingType",
-                                    color = SystemRed,
+                                    color = Error,
                                     fontSize = 13.sp,
                                     fontWeight = FontWeight.Medium
                                 )
@@ -87,12 +90,12 @@ fun VoiceCommandsSetup(
                                 Box(
                                     modifier = Modifier
                                         .size(8.dp)
-                                        .background(SafetyGreen, androidx.compose.foundation.shape.CircleShape)
+                                        .background(MinimalistGreen, androidx.compose.foundation.shape.CircleShape)
                                 )
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text(
                                     text = "Servicio activo",
-                                    color = SafetyGreen,
+                                    color = MinimalistGreen,
                                     fontSize = 13.sp,
                                     fontWeight = FontWeight.Medium
                                 )
@@ -302,7 +305,7 @@ fun VoiceCommandsSetup(
                         },
                         label = { Text("alerta") },
                         colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = WarningOrange,
+                            selectedContainerColor = MinimalistPurple,
                             selectedLabelColor = Color.White
                         )
                     )
@@ -323,7 +326,7 @@ fun VoiceCommandsSetup(
                         },
                         label = { Text("grabar audio") },
                         colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = SafetyGreen,
+                            selectedContainerColor = MinimalistGreen,
                             selectedLabelColor = Color.White
                         )
                     )
@@ -339,7 +342,7 @@ fun VoiceCommandsSetup(
                         },
                         label = { Text("grabar video") },
                         colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = SystemRed,
+                            selectedContainerColor = Error,
                             selectedLabelColor = Color.White
                         )
                     )
@@ -389,7 +392,7 @@ fun VoiceCommandsSetup(
                         Icon(
                             imageVector = Icons.Default.Delete,
                                     contentDescription = "Eliminar",
-                                    tint = SystemRed,
+                                    tint = Error,
                                     modifier = Modifier.size(20.dp)
                         )
                             }

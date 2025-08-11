@@ -13,7 +13,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
-import androidx.compose.material.ripple.rememberRipple
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -142,7 +141,7 @@ fun ModernMediaOption(
             .scale(scale)
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
-                indication = rememberRipple(bounded = false),
+                indication = null,
                 onClick = onClick
             )
             .pointerInput(Unit) {
@@ -271,7 +270,7 @@ fun QuickMediaButton(
             .background(color.copy(alpha = 0.1f), CircleShape)
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
-                indication = rememberRipple(bounded = false),
+                indication = null,
                 onClick = onClick
             )
             .pointerInput(Unit) {

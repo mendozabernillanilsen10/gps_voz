@@ -17,20 +17,21 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
+// ===== ESQUEMA DE COLORES MINIMALISTA PARA MODO OSCURO =====
 private val DarkColorScheme = darkColorScheme(
-    primary = EmergencyRed,
+    primary = MinimalistBlue,
     onPrimary = Color.White,
-    primaryContainer = EmergencyRedDark,
+    primaryContainer = MinimalistBlueDark,
     onPrimaryContainer = Color.White,
     
-    secondary = SafetyGreen,
+    secondary = MinimalistGreen,
     onSecondary = Color.White,
-    secondaryContainer = SafetyGreenDark,
+    secondaryContainer = MinimalistGreenDark,
     onSecondaryContainer = Color.White,
     
-    tertiary = WarningOrange,
+    tertiary = MinimalistPurple,
     onTertiary = Color.White,
-    tertiaryContainer = WarningOrangeDark,
+    tertiaryContainer = MinimalistPurpleDark,
     onTertiaryContainer = Color.White,
     
     background = BackgroundPrimaryDark,
@@ -40,33 +41,34 @@ private val DarkColorScheme = darkColorScheme(
     surfaceVariant = SurfaceSecondaryDark,
     onSurfaceVariant = TextSecondaryDark,
     
-    error = SystemRed,
+    error = Error,
     onError = Color.White,
-    errorContainer = SystemRed.copy(alpha = 0.2f),
+    errorContainer = Error.copy(alpha = 0.2f),
     onErrorContainer = Color.White,
     
     outline = BorderPrimaryDark,
     outlineVariant = BorderSecondaryDark,
     
     scrim = Color.Black.copy(alpha = 0.32f),
-    surfaceTint = EmergencyRed.copy(alpha = 0.05f)
+    surfaceTint = MinimalistBlue.copy(alpha = 0.05f)
 )
 
+// ===== ESQUEMA DE COLORES MINIMALISTA PARA MODO CLARO =====
 private val LightColorScheme = lightColorScheme(
-    primary = EmergencyRed,
+    primary = MinimalistBlue,
     onPrimary = Color.White,
-    primaryContainer = EmergencyRedLight,
-    onPrimaryContainer = Color.White,
+    primaryContainer = MinimalistBlueLight,
+    onPrimaryContainer = MinimalistBlueDark,
     
-    secondary = SafetyGreen,
+    secondary = MinimalistGreen,
     onSecondary = Color.White,
-    secondaryContainer = SafetyGreenLight,
-    onSecondaryContainer = Color.White,
+    secondaryContainer = MinimalistGreenLight,
+    onSecondaryContainer = MinimalistGreenDark,
     
-    tertiary = WarningOrange,
+    tertiary = MinimalistPurple,
     onTertiary = Color.White,
-    tertiaryContainer = WarningOrangeLight,
-    onTertiaryContainer = Color.White,
+    tertiaryContainer = MinimalistPurpleLight,
+    onTertiaryContainer = MinimalistPurpleDark,
     
     background = BackgroundPrimary,
     onBackground = TextPrimary,
@@ -75,22 +77,22 @@ private val LightColorScheme = lightColorScheme(
     surfaceVariant = SurfaceSecondary,
     onSurfaceVariant = TextSecondary,
     
-    error = SystemRed,
+    error = Error,
     onError = Color.White,
-    errorContainer = SystemRed.copy(alpha = 0.1f),
-    onErrorContainer = Color.White,
+    errorContainer = Error.copy(alpha = 0.1f),
+    onErrorContainer = Error,
     
     outline = BorderPrimary,
     outlineVariant = BorderSecondary,
     
     scrim = Color.Black.copy(alpha = 0.32f),
-    surfaceTint = EmergencyRed.copy(alpha = 0.05f)
+    surfaceTint = MinimalistBlue.copy(alpha = 0.05f)
 )
 
 @Composable
 fun SecurityChatTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = false, // Desactivado para mantener consistencia
+    dynamicColor: Boolean = false, // Desactivado para mantener consistencia minimalista
     content: @Composable () -> Unit
 ) {
     val colorScheme = when {
@@ -101,19 +103,26 @@ fun SecurityChatTheme(
         darkTheme -> DarkColorScheme
         else -> LightColorScheme
     }
-    
+
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
-            // Configurar color de la barra de estado
-            window.statusBarColor = if (darkTheme) {
-                BackgroundPrimaryDark.toArgb()
+            
+            // Configuración de la barra de estado para modo oscuro/claro
+            if (darkTheme) {
+                // Modo oscuro: barra de estado clara
+                window.statusBarColor = Color.Transparent.toArgb()
+                WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = false
             } else {
-                EmergencyRed.toArgb()
+                // Modo claro: barra de estado oscura
+                window.statusBarColor = Color.Transparent.toArgb()
+                WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = true
             }
-            // Configurar iconos de la barra de estado
-            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
+            
+            // Configuración de la barra de navegación
+            window.navigationBarColor = Color.Transparent.toArgb()
+            WindowCompat.getInsetsController(window, view).isAppearanceLightNavigationBars = !darkTheme
         }
     }
 

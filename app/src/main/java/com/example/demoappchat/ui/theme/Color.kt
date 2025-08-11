@@ -4,32 +4,26 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
-// Colores de emergencia
-val EmergencyRed = Color(0xFFD32F2F)
-val EmergencyRedDark = Color(0xFFB71C1C)
-val EmergencyRedLight = Color(0xFFEF5350)
+// ===== PALETA MINIMALISTA PRINCIPAL =====
+// Azules modernos y suaves
+val MinimalistBlue = Color(0xFF3B82F6)      // Azul principal moderno
+val MinimalistBlueDark = Color(0xFF1D4ED8)  // Azul oscuro
+val MinimalistBlueLight = Color(0xFF60A5FA)  // Azul claro
+val MinimalistBlueMuted = Color(0xFFDBEAFE) // Azul muy suave
 
-// Colores de seguridad
-val SafetyGreen = Color(0xFF34C759)
-val SafetyGreenDark = Color(0xFF2E7D32)
-val SafetyGreenLight = Color(0xFF66BB6A)
+// Verdes minimalistas
+val MinimalistGreen = Color(0xFF10B981)     // Verde suave
+val MinimalistGreenDark = Color(0xFF047857) // Verde oscuro
+val MinimalistGreenLight = Color(0xFF34D399) // Verde claro
+val MinimalistGreenMuted = Color(0xFFD1FAE5) // Verde muy suave
 
-// Colores de advertencia
-val WarningOrange = Color(0xFFFF9500)
-val WarningOrangeDark = Color(0xFFE65100)
-val WarningOrangeLight = Color(0xFFFFB74D)
+// Púrpuras modernos
+val MinimalistPurple = Color(0xFF8B5CF6)    // Púrpura suave
+val MinimalistPurpleDark = Color(0xFF6D28D9) // Púrpura oscuro
+val MinimalistPurpleLight = Color(0xFFA78BFA) // Púrpura claro
+val MinimalistPurpleMuted = Color(0xFFEDE9FE) // Púrpura muy suave
 
-// Colores del sistema
-val SystemRed = Color(0xFFFF3B30)
-val SystemBlue = Color(0xFF007AFF)
-val SystemBlueDark = Color(0xFF0056CC)
-val SystemBlueLight = Color(0xFF5AC8FA)
-
-// Colores de Facebook/WhatsApp para consistencia
-val FacebookBlue = Color(0xFF1877F2)
-val WhatsAppGreen = Color(0xFF42C85F)
-
-// Grises para modo claro
+// ===== GRISES MINIMALISTAS PARA MODO CLARO =====
 val Gray50 = Color(0xFFFAFAFA)
 val Gray100 = Color(0xFFF5F5F5)
 val Gray200 = Color(0xFFEEEEEE)
@@ -41,95 +35,122 @@ val Gray700 = Color(0xFF616161)
 val Gray800 = Color(0xFF424242)
 val Gray900 = Color(0xFF212121)
 
-// Grises para modo oscuro
-val DarkGray50 = Color(0xFF1A1A1A)
-val DarkGray100 = Color(0xFF2D2D2D)
-val DarkGray200 = Color(0xFF404040)
-val DarkGray300 = Color(0xFF525252)
-val DarkGray400 = Color(0xFF656565)
-val DarkGray500 = Color(0xFF787878)
-val DarkGray600 = Color(0xFF8B8B8B)
-val DarkGray700 = Color(0xFF9E9E9E)
-val DarkGray800 = Color(0xFFB1B1B1)
-val DarkGray900 = Color(0xFFC4C4C4)
+// ===== GRISES MINIMALISTAS PARA MODO OSCURO =====
+val DarkGray50 = Color(0xFF0A0A0A)
+val DarkGray100 = Color(0xFF141414)
+val DarkGray200 = Color(0xFF1E1E1E)
+val DarkGray300 = Color(0xFF2D2D2D)
+val DarkGray400 = Color(0xFF404040)
+val DarkGray500 = Color(0xFF525252)
+val DarkGray600 = Color(0xFF656565)
+val DarkGray700 = Color(0xFF787878)
+val DarkGray800 = Color(0xFF8B8B8B)
+val DarkGray900 = Color(0xFF9E9E9E)
 
-// Colores de texto para modo claro
-val TextPrimary = Color(0xFF1C1E21)
-val TextSecondary = Color(0xFF65676B)
-val TextTertiary = Color(0xFF8E8E93)
+// ===== COLORES DE TEXTO ADAPTATIVOS =====
+// Modo claro
+val TextPrimary = Color(0xFF111827)
+val TextSecondary = Color(0xFF6B7280)
+val TextTertiary = Color(0xFF9CA3AF)
 
-// Colores de texto para modo oscuro
-val TextPrimaryDark = Color(0xFFFFFFFF)
-val TextSecondaryDark = Color(0xFFB1B1B1)
-val TextTertiaryDark = Color(0xFF8E8E93)
+// Modo oscuro
+val TextPrimaryDark = Color(0xFFF9FAFB)
+val TextSecondaryDark = Color(0xFFD1D5DB)
+val TextTertiaryDark = Color(0xFF9CA3AF)
 
-// Colores de fondo para modo claro
+// ===== COLORES DE FONDO ADAPTATIVOS =====
+// Modo claro
 val BackgroundPrimary = Color(0xFFFFFFFF)
-val BackgroundSecondary = Color(0xFFF2F2F7)
-val BackgroundTertiary = Color(0xFFE5E5EA)
+val BackgroundSecondary = Color(0xFFF9FAFB)
+val BackgroundTertiary = Color(0xFFF3F4F6)
 
-// Colores de fondo para modo oscuro
-val BackgroundPrimaryDark = Color(0xFF000000)
-val BackgroundSecondaryDark = Color(0xFF1C1C1E)
-val BackgroundTertiaryDark = Color(0xFF2C2C2E)
+// Modo oscuro
+val BackgroundPrimaryDark = Color(0xFF0A0A0A)
+val BackgroundSecondaryDark = Color(0xFF141414)
+val BackgroundTertiaryDark = Color(0xFF1E1E1E)
 
-// Colores de superficie para modo claro
+// ===== COLORES DE SUPERFICIE ADAPTATIVOS =====
+// Modo claro
 val SurfacePrimary = Color(0xFFFFFFFF)
-val SurfaceSecondary = Color(0xFFF9F9F9)
-val SurfaceTertiary = Color(0xFFF2F2F7)
+val SurfaceSecondary = Color(0xFFF9FAFB)
+val SurfaceTertiary = Color(0xFFF3F4F6)
 
-// Colores de superficie para modo oscuro
-val SurfacePrimaryDark = Color(0xFF1C1C1E)
-val SurfaceSecondaryDark = Color(0xFF2C2C2E)
-val SurfaceTertiaryDark = Color(0xFF3A3A3C)
+// Modo oscuro
+val SurfacePrimaryDark = Color(0xFF141414)
+val SurfaceSecondaryDark = Color(0xFF1E1E1E)
+val SurfaceTertiaryDark = Color(0xFF2D2D2D)
 
-// Colores de borde para modo claro
+// ===== COLORES DE BORDE ADAPTATIVOS =====
+// Modo claro
 val BorderPrimary = Color(0xFFE5E7EB)
-val BorderSecondary = Color(0xFFD1D5DB)
+val BorderSecondary = Color(0xFFF3F4F6)
 
-// Colores de borde para modo oscuro
-val BorderPrimaryDark = Color(0xFF38383A)
-val BorderSecondaryDark = Color(0xFF48484A)
+// Modo oscuro
+val BorderPrimaryDark = Color(0xFF374151)
+val BorderSecondaryDark = Color(0xFF4B5563)
 
-// Colores de mensaje
-val MessageBubbleOwn = Color(0xFF007AFF)
+// ===== COLORES DE MENSAJE MINIMALISTAS =====
+val MessageBubbleOwn = MinimalistBlue
 val MessageBubbleOther = Color(0xFFFFFFFF)
-val MessageBubbleOtherDark = Color(0xFF2C2C2E)
-val MessageBackground = Color(0xFFF2F2F7)
-val MessageBackgroundDark = Color(0xFF1C1C1E)
+val MessageBubbleOtherDark = Color(0xFF1E1E1E)
+val MessageBackground = Color(0xFFF9FAFB)
+val MessageBackgroundDark = Color(0xFF0A0A0A)
 
-// Colores informativos
-val InfoBlue = Color(0xFF2563EB)
-val InfoBlueLight = Color(0xFF60A5FA)
-val InfoBlueDark = Color(0xFF1E40AF)
+// ===== COLORES INFORMATIVOS =====
+val InfoBlue = MinimalistBlue
+val InfoBlueLight = MinimalistBlueLight
+val InfoBlueDark = MinimalistBlueDark
 
-// Colores legacy (mantener para compatibilidad)
-val Purple80 = Color(0xFFD0BCFF)
-val PurpleGrey80 = Color(0xFFCCC2DC)
-val Pink80 = Color(0xFFEFB8C8)
-val Purple40 = Color(0xFF6650a4)
-val PurpleGrey40 = Color(0xFF625b71)
-val Pink40 = Color(0xFF7D5260)
-val SecondaryGray = Color(0xFF6B7280)
-val LightGray = Color(0xFFF9FAFB)
-val DarkGray = Color(0xFF1F2937)
-val Success = Color(0xFF10B981)
+// ===== COLORES DE ESTADO =====
+val Success = MinimalistGreen
 val Warning = Color(0xFFF59E0B)
 val Error = Color(0xFFEF4444)
-val SpyBlue = Color(0xFF1E40AF)
-val AlertOrange = Color(0xFFEA580C)
-val SafeGreen = Color(0xFF059669)
-val VoiceActivation = Color(0xFF7C3AED)
+
+// ===== COLORES DE ACCENT MINIMALISTAS =====
+val AccentOrange = Color(0xFFF97316)
+val AccentPink = Color(0xFFEC4899)
+val AccentTeal = Color(0xFF14B8A6)
+val AccentIndigo = Color(0xFF6366F1)
+
+// ===== COLORES DE SOMBRA Y ELEVACIÓN =====
+val ShadowLight = Color(0xFF000000).copy(alpha = 0.05f)
+val ShadowMedium = Color(0xFF000000).copy(alpha = 0.1f)
+val ShadowDark = Color(0xFF000000).copy(alpha = 0.2f)
+
+// ===== COLORES DE GRADIENTE =====
+val GradientStart = MinimalistBlue
+val GradientEnd = MinimalistPurple
+val GradientMutedStart = MinimalistBlueMuted
+val GradientMutedEnd = MinimalistPurpleMuted
+
+// ===== COLORES LEGACY PARA COMPATIBILIDAD =====
+// Estos colores se mantienen para compatibilidad con componentes existentes
 val White = Color(0xFFFFFFFF)
 val Black = Color(0xFF000000)
-val Border = Color(0xFFE5E7EB)
-val PrimaryBlue = Color(0xFF007AFF)
-val PrimaryBlueDark = Color(0xFF0056CC)
-val SecondaryBlue = Color(0xFF5AC8FA)
-val BluePrimary = Color(0xFF007AFF)
-val BluePrimaryDark = Color(0xFF0056CC)
+val Border = BorderPrimary
+val PrimaryBlue = MinimalistBlue
+val PrimaryBlueDark = MinimalistBlueDark
+val SecondaryBlue = MinimalistBlueLight
+val BluePrimary = MinimalistBlue
+val BluePrimaryDark = MinimalistBlueDark
+val LightGray = Gray100
+val DarkGray = Gray800
+val SecondaryGray = Gray600
+val VoiceActivation = MinimalistPurple
+val AccentPrimary = MinimalistBlue
+val AccentSecondary = MinimalistGreen
+val AccentTertiary = MinimalistPurple
+val SpyBlue = MinimalistBlueDark
+val AlertOrange = AccentOrange
+val SafeGreen = MinimalistGreen
+val Purple80 = MinimalistPurpleLight
+val PurpleGrey80 = MinimalistPurpleMuted
+val Pink80 = AccentPink
+val Purple40 = MinimalistPurpleDark
+val PurpleGrey40 = MinimalistPurpleMuted
+val Pink40 = AccentPink
 
-// Funciones de utilidad para colores adaptativos
+// ===== FUNCIONES DE UTILIDAD PARA COLORES ADAPTATIVOS =====
 @Composable
 fun adaptiveBackground(): Color {
     return if (isSystemInDarkTheme()) BackgroundPrimaryDark else BackgroundPrimary
