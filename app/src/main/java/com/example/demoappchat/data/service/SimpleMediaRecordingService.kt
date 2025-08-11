@@ -246,6 +246,12 @@ class SimpleMediaRecordingService(private val context: Context) {
 
             Log.d(TAG, "📤 Archivo subido exitosamente: ${downloadUrl}")
 
+            // Validar que la URL no sea nula
+            if (downloadUrl.toString().isBlank() || downloadUrl.toString() == "null") {
+                Log.e(TAG, "❌ URL de descarga es nula o vacía")
+                return Result.failure(Exception("URL de descarga inválida"))
+            }
+
             // Enviar mensaje real al chat usando Firebase Database
             sendMessageToChat(chatId, downloadUrl.toString(), messageType)
 

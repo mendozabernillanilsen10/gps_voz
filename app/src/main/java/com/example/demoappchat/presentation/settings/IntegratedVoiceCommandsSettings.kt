@@ -40,7 +40,17 @@ fun IntegratedVoiceCommandsSettings(
         "grabar video" to "VIDEO",
         "ayuda" to "LOCATION",
         "foto" to "PHOTO",
-        "emergencia" to "CALL"
+        "emergencia" to "CALL",
+        "sos" to "SOS",
+        "track" to "TRACKING",
+        "vigilancia" to "SURVEILLANCE",
+        "estado" to "STATUS",
+        "audio" to "AUDIO_MESSAGE",
+        "video mensaje" to "VIDEO_MESSAGE",
+        "foto mensaje" to "PHOTO_MESSAGE",
+        "llamame" to "CALL",
+        "grabar" to "AUDIO_RECORDING",
+        "sigiloso" to "STEALTH"
     )
 
     Column(

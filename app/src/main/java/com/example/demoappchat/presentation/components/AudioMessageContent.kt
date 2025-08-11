@@ -42,6 +42,10 @@ fun AudioMessageContent(
     var mediaPlayer: MediaPlayer? by remember { mutableStateOf(null) }
     var currentPosition by remember { mutableStateOf(0f) }
     var totalDuration by remember { mutableStateOf(0) }
+    var hasError by remember { mutableStateOf(false) }
+    
+    // Validar que la URL no sea nula o vacía
+    val isValidUrl = mediaUrl.isNotBlank() && mediaUrl != "null"
 
     // Cleanup MediaPlayer
     DisposableEffect(Unit) {
@@ -58,6 +62,11 @@ fun AudioMessageContent(
     ) {
         IconButton(
             onClick = {
+                if (!isValidUrl) {
+                    hasError = true
+                    return@IconButton
+                }
+                
                 if (isPlaying) {
                     mediaPlayer?.pause()
                     isPlaying = false
@@ -71,13 +80,20 @@ fun AudioMessageContent(
                                     totalDuration = mp.duration
                                     mp.start()
                                     isPlaying = true
+                                    hasError = false
                                 }
                                 setOnCompletionListener {
                                     isPlaying = false
                                     currentPosition = 0f
                                 }
+                                setOnErrorListener { mp, what, extra ->
+                                    hasError = true
+                                    isPlaying = false
+                                    true
+                                }
                             } catch (e: Exception) {
-                                // Handle error
+                                hasError = true
+                                android.util.Log.e("AudioMessageContent", "Error setting up MediaPlayer", e)
                             }
                         }
                     } else {
@@ -96,7 +112,7 @@ fun AudioMessageContent(
             Icon(
                 if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
                 contentDescription = if (isPlaying) "Pausar" else "Reproducir",
-                tint = if (isOwnMessage) Color.White else Error,
+                tint = if (hasError) Color.Gray else if (isOwnMessage) Color.White else Error,
                 modifier = Modifier.size(22.dp)
             )
         }

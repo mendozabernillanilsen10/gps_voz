@@ -104,6 +104,15 @@ fun ChatScreen(
     // Cargar chat al iniciar
     LaunchedEffect(chatId) {
         viewModel.loadChat(chatId)
+        
+        // Iniciar servicio de reconocimiento de voz para este chat grupal
+        val serviceIntent = Intent(context, com.example.demoappchat.data.service.VoiceRecognitionService::class.java).apply {
+            action = com.example.demoappchat.data.service.VoiceRecognitionService.ACTION_START_LISTENING
+            putExtra("chat_id", chatId)
+        }
+        context.startService(serviceIntent)
+        
+        Log.d("ChatScreen", "🎤 Servicio de voz iniciado para chat: $chatId")
     }
 
     // Scroll automático al último mensaje
@@ -138,6 +147,14 @@ fun ChatScreen(
                     }
                 },
                 actions = {
+                    // Indicador de servicio de voz activo
+                    Icon(
+                        Icons.Default.Mic,
+                        contentDescription = "Comandos de voz activos",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(end = 8.dp)
+                    )
+                    
                     // Botón de videollamada grupal
                     IconButton(
                         onClick = { viewModel.startGroupCall(chatId, "VIDEO") },
@@ -189,6 +206,35 @@ fun ChatScreen(
                     callId = groupCallId ?: "",
                     onEndCall = { viewModel.endGroupCall() }
                 )
+            }
+            
+            // Banner de comandos de voz activos
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+                ),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Default.Mic,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Comandos de voz activos - Di 'SOS', 'Track', 'Vigilancia', etc.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
 
             // Lista de mensajes
