@@ -23,7 +23,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
-import com.example.demoappchat.ui.theme.EmergencyRed
+import com.example.demoappchat.ui.theme.Error
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.rememberPermissionState
 import kotlinx.coroutines.delay
@@ -89,14 +89,14 @@ fun AudioMessageContent(
             modifier = Modifier
                 .size(44.dp)
                 .background(
-                    if (isOwnMessage) Color.White.copy(alpha = 0.25f) else EmergencyRed.copy(alpha = 0.15f),
+                    if (isOwnMessage) Color.White.copy(alpha = 0.25f) else Error.copy(alpha = 0.15f),
                     CircleShape
                 )
         ) {
             Icon(
                 if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
                 contentDescription = if (isPlaying) "Pausar" else "Reproducir",
-                tint = if (isOwnMessage) Color.White else EmergencyRed,
+                tint = if (isOwnMessage) Color.White else Error,
                 modifier = Modifier.size(22.dp)
             )
         }
@@ -108,7 +108,7 @@ fun AudioMessageContent(
             LinearProgressIndicator(
                 progress = if (totalDuration > 0) currentPosition / totalDuration else 0f,
                 modifier = Modifier.fillMaxWidth(),
-                color = if (isOwnMessage) Color.White else EmergencyRed,
+                color = if (isOwnMessage) Color.White else Error,
                 trackColor = if (isOwnMessage) Color.White.copy(alpha = 0.3f) else Color.Gray.copy(alpha = 0.3f)
             )
 

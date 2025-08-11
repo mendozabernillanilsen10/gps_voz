@@ -14,7 +14,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.demoappchat.ui.theme.EmergencyRed
+import com.example.demoappchat.ui.theme.Error
 
 @Composable
 fun LocationPermissionDialog(
@@ -28,10 +28,10 @@ fun LocationPermissionDialog(
         verticalArrangement = Arrangement.Center
     ) {
         Icon(
-            Icons.Default.LocationOn,
-            contentDescription = null,
-            modifier = Modifier.size(80.dp),
-            tint = EmergencyRed
+            imageVector = Icons.Default.LocationOn,
+            contentDescription = "Ubicación",
+            modifier = Modifier.size(48.dp),
+            tint = Error
         )
 
         Spacer(modifier = Modifier.height(24.dp))
@@ -70,7 +70,7 @@ fun LocationPermissionDialog(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(50.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = EmergencyRed)
+            colors = ButtonDefaults.buttonColors(containerColor = Error)
         ) {
             Text(
                 text = "Conceder Permisos",

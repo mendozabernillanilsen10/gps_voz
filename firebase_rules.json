@@ -21,7 +21,10 @@
     "chat_messages": {
       "$chatId": {
         ".read": "auth != null",
-        ".write": "auth != null"
+        ".write": "auth != null",
+        "$messageId": {
+          ".validate": "newData.hasChildren(['userId', 'content', 'timestamp'])"
+        }
       }
     },
     
@@ -41,51 +44,48 @@
       }
     },
     
-    "group_calls": {
+    "webrtc_calls": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      "$callId": {
+        ".validate": "newData.hasChildren(['chatId', 'callType', 'initiatorId', 'timestamp'])"
+      }
+    },
+    
+    "webrtc_signals": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    
+    "chat_notifications": {
       "$chatId": {
         ".read": "auth != null",
-        ".write": "auth != null",
-        "$callId": {
-          ".validate": "newData.hasChildren(['callerId', 'callType', 'status', 'startTime'])",
-          "participants": {
-            "$uid": {
-              ".read": "auth != null",
-              ".write": "auth != null"
-            }
-          },
-          "status": {
-            ".validate": "newData.isString() && newData.val() in ['initiating', 'active', 'ended', 'missed']"
-          },
-          "callType": {
-            ".validate": "newData.isString() && newData.val() in ['audio', 'video']"
-          }
-        }
+        ".write": "auth != null"
       }
     },
     
-    "call_notifications": {
-      "$chatId": {
-        "$callId": {
-          ".read": "auth != null",
-          ".write": "auth != null",
-          "recipients": {
-            "$uid": {
-              ".read": "auth != null",
-              ".write": "auth != null"
-            }
-          }
-        }
+    "fcm_tokens": {
+      "$uid": {
+        ".read": "auth != null && auth.uid == $uid",
+        ".write": "auth != null && auth.uid == $uid"
       }
     },
     
-    "call_tokens": {
-      "$chatId": {
-        "$callId": {
-          "$uid": {
-            ".read": "auth != null && $uid === auth.uid",
-            ".write": "auth != null && $uid === auth.uid"
-          }
-        }
+    "notification_logs": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    
+    "error_logs": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    
+    "group_calls": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      "$callId": {
+        ".validate": "newData.hasChildren(['chatId', 'callType', 'initiatorId', 'timestamp', 'status'])"
       }
     }
   }

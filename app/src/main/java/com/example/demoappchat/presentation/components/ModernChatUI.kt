@@ -2,6 +2,7 @@ package com.example.demoappchat.presentation.components
 
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -99,7 +100,7 @@ fun ModernChatUI(
         ModernChatInput(
             value = messageText,
             onValueChange = { messageText = it },
-            onSend = {
+            onSendMessage = {
                 if (messageText.isNotBlank()) {
                     onSendMessage(messageText)
                     messageText = ""
@@ -114,47 +115,99 @@ fun ModernChatUI(
 
 @Composable
 fun ModernChatHeader(
-    isVoiceServiceActive: Boolean,
-    onToggleVoiceService: (Boolean) -> Unit
+    isVoiceServiceActive: Boolean = false,
+    onToggleVoiceService: (Boolean) -> Unit = {},
+    modifier: Modifier = Modifier
 ) {
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .shadow(
+                elevation = 1.dp,
+                spotColor = Color.Black.copy(alpha = 0.1f)
+            ),
         color = MaterialTheme.colorScheme.surface,
-        shadowElevation = 2.dp
+        border = BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.outline.copy(alpha = 0.1f)
+        )
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Título y estado
-            Column {
+        Column {
+            // Barra principal del header
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                // Título del chat
                 Text(
-                    text = "Chat de Emergencia",
-                    fontSize = 18.sp,
+                    text = "Chat",
+                    fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
-                Text(
-                    text = if (isVoiceServiceActive) "Servicio de voz activo" else "Servicio de voz inactivo",
-                    fontSize = 14.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+
+                // Botón de servicio de voz
+                IconButton(
+                    onClick = { onToggleVoiceService(!isVoiceServiceActive) },
+                    modifier = Modifier
+                        .size(40.dp)
+                        .background(
+                            if (isVoiceServiceActive) 
+                                MaterialTheme.colorScheme.primary 
+                            else 
+                                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.1f),
+                            CircleShape
+                        )
+                ) {
+                    Icon(
+                        if (isVoiceServiceActive) Icons.Default.Mic else Icons.Default.MicOff,
+                        contentDescription = if (isVoiceServiceActive) "Desactivar voz" else "Activar voz",
+                        tint = if (isVoiceServiceActive) 
+                            MaterialTheme.colorScheme.onPrimary 
+                        else 
+                            MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
             }
-            
-            // Switch del servicio de voz
-            Switch(
-                checked = isVoiceServiceActive,
-                onCheckedChange = onToggleVoiceService,
-                colors = SwitchDefaults.colors(
-                    checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
-                    checkedTrackColor = MaterialTheme.colorScheme.primary,
-                    uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                    uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
-                )
-            )
+
+            // Indicador de estado del servicio de voz
+            if (isVoiceServiceActive) {
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp)
+                        .padding(bottom = 12.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.1f),
+                    border = BorderStroke(
+                        1.dp,
+                        MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Mic,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Text(
+                            text = "Servicio de voz activo",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+            }
         }
     }
 }
@@ -280,64 +333,93 @@ fun ModernMessageBubble(
 fun ModernChatInput(
     value: String,
     onValueChange: (String) -> Unit,
-    onSend: () -> Unit,
+    onSendMessage: () -> Unit,
     onSendImage: () -> Unit,
     onSendVideo: () -> Unit,
-    onSendAudio: () -> Unit
+    onSendAudio: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(16.dp),
+        shape = RoundedCornerShape(24.dp),
         color = MaterialTheme.colorScheme.surface,
-        shadowElevation = 4.dp
+        shadowElevation = 2.dp
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(4.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            // Botón de adjuntar
+            // Botón de media con diseño minimalista
             IconButton(
-                onClick = { /* Mostrar opciones de media */ },
-                modifier = Modifier.size(40.dp)
+                onClick = onSendImage,
+                modifier = Modifier
+                    .size(40.dp)
+                    .background(
+                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.1f),
+                        CircleShape
+                    )
             ) {
                 Icon(
                     Icons.Default.AttachFile,
-                    contentDescription = "Adjuntar archivo",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    contentDescription = "Adjuntar media",
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp)
                 )
             }
-            
-            // Campo de texto
+
+            // Campo de texto minimalista
             OutlinedTextField(
                 value = value,
                 onValueChange = onValueChange,
-                placeholder = {
-                    Text(
-                        text = "Escribe un mensaje...",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                },
                 modifier = Modifier.weight(1f),
+                placeholder = { 
+                    Text(
+                        "Escribe un mensaje...",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                    ) 
+                },
+                singleLine = true,
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = MaterialTheme.colorScheme.primary,
-                    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
+                    focusedContainerColor = Color.Transparent,
+                    unfocusedContainerColor = Color.Transparent,
                     cursorColor = MaterialTheme.colorScheme.primary
                 ),
-                maxLines = 4
+                textStyle = LocalTextStyle.current.copy(
+                    fontSize = 16.sp,
+                    color = MaterialTheme.colorScheme.onSurface
+                ),
+                shape = RoundedCornerShape(20.dp)
             )
-            
-            // Botón de enviar
-            FloatingActionButton(
-                onClick = onSend,
-                modifier = Modifier.size(40.dp),
-                containerColor = if (value.isNotBlank()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
+
+            // Botón de enviar con diseño minimalista
+            IconButton(
+                onClick = onSendMessage,
+                enabled = value.trim().isNotEmpty(),
+                modifier = Modifier
+                    .size(40.dp)
+                    .background(
+                        if (value.trim().isNotEmpty()) 
+                            MaterialTheme.colorScheme.primary 
+                        else 
+                            MaterialTheme.colorScheme.surfaceVariant,
+                        CircleShape
+                    )
             ) {
                 Icon(
                     Icons.AutoMirrored.Filled.Send,
                     contentDescription = "Enviar",
-                    tint = if (value.isNotBlank()) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                    tint = if (value.trim().isNotEmpty()) 
+                        MaterialTheme.colorScheme.onPrimary 
+                    else 
+                        MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(20.dp)
                 )
             }
         }

@@ -124,7 +124,7 @@ fun AudioRecorderScreen(
                                 }
                             }
                         },
-                        containerColor = if (isRecording) SystemRed else PrimaryBlue,
+                        containerColor = if (isRecording) Error else PrimaryBlue,
                         modifier = Modifier.size(80.dp)
                     ) {
                         Icon(

@@ -23,7 +23,7 @@ import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
 import com.example.demoappchat.presentation.components.VoiceRecordingSettings
 import com.example.demoappchat.ui.theme.InfoBlue
-import com.example.demoappchat.ui.theme.WarningOrange
+import com.example.demoappchat.ui.theme.MinimalistPurple
 
 @OptIn(ExperimentalPermissionsApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -332,7 +332,7 @@ fun VoiceServiceSettings(
         if (!audioPermissions.allPermissionsGranted) {
             Surface(
                 shape = RoundedCornerShape(8.dp),
-                color = WarningOrange.copy(alpha = 0.1f)
+                color = MinimalistPurple.copy(alpha = 0.1f)
             ) {
                 Row(
                     modifier = Modifier
@@ -343,14 +343,14 @@ fun VoiceServiceSettings(
                     Icon(
                         Icons.Default.Warning,
                         contentDescription = null,
-                        tint = WarningOrange,
+                        tint = MinimalistPurple,
                         modifier = Modifier.size(20.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = "Se requieren permisos de audio y cámara",
                         fontSize = 14.sp,
-                        color = WarningOrange
+                        color = MinimalistPurple
                     )
                 }
             }

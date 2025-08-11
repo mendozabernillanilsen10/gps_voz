@@ -1,7 +1,5 @@
 package com.example.demoappchat.presentation.components
 
-import android.content.Context
-import android.content.Intent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -12,199 +10,301 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.demoappchat.presentation.chat.VideoCallActivity
 
 @Composable
-fun VideoCallButton(
+fun VideoCallComposable(
     chatId: String,
-    participantName: String,
-    modifier: Modifier = Modifier,
-    enabled: Boolean = true
+    isVideoCall: Boolean = true,
+    onEndCall: () -> Unit,
+    onToggleMute: () -> Unit,
+    onToggleCamera: () -> Unit,
+    onToggleSpeaker: () -> Unit,
+    isMuted: Boolean = false,
+    isCameraOn: Boolean = true,
+    isSpeakerOn: Boolean = false,
+    participantCount: Int = 1
 ) {
-    val context = LocalContext.current
+    var showControls by remember { mutableStateOf(true) }
     
-    Surface(
-        onClick = {
-            if (enabled) {
-                startVideoCall(context, chatId, participantName)
-            }
-        },
-        shape = CircleShape,
-        color = if (enabled) Color(0xFF1877F2) else Color.Gray,
-        modifier = modifier.size(40.dp)
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black)
     ) {
-        Box(contentAlignment = Alignment.Center) {
+        // Video principal (placeholder por ahora)
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Card(
+                modifier = Modifier
+                    .size(200.dp)
+                    .clip(CircleShape),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                )
+            ) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        if (isVideoCall) Icons.Default.Videocam else Icons.Default.Mic,
+                        contentDescription = if (isVideoCall) "Video" else "Audio",
+                        modifier = Modifier.size(64.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            
+            Text(
+                text = if (isVideoCall) "Videollamada grupal" else "Llamada de audio grupal",
+                color = Color.White,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(top = 220.dp)
+            )
+            
+            Text(
+                text = "$participantCount participantes",
+                color = Color.White.copy(alpha = 0.8f),
+                fontSize = 14.sp,
+                modifier = Modifier.padding(top = 8.dp)
+            )
+        }
+        
+        // Controles superiores
+        if (showControls) {
+            TopControls(
+                onEndCall = onEndCall,
+                onToggleMute = onToggleMute,
+                onToggleCamera = onToggleCamera,
+                onToggleSpeaker = onToggleSpeaker,
+                isMuted = isMuted,
+                isCameraOn = isCameraOn,
+                isSpeakerOn = isSpeakerOn,
+                isVideoCall = isVideoCall
+            )
+        }
+        
+        // Controles inferiores
+        if (showControls) {
+            BottomControls(
+                onEndCall = onEndCall,
+                onToggleMute = onToggleMute,
+                onToggleCamera = onToggleCamera,
+                onToggleSpeaker = onToggleSpeaker,
+                isMuted = isMuted,
+                isCameraOn = isCameraOn,
+                isSpeakerOn = isSpeakerOn,
+                isVideoCall = isVideoCall
+            )
+        }
+        
+        // Botón para mostrar/ocultar controles
+        IconButton(
+            onClick = { showControls = !showControls },
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(16.dp)
+        ) {
             Icon(
-                Icons.Default.Videocam,
-                contentDescription = "Video llamada",
-                tint = Color.White,
-                modifier = Modifier.size(20.dp)
+                if (showControls) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                contentDescription = "Mostrar/ocultar controles",
+                tint = Color.White
             )
         }
     }
 }
 
 @Composable
-fun VideoCallNotification(
-    callerName: String,
-    chatId: String,
-    onAccept: () -> Unit,
-    onDecline: () -> Unit,
-    modifier: Modifier = Modifier
+private fun TopControls(
+    onEndCall: () -> Unit,
+    onToggleMute: () -> Unit,
+    onToggleCamera: () -> Unit,
+    onToggleSpeaker: () -> Unit,
+    isMuted: Boolean,
+    isCameraOn: Boolean,
+    isSpeakerOn: Boolean,
+    isVideoCall: Boolean
 ) {
-    Card(
-        modifier = modifier
+    Row(
+        modifier = Modifier
             .fillMaxWidth()
             .padding(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = Color.White
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
-        shape = RoundedCornerShape(16.dp)
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
+        // Botón de altavoz
+        IconButton(
+            onClick = onToggleSpeaker,
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .size(48.dp)
+                .background(
+                    if (isSpeakerOn) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.2f),
+                    CircleShape
+                )
         ) {
-            // Caller avatar
-            Surface(
-                shape = CircleShape,
-                color = Color(0xFF1877F2),
-                modifier = Modifier.size(48.dp)
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Text(
-                        text = callerName.firstOrNull()?.toString()?.uppercase() ?: "?",
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 18.sp
+            Icon(
+                if (isSpeakerOn) Icons.Default.VolumeUp else Icons.Default.VolumeOff,
+                contentDescription = "Altavoz",
+                tint = if (isSpeakerOn) Color.White else Color.White
+            )
+        }
+        
+        // Botón de cámara (solo para videollamadas)
+        if (isVideoCall) {
+            IconButton(
+                onClick = onToggleCamera,
+                modifier = Modifier
+                    .size(48.dp)
+                    .background(
+                        if (isCameraOn) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.2f),
+                        CircleShape
                     )
-                }
-            }
-            
-            Spacer(modifier = Modifier.width(12.dp))
-            
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = callerName,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp,
-                    color = Color.Black
-                )
-                Text(
-                    text = "Video llamada entrante",
-                    fontSize = 14.sp,
-                    color = Color.Gray
-                )
-            }
-            
-            // Action buttons
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // Decline
-                Surface(
-                    onClick = onDecline,
-                    shape = CircleShape,
-                    color = Color.Red,
-                    modifier = Modifier.size(40.dp)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            Icons.Default.CallEnd,
-                            contentDescription = "Rechazar",
-                            tint = Color.White,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                }
-                
-                // Accept
-                Surface(
-                    onClick = onAccept,
-                    shape = CircleShape,
-                    color = Color(0xFF42C85F),
-                    modifier = Modifier.size(40.dp)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            Icons.Default.Call,
-                            contentDescription = "Aceptar",
-                            tint = Color.White,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                }
+                Icon(
+                    if (isCameraOn) Icons.Default.Videocam else Icons.Default.VideocamOff,
+                    contentDescription = "Cámara",
+                    tint = if (isCameraOn) Color.White else Color.White
+                )
             }
+        }
+        
+        // Botón de micrófono
+        IconButton(
+            onClick = onToggleMute,
+            modifier = Modifier
+                .size(48.dp)
+                .background(
+                    if (!isMuted) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.2f),
+                    CircleShape
+                )
+        ) {
+            Icon(
+                if (!isMuted) Icons.Default.Mic else Icons.Default.MicOff,
+                contentDescription = "Micrófono",
+                tint = if (!isMuted) Color.White else Color.White
+            )
         }
     }
 }
 
 @Composable
-fun ChatVideoCallHeader(
-    participantName: String,
-    onStartCall: () -> Unit,
-    modifier: Modifier = Modifier
+private fun BottomControls(
+    onEndCall: () -> Unit,
+    onToggleMute: () -> Unit,
+    onToggleCamera: () -> Unit,
+    onToggleSpeaker: () -> Unit,
+    isMuted: Boolean,
+    isCameraOn: Boolean,
+    isSpeakerOn: Boolean,
+    isVideoCall: Boolean
 ) {
-    Surface(
-        modifier = modifier.fillMaxWidth(),
-        color = Color(0xFFF0F2F5)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
+        // Botón de terminar llamada
+        IconButton(
+            onClick = onEndCall,
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+                .size(64.dp)
+                .background(
+                    Color.Red,
+                    CircleShape
+                )
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    Icons.Default.Videocam,
-                    contentDescription = null,
-                    tint = Color(0xFF1877F2),
-                    modifier = Modifier.size(20.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "Video llamadas disponibles",
-                    fontSize = 14.sp,
-                    color = Color(0xFF65676B)
-                )
-            }
-            
-            VideoCallButton(
-                chatId = "", // Will be passed from parent
-                participantName = participantName,
+            Icon(
+                Icons.Default.CallEnd,
+                contentDescription = "Terminar llamada",
+                tint = Color.White,
                 modifier = Modifier.size(32.dp)
             )
         }
     }
 }
 
-private fun startVideoCall(context: Context, chatId: String, participantName: String) {
-    val intent = Intent(context, VideoCallActivity::class.java).apply {
-        putExtra(VideoCallActivity.EXTRA_CHAT_ID, chatId)
-        putExtra(VideoCallActivity.EXTRA_PARTICIPANT_NAME, participantName)
-        putExtra(VideoCallActivity.EXTRA_IS_INCOMING_CALL, false)
+@Composable
+fun VideoCallStatusBar(
+    isActive: Boolean,
+    callType: String,
+    participantCount: Int,
+    onJoinCall: () -> Unit,
+    onEndCall: () -> Unit
+) {
+    if (isActive) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.primary
+            ),
+            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        if (callType == "VIDEO") Icons.Default.Videocam else Icons.Default.Call,
+                        contentDescription = null,
+                        tint = Color.White
+                    )
+                    Column {
+                        Text(
+                            text = if (callType == "VIDEO") "Videollamada grupal" else "Llamada de audio grupal",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "$participantCount participantes",
+                            color = Color.White.copy(alpha = 0.8f),
+                            fontSize = 12.sp
+                        )
+                    }
+                }
+                
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    TextButton(
+                        onClick = onJoinCall,
+                        colors = ButtonDefaults.textButtonColors(
+                            contentColor = Color.White
+                        )
+                    ) {
+                        Text("Unirse")
+                    }
+                    
+                    TextButton(
+                        onClick = onEndCall,
+                        colors = ButtonDefaults.textButtonColors(
+                            contentColor = Color.White
+                        )
+                    ) {
+                        Text("Terminar")
+                    }
+                }
+            }
+        }
     }
-    context.startActivity(intent)
-}
-
-fun startIncomingVideoCall(context: Context, chatId: String, participantName: String) {
-    val intent = Intent(context, VideoCallActivity::class.java).apply {
-        putExtra(VideoCallActivity.EXTRA_CHAT_ID, chatId)
-        putExtra(VideoCallActivity.EXTRA_PARTICIPANT_NAME, participantName)
-        putExtra(VideoCallActivity.EXTRA_IS_INCOMING_CALL, true)
-        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-    }
-    context.startActivity(intent)
 }
