@@ -405,7 +405,7 @@ class FirebaseRepository @Inject constructor(
                 userId = currentUser.id,
                 userName = currentUser.name,
                 userPhotoUrl = currentUser.photoUrl,
-                messageType = when (messageType) {
+                messageType = when (messageType.uppercase()) {
                     "AUDIO" -> MessageType.AUDIO
                     "VIDEO" -> MessageType.VIDEO
                     "PHOTO" -> MessageType.PHOTO

@@ -60,6 +60,7 @@ import com.example.demoappchat.presentation.recording.RecordingViewModel
 import kotlinx.coroutines.delay
 import android.media.MediaRecorder
 import android.content.Context
+import android.util.Log
 import java.io.File
 import java.io.IOException
 import android.media.MediaPlayer
@@ -454,13 +455,20 @@ fun AudioPlayerBubble(
     // Inicializar MediaPlayer
     LaunchedEffect(audioUrl) {
         try {
+            mediaPlayer?.release()
             mediaPlayer = MediaPlayer().apply {
                 setDataSource(audioUrl)
-                prepare()
-                duration = this.duration
+                prepareAsync()
+                setOnPreparedListener { mp ->
+                    duration = mp.duration
+                }
+                setOnCompletionListener {
+                    isPlaying = false
+                    currentPosition = 0
+                }
             }
         } catch (e: Exception) {
-            // Manejar error
+            Log.e("AudioPlayerBubble", "Error inicializando MediaPlayer: ${e.message}")
         }
     }
     
