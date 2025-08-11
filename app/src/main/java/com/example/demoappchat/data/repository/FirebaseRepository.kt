@@ -363,7 +363,16 @@ class FirebaseRepository @Inject constructor(
         return try {
             val timestamp = System.currentTimeMillis()
             val userId = auth.currentUser?.uid ?: throw Exception("Usuario no autenticado")
-            val fileName = "${mediaType}_$timestamp.${if (mediaType == "audio") "mp3" else "mp4"}"
+            
+            // Determinar extensión correcta según el tipo
+            val extension = when (mediaType.lowercase()) {
+                "audio" -> "m4a"
+                "video" -> "mp4"
+                "image", "photo" -> "jpg"
+                else -> "mp4"
+            }
+            
+            val fileName = "${mediaType}_$timestamp.$extension"
 
             // ✅ USAR RUTA PERMITIDA SEGÚN EL CONTEXTO
             val path = when {
@@ -377,16 +386,34 @@ class FirebaseRepository @Inject constructor(
 
             val storageRef = storage.reference.child(path)
 
-            Log.d("FirebaseRepo", "Subiendo archivo a ruta: $path")
+            Log.d("FirebaseRepo", "📤 Subiendo archivo a ruta: $path (${file.length()} bytes)")
 
-            val uploadTask = storageRef.putFile(android.net.Uri.fromFile(file))
-            val downloadUrl = uploadTask.await().storage.downloadUrl.await()
+            // Configurar metadata para mejor rendimiento
+            val metadata = com.google.firebase.storage.StorageMetadata.Builder()
+                .setContentType(when (mediaType.lowercase()) {
+                    "audio" -> "audio/mp4"
+                    "video" -> "video/mp4"
+                    "image", "photo" -> "image/jpeg"
+                    else -> "application/octet-stream"
+                })
+                .build()
 
-            Log.d("FirebaseRepo", "Archivo subido exitosamente: $downloadUrl")
+            val uploadTask = storageRef.putFile(android.net.Uri.fromFile(file), metadata)
+            
+            // Monitorear progreso
+            uploadTask.addOnProgressListener { snapshot ->
+                val progress = (100.0 * snapshot.bytesTransferred / snapshot.totalByteCount).toInt()
+                Log.d("FirebaseRepo", "📤 Progreso de subida: $progress%")
+            }
+            
+            val snapshot = uploadTask.await()
+            val downloadUrl = snapshot.storage.downloadUrl.await()
+
+            Log.d("FirebaseRepo", "✅ Archivo subido exitosamente: $downloadUrl")
             downloadUrl.toString()
 
         } catch (e: Exception) {
-            Log.e("FirebaseRepo", "Error subiendo archivo", e)
+            Log.e("FirebaseRepo", "❌ Error subiendo archivo", e)
             throw e
         }
     }
