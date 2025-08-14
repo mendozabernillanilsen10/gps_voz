@@ -46,7 +46,7 @@ fun CreateChatDialog(
         containerColor = MaterialTheme.colorScheme.surface,
         title = {
             Text(
-                text = "Crear Chat",
+                text = "Crear Chat Grupal",
                 fontWeight = FontWeight.Normal,
                 fontSize = 18.sp,
                 color = MaterialTheme.colorScheme.onSurface
