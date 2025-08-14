@@ -32,16 +32,22 @@ class UserPreferences @Inject constructor(
         // Voice Settings
         private val VOICE_SERVICE_ENABLED = booleanPreferencesKey("voice_service_enabled")
         private val DISCRETE_MODE = booleanPreferencesKey("discrete_mode")
-            private val VOICE_COMMANDS = stringSetPreferencesKey("voice_commands")
-    private val CURRENT_CHAT_ID = stringPreferencesKey("current_chat_id")
-    
-    // NUEVAS CONSTANTES PARA CONFIGURACIÓN DE GRABACIÓN
-    private val AUDIO_RECORDING_DURATION = intPreferencesKey("audio_recording_duration")
-    private val VIDEO_RECORDING_DURATION = intPreferencesKey("video_recording_duration")
-    private val PHOTO_CAPTURE_ENABLED = booleanPreferencesKey("photo_capture_enabled")
-    private val AUTO_SEND_RECORDINGS = booleanPreferencesKey("auto_send_recordings")
-    private val RECORDING_QUALITY = stringPreferencesKey("recording_quality")
-    private val COMMAND_ACTIONS = stringPreferencesKey("command_actions")
+        private val VOICE_COMMANDS = stringSetPreferencesKey("voice_commands")
+        private val CURRENT_CHAT_ID = stringPreferencesKey("current_chat_id")
+        
+        // NUEVAS CONSTANTES PARA CONFIGURACIÓN DE GRABACIÓN
+        private val AUDIO_RECORDING_DURATION = intPreferencesKey("audio_recording_duration")
+        private val VIDEO_RECORDING_DURATION = intPreferencesKey("video_recording_duration")
+        private val PHOTO_CAPTURE_ENABLED = booleanPreferencesKey("photo_capture_enabled")
+        private val AUTO_SEND_RECORDINGS = booleanPreferencesKey("auto_send_recordings")
+        private val RECORDING_QUALITY = stringPreferencesKey("recording_quality")
+        private val COMMAND_ACTIONS = stringPreferencesKey("command_actions")
+        
+        // NUEVAS CONSTANTES PARA CONFIGURACIÓN AVANZADA DE VOZ
+        private val VOICE_SENSITIVITY = floatPreferencesKey("voice_sensitivity")
+        private val STEALTH_MODE = booleanPreferencesKey("stealth_mode")
+        private val VOICE_DETECTION_ENABLED = booleanPreferencesKey("voice_detection_enabled")
+        private val CONTINUOUS_LISTENING = booleanPreferencesKey("continuous_listening")
         
         // Audio Settings
         private val TRANSMISSION_RADIUS = floatPreferencesKey("transmission_radius")
@@ -250,6 +256,55 @@ class UserPreferences @Inject constructor(
                     "alerta" to "AUDIO"
                 )
             }
+        }
+    }
+
+    // NUEVAS FUNCIONES PARA CONFIGURACIÓN AVANZADA DE VOZ
+    suspend fun setVoiceSensitivity(sensitivity: Float) {
+        context.dataStore.edit { preferences ->
+            preferences[VOICE_SENSITIVITY] = sensitivity
+        }
+    }
+    
+    fun getVoiceSensitivity(): Flow<Float> {
+        return context.dataStore.data.map { preferences ->
+            preferences[VOICE_SENSITIVITY] ?: 0.7f
+        }
+    }
+    
+    suspend fun setStealthMode(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[STEALTH_MODE] = enabled
+        }
+    }
+    
+    fun getStealthMode(): Flow<Boolean> {
+        return context.dataStore.data.map { preferences ->
+            preferences[STEALTH_MODE] ?: false
+        }
+    }
+    
+    suspend fun setVoiceDetectionEnabled(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[VOICE_DETECTION_ENABLED] = enabled
+        }
+    }
+    
+    fun getVoiceDetectionEnabled(): Flow<Boolean> {
+        return context.dataStore.data.map { preferences ->
+            preferences[VOICE_DETECTION_ENABLED] ?: true
+        }
+    }
+    
+    suspend fun setContinuousListening(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[CONTINUOUS_LISTENING] = enabled
+        }
+    }
+    
+    fun getContinuousListening(): Flow<Boolean> {
+        return context.dataStore.data.map { preferences ->
+            preferences[CONTINUOUS_LISTENING] ?: true
         }
     }
 

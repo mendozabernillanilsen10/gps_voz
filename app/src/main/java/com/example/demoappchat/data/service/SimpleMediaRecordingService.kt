@@ -41,31 +41,59 @@ class SimpleMediaRecordingService(private val context: Context) {
      */
     suspend fun recordAudio(durationSeconds: Int, chatId: String): Result<String> = withContext(Dispatchers.IO) {
         try {
+            Log.d(TAG, "🎤 Iniciando grabación de audio por $durationSeconds segundos")
+            
             if (!checkAudioPermission()) {
+                Log.e(TAG, "❌ Permisos de audio no concedidos")
                 return@withContext Result.failure(Exception("Permisos de audio no concedidos"))
             }
             
             val audioFile = createAudioFile()
+            Log.d(TAG, "📁 Archivo de audio creado: ${audioFile.absolutePath}")
+            
+            // Verificar que el directorio existe
+            audioFile.parentFile?.let { parentDir ->
+                if (!parentDir.exists()) {
+                    parentDir.mkdirs()
+                }
+            }
+            
             setupAudioRecorder(audioFile)
+            Log.d(TAG, "⚙️ MediaRecorder configurado")
             
             mediaRecorder?.start()
             isRecording = true
-            
-            Log.d(TAG, "🎤 Iniciando grabación de audio por $durationSeconds segundos")
+            Log.d(TAG, "▶️ Grabación iniciada")
             
             // Grabar por la duración especificada
             delay(durationSeconds * 1000L)
+            Log.d(TAG, "⏹️ Tiempo de grabación completado")
             
             stopRecording()
+            Log.d(TAG, "🛑 Grabación detenida")
+            
+            // Verificar que el archivo existe y tiene contenido
+            if (!audioFile.exists() || audioFile.length() == 0L) {
+                Log.e(TAG, "❌ Archivo de audio no existe o está vacío")
+                return@withContext Result.failure(Exception("Archivo de audio no válido"))
+            }
+            
+            Log.d(TAG, "📊 Tamaño del archivo: ${audioFile.length()} bytes")
             
             // Subir a Firebase y enviar al chat
             val result = uploadAndSendToChat(audioFile, chatId, "AUDIO")
             
-            Log.d(TAG, "✅ Audio grabado y enviado exitosamente")
-            Result.success("Audio grabado exitosamente")
+            if (result.isSuccess) {
+                Log.d(TAG, "✅ Audio grabado y enviado exitosamente")
+                Result.success("Audio grabado exitosamente")
+            } else {
+                Log.e(TAG, "❌ Error enviando audio: ${result.exceptionOrNull()?.message}")
+                Result.failure(result.exceptionOrNull() ?: Exception("Error desconocido"))
+            }
             
         } catch (e: Exception) {
             Log.e(TAG, "❌ Error grabando audio: ${e.message}")
+            e.printStackTrace()
             stopRecording()
             Result.failure(e)
         }
@@ -141,16 +169,33 @@ class SimpleMediaRecordingService(private val context: Context) {
     private fun stopRecording() {
         try {
             if (isRecording) {
+                Log.d(TAG, "🛑 Deteniendo grabación...")
+                
                 mediaRecorder?.apply {
-                    stop()
-                    release()
+                    try {
+                        stop()
+                        Log.d(TAG, "⏹️ MediaRecorder detenido")
+                    } catch (e: Exception) {
+                        Log.e(TAG, "❌ Error deteniendo MediaRecorder: ${e.message}")
+                    }
+                    
+                    try {
+                        release()
+                        Log.d(TAG, "🔓 MediaRecorder liberado")
+                    } catch (e: Exception) {
+                        Log.e(TAG, "❌ Error liberando MediaRecorder: ${e.message}")
+                    }
                 }
+                
                 mediaRecorder = null
                 isRecording = false
-                Log.d(TAG, "⏹️ Grabación detenida")
+                Log.d(TAG, "✅ Grabación detenida completamente")
+            } else {
+                Log.d(TAG, "ℹ️ No hay grabación activa para detener")
             }
         } catch (e: Exception) {
-            Log.e(TAG, "❌ Error deteniendo grabación: ${e.message}")
+            Log.e(TAG, "❌ Error general deteniendo grabación: ${e.message}")
+            e.printStackTrace()
         }
     }
     
@@ -158,16 +203,36 @@ class SimpleMediaRecordingService(private val context: Context) {
      * Configurar grabador de audio
      */
     private fun setupAudioRecorder(outputFile: File) {
-        mediaRecorder = MediaRecorder().apply {
-            setAudioSource(MediaRecorder.AudioSource.MIC)
-            setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
-            setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
-            setAudioSamplingRate(AUDIO_SAMPLE_RATE)
-            setAudioChannels(AUDIO_CHANNELS)
-            setOutputFile(outputFile.absolutePath)
-            prepare()
+        try {
+            Log.d(TAG, "⚙️ Configurando MediaRecorder para audio")
+            
+            mediaRecorder = MediaRecorder().apply {
+                setAudioSource(MediaRecorder.AudioSource.MIC)
+                Log.d(TAG, "🎤 Fuente de audio configurada")
+                
+                setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
+                Log.d(TAG, "📁 Formato de salida configurado")
+                
+                setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
+                Log.d(TAG, "🔊 Codificador de audio configurado")
+                
+                setAudioSamplingRate(AUDIO_SAMPLE_RATE)
+                setAudioChannels(AUDIO_CHANNELS)
+                Log.d(TAG, "📊 Parámetros de audio configurados: $AUDIO_SAMPLE_RATE Hz, $AUDIO_CHANNELS canal(es)")
+                
+                setOutputFile(outputFile.absolutePath)
+                Log.d(TAG, "📂 Archivo de salida configurado: ${outputFile.absolutePath}")
+                
+                prepare()
+                Log.d(TAG, "✅ MediaRecorder preparado exitosamente")
+            }
+            recordingFile = outputFile
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Error configurando MediaRecorder: ${e.message}")
+            e.printStackTrace()
+            throw e
         }
-        recordingFile = outputFile
     }
     
     /**
@@ -279,6 +344,7 @@ class SimpleMediaRecordingService(private val context: Context) {
             val currentUser = auth.currentUser
             
             if (currentUser != null) {
+                // Crear mensaje con formato correcto para la UI
                 val messageData = mapOf(
                     "chatId" to chatId,
                     "userId" to currentUser.uid,
@@ -286,13 +352,14 @@ class SimpleMediaRecordingService(private val context: Context) {
                     "userPhotoUrl" to (currentUser.photoUrl?.toString() ?: ""),
                     "messageType" to messageType,
                     "content" to mediaUrl,
+                    "mediaUrl" to mediaUrl, // Agregar mediaUrl para compatibilidad
                     "timestamp" to System.currentTimeMillis()
                 )
                 
                 val newMessageRef = messagesRef.push()
                 newMessageRef.setValue(messageData).await()
                 
-                Log.d(TAG, "✅ Mensaje enviado al chat $chatId: $messageType")
+                Log.d(TAG, "✅ Mensaje enviado al chat $chatId: $messageType con URL: $mediaUrl")
             } else {
                 Log.e(TAG, "❌ Usuario no autenticado")
             }

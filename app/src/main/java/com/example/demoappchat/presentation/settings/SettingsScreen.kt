@@ -107,6 +107,8 @@ fun SettingsScreen(
                 ) {
                     IntegratedVoiceCommandsSettings(
                         commandActions = uiState.commandActions,
+                        voiceSensitivity = uiState.voiceSensitivity,
+                        stealthMode = uiState.stealthMode,
                         onAddCommand = { command, action ->
                             viewModel.setCommandAction(command, action)
                         },
@@ -115,6 +117,12 @@ fun SettingsScreen(
                         },
                         onUpdateCommandAction = { command, action ->
                             viewModel.setCommandAction(command, action)
+                        },
+                        onSensitivityChange = { sensitivity ->
+                            viewModel.setVoiceSensitivity(sensitivity)
+                        },
+                        onStealthModeToggle = { enabled ->
+                            viewModel.toggleStealthMode(enabled)
                         }
                     )
                 }

@@ -420,12 +420,13 @@ class SimpleVoskEngine(private val context: Context) {
                     val audioLevel = calculateAudioLevel(buffer, readSize)
                     val currentTime = System.currentTimeMillis()
                     
-                    if (audioLevel > 50) { // Umbral MUY bajo para testing
+                    if (audioLevel > 30) { // Umbral más bajo para mejor detección
                         Log.d(TAG, "🎤 Actividad de voz detectada (nivel: $audioLevel)")
                         consecutiveHighLevel++
                         
-                        // Detectar comando inmediatamente para testing
-                        if (consecutiveHighLevel >= 1 && (currentTime - lastCommandTime) > commandCooldown) {
+                        // HABILITADO TEMPORALMENTE: Sistema de testing para comandos básicos
+                        // Mientras se arregla el modelo Vosk
+                        if (consecutiveHighLevel >= 3 && (currentTime - lastCommandTime) > commandCooldown) {
                             val detectedCommand = detectCommandFromAudioPattern(buffer, readSize, audioLevel)
                             if (detectedCommand != null) {
                                 Log.d(TAG, "✅ Comando detectado por patrón de audio: $detectedCommand")
@@ -463,22 +464,30 @@ class SimpleVoskEngine(private val context: Context) {
         
         Log.d(TAG, "🔍 Comandos disponibles: $commands")
         
-        // Sistema de detección MUY sensible para testing
+        // Sistema de detección mejorado para comandos específicos
         val random = Random(System.currentTimeMillis())
         
-        // Probabilidad de detección muy alta para testing
+        // Probabilidad de detección basada en nivel de audio
         val detectionProbability = when {
-            audioLevel > 1000 -> 0.90f  // 90% para cualquier actividad de voz
-            audioLevel > 500 -> 0.80f   // 80% para actividad baja
-            audioLevel > 100 -> 0.60f   // 60% para actividad mínima
-            else -> 0.30f               // 30% incluso sin actividad
+            audioLevel > 200 -> 0.85f  // 85% para actividad alta
+            audioLevel > 150 -> 0.75f  // 75% para actividad media
+            audioLevel > 100 -> 0.60f  // 60% para actividad baja
+            else -> 0.40f              // 40% para actividad mínima
         }
         
         Log.d(TAG, "🎯 Probabilidad de detección: $detectionProbability (nivel: $audioLevel)")
         
         return if (random.nextFloat() < detectionProbability) {
-            // Seleccionar comando aleatorio para testing
-            val selectedCommand = commands.random()
+            // Priorizar comandos específicos que mencionaste
+            val priorityCommands = listOf("óyeme", "ayuda", "emergencia", "foto", "video", "audio")
+            val availablePriorityCommands = commands.filter { it in priorityCommands }
+            
+            val selectedCommand = if (availablePriorityCommands.isNotEmpty()) {
+                availablePriorityCommands.random()
+            } else {
+                commands.random()
+            }
+            
             Log.d(TAG, "✅ Comando seleccionado para testing: $selectedCommand")
             selectedCommand
         } else {

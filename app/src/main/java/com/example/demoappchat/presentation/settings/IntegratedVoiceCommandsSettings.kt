@@ -1,7 +1,9 @@
 package com.example.demoappchat.presentation.settings
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -18,6 +20,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.demoappchat.presentation.settings.AddCommandDialogIntegrated
 import com.example.demoappchat.presentation.settings.EditCommandDialogIntegrated
+import com.example.demoappchat.presentation.settings.VoiceCommandUtils
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -26,12 +29,18 @@ fun IntegratedVoiceCommandsSettings(
     onAddCommand: (String, String) -> Unit,
     onRemoveCommand: (String) -> Unit,
     onUpdateCommandAction: (String, String) -> Unit,
+    voiceSensitivity: Float = 0.7f,
+    stealthMode: Boolean = false,
+    onSensitivityChange: (Float) -> Unit = {},
+    onStealthModeToggle: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var showAddDialog by remember { mutableStateOf(false) }
     var editingCommand by remember { mutableStateOf<String?>(null) }
     var editingAction by remember { mutableStateOf("AUDIO") }
     var showEditDialog by remember { mutableStateOf(false) }
+    var showHelpDialog by remember { mutableStateOf(false) }
+    var showSensitivityDialog by remember { mutableStateOf(false) }
     
     // Comandos predefinidos con sus acciones por defecto
     val predefinedCommands = mapOf(
@@ -50,35 +59,121 @@ fun IntegratedVoiceCommandsSettings(
         "foto mensaje" to "PHOTO_MESSAGE",
         "llamame" to "CALL",
         "grabar" to "AUDIO_RECORDING",
-        "sigiloso" to "STEALTH"
+        "sigiloso" to "STEALTH",
+        "grabar audio" to "AUDIO",
+        "capturar" to "PHOTO",
+        "filmar" to "VIDEO",
+        "ubicación" to "LOCATION",
+        "posición" to "LOCATION",
+        "mensaje" to "TEXT",
+        "texto" to "TEXT"
     )
 
     Column(
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
+        // Header con información
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "🎤 Comandos de Voz Activos",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    
+                    IconButton(
+                        onClick = { showHelpDialog = true },
+                        modifier = Modifier
+                            .background(
+                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                                shape = CircleShape
+                            )
+                            .size(32.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Help,
+                            contentDescription = "Ayuda",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
+                
+                Text(
+                    text = "La app escucha continuamente estos comandos. Di cualquiera de ellos para activar la acción correspondiente.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        Icons.Default.Mic,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Text(
+                        text = "${commandActions.size + predefinedCommands.size} comandos configurados",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+        }
+        
         // Comandos predefinidos
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(12.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
         ) {
             Column(
                 modifier = Modifier.padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Text(
-                    text = "Comandos Predefinidos",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF1C1E21)
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Comandos Predefinidos",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    
+                    Text(
+                        text = "${predefinedCommands.size} comandos",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
                 
                 Text(
-                    text = "Comandos de voz estándar con acciones predefinidas",
+                    text = "Comandos estándar que puedes personalizar",
                     style = MaterialTheme.typography.bodySmall,
-                    color = Color(0xFF65676B)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 
                 LazyRow(
@@ -107,7 +202,7 @@ fun IntegratedVoiceCommandsSettings(
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(12.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
         ) {
             Column(
@@ -123,33 +218,67 @@ fun IntegratedVoiceCommandsSettings(
                         text = "Comandos Personalizados",
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF1C1E21)
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     
-                    IconButton(
-                        onClick = { showAddDialog = true },
-                        modifier = Modifier
-                            .background(
-                                color = Color(0xFF1877F2).copy(alpha = 0.1f),
-                                shape = CircleShape
-                            )
-                            .size(32.dp)
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            Icons.Default.Add,
-                            contentDescription = "Agregar comando",
-                            tint = Color(0xFF1877F2),
-                            modifier = Modifier.size(16.dp)
+                        Text(
+                            text = "${commandActions.size} comandos",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                        
+                        IconButton(
+                            onClick = { showAddDialog = true },
+                            modifier = Modifier
+                                .background(
+                                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                                    shape = CircleShape
+                                )
+                                .size(32.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.Add,
+                                contentDescription = "Agregar comando",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
                     }
                 }
                 
                 if (commandActions.isEmpty()) {
-                    Text(
-                        text = "No hay comandos personalizados configurados",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color(0xFF65676B)
-                    )
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.Add,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(24.dp)
+                            )
+                            Text(
+                                text = "No hay comandos personalizados",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                text = "Toca el botón + para agregar tu primer comando",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
                 } else {
                     Column(
                         verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -170,6 +299,88 @@ fun IntegratedVoiceCommandsSettings(
                 }
             }
         }
+        
+        // Configuración avanzada
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    text = "Configuración Avanzada",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Sensibilidad de Detección",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "Ajusta qué tan sensible es la detección de comandos",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    
+                    Button(
+                        onClick = { showSensitivityDialog = true },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary
+                        )
+                    ) {
+                        Icon(
+                            Icons.Default.Tune,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Configurar")
+                    }
+                }
+                
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Modo Sigiloso",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "Ejecuta acciones sin notificaciones visibles",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    
+                    Switch(
+                        checked = stealthMode,
+                        onCheckedChange = onStealthModeToggle,
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
+                            checkedTrackColor = MaterialTheme.colorScheme.primary
+                        )
+                    )
+                }
+            }
+        }
     }
     
     // Dialog para agregar nuevo comando
@@ -178,7 +389,7 @@ fun IntegratedVoiceCommandsSettings(
             onDismiss = { showAddDialog = false },
             onConfirm = { command, action ->
                 if (command.isNotBlank()) {
-                    onAddCommand(command.trim(), action)
+                    onAddCommand(command.trim().lowercase(), action)
                     showAddDialog = false
                 }
             }
@@ -197,119 +408,85 @@ fun IntegratedVoiceCommandsSettings(
             }
         )
     }
+    
+    // Dialog de ayuda
+    if (showHelpDialog) {
+        AlertDialog(
+            onDismissRequest = { showHelpDialog = false },
+            title = {
+                Text(
+                    "Cómo usar los comandos de voz",
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("🎤 La app escucha continuamente comandos de voz")
+                    Text("📝 Puedes personalizar cualquier comando")
+                    Text("⚡ Las acciones se ejecutan automáticamente")
+                    Text("🔇 El modo sigiloso evita notificaciones")
+                    Text("")
+                    Text("Ejemplos de comandos:", fontWeight = FontWeight.Bold)
+                    Text("• 'óyeme' → Graba audio")
+                    Text("• 'foto' → Captura foto")
+                    Text("• 'emergencia' → Activa modo emergencia")
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showHelpDialog = false }) {
+                    Text("Entendido")
+                }
+            }
+        )
+    }
+    
+    // Dialog de sensibilidad
+    if (showSensitivityDialog) {
+        VoiceSensitivityDialog(
+            currentSensitivity = voiceSensitivity,
+            onSensitivityChange = onSensitivityChange,
+            onDismiss = { showSensitivityDialog = false }
+        )
+    }
 }
 
 @Composable
 fun PredefinedCommandChip(
     command: String,
     action: String,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    onClick: () -> Unit
 ) {
     Card(
-        modifier = modifier,
-        shape = RoundedCornerShape(8.dp),
+        modifier = Modifier.clickable { onClick() },
+        shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(
-            containerColor = when (action) {
-                "AUDIO" -> Color(0xFFE3F2FD)
-                "VIDEO" -> Color(0xFFFFEBEE)
-                "PHOTO" -> Color(0xFFE8F5E8)
-                "TEXT" -> Color(0xFFFFF3E0)
-                "LOCATION" -> Color(0xFFF5F5F5)
-                "CALL" -> Color(0xFFE3F2FD)
-                else -> Color(0xFFF5F5F5)
-            }
+            containerColor = MaterialTheme.colorScheme.primaryContainer
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Row(
-            modifier = Modifier
-                .padding(8.dp),
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            // Icono según la acción
-            when (action) {
-                "AUDIO" -> {
-                    Icon(
-                        Icons.Default.Mic,
-                        contentDescription = null,
-                        tint = Color(0xFF1976D2),
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
-                "VIDEO" -> {
-                    Icon(
-                        Icons.Default.Videocam,
-                        contentDescription = null,
-                        tint = Color(0xFFD32F2F),
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
-                "PHOTO" -> {
-                    Icon(
-                        Icons.Default.PhotoCamera,
-                        contentDescription = null,
-                        tint = Color(0xFF388E3C),
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
-                "TEXT" -> {
-                    Icon(
-                        Icons.Default.Chat,
-                        contentDescription = null,
-                        tint = Color(0xFFF57C00),
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
-                "LOCATION" -> {
-                    Icon(
-                        Icons.Default.LocationOn,
-                        contentDescription = null,
-                        tint = Color(0xFF616161),
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
-                "CALL" -> {
-                    Icon(
-                        Icons.Default.Call,
-                        contentDescription = null,
-                        tint = Color(0xFF1976D2),
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
-            }
-            
-            Column {
-                Text(
-                    text = "\"$command\"",
-                    style = MaterialTheme.typography.bodySmall,
-                    fontWeight = FontWeight.Medium,
-                    color = Color(0xFF1C1E21)
-                )
-                Text(
-                    text = when (action) {
-                        "AUDIO" -> "Grabar Audio"
-                        "VIDEO" -> "Grabar Video"
-                        "PHOTO" -> "Tomar Foto"
-                        "TEXT" -> "Enviar Texto"
-                        "LOCATION" -> "Enviar Ubicación"
-                        "CALL" -> "Llamada Automática"
-                        else -> action
-                    },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = when (action) {
-                        "AUDIO" -> Color(0xFF1976D2)
-                        "VIDEO" -> Color(0xFFD32F2F)
-                        "PHOTO" -> Color(0xFF388E3C)
-                        "TEXT" -> Color(0xFFF57C00)
-                        "LOCATION" -> Color(0xFF616161)
-                        "CALL" -> Color(0xFF1976D2)
-                        else -> Color(0xFF616161)
-                    },
-                    fontWeight = FontWeight.Medium
-                )
-            }
+            Icon(
+                VoiceCommandUtils.getActionIcon(action),
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                modifier = Modifier.size(16.dp)
+            )
+            Text(
+                text = command,
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onPrimaryContainer
+            )
+            Icon(
+                Icons.Default.Edit,
+                contentDescription = "Editar",
+                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                modifier = Modifier.size(12.dp)
+            )
         }
     }
 }
@@ -319,122 +496,46 @@ fun CommandCard(
     command: String,
     action: String,
     onRemove: () -> Unit,
-    onEdit: () -> Unit,
-    modifier: Modifier = Modifier
+    onEdit: () -> Unit
 ) {
     Card(
-        modifier = modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(8.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFF8F9FA)),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
+        ),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(12.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "\"$command\"",
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Medium,
-                    color = Color(0xFF1C1E21)
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Icon(
+                    VoiceCommandUtils.getActionIcon(action),
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp)
                 )
                 
-                Spacer(modifier = Modifier.height(2.dp))
-                
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    when (action) {
-                        "AUDIO" -> {
-                            Icon(
-                                Icons.Default.Mic,
-                                contentDescription = null,
-                                tint = Color(0xFF1976D2),
-                                modifier = Modifier.size(14.dp)
-                            )
-                            Text(
-                                text = "Grabar Audio",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = Color(0xFF1976D2),
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
-                        "VIDEO" -> {
-                            Icon(
-                                Icons.Default.Videocam,
-                                contentDescription = null,
-                                tint = Color(0xFFD32F2F),
-                                modifier = Modifier.size(14.dp)
-                            )
-                            Text(
-                                text = "Grabar Video",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = Color(0xFFD32F2F),
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
-                        "PHOTO" -> {
-                            Icon(
-                                Icons.Default.PhotoCamera,
-                                contentDescription = null,
-                                tint = Color(0xFF388E3C),
-                                modifier = Modifier.size(14.dp)
-                            )
-                            Text(
-                                text = "Tomar Foto",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = Color(0xFF388E3C),
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
-                        "TEXT" -> {
-                            Icon(
-                                Icons.Default.Chat,
-                                contentDescription = null,
-                                tint = Color(0xFFF57C00),
-                                modifier = Modifier.size(14.dp)
-                            )
-                            Text(
-                                text = "Enviar Texto",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = Color(0xFFF57C00),
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
-                        "LOCATION" -> {
-                            Icon(
-                                Icons.Default.LocationOn,
-                                contentDescription = null,
-                                tint = Color(0xFF616161),
-                                modifier = Modifier.size(14.dp)
-                            )
-                            Text(
-                                text = "Enviar Ubicación",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = Color(0xFF616161),
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
-                        "CALL" -> {
-                            Icon(
-                                Icons.Default.Call,
-                                contentDescription = null,
-                                tint = Color(0xFF1976D2),
-                                modifier = Modifier.size(14.dp)
-                            )
-                            Text(
-                                text = "Llamada Automática",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = Color(0xFF1976D2),
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
-                    }
+                Column {
+                    Text(
+                        text = command,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = VoiceCommandUtils.getActionDescription(action),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
             
@@ -443,38 +544,157 @@ fun CommandCard(
             ) {
                 IconButton(
                     onClick = onEdit,
-                    modifier = Modifier
-                        .background(
-                            color = Color(0xFF1976D2).copy(alpha = 0.1f),
-                            shape = CircleShape
-                        )
-                        .size(28.dp)
+                    modifier = Modifier.size(32.dp)
                 ) {
                     Icon(
                         Icons.Default.Edit,
                         contentDescription = "Editar",
-                        tint = Color(0xFF1976D2),
-                        modifier = Modifier.size(14.dp)
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(16.dp)
                     )
                 }
                 
                 IconButton(
                     onClick = onRemove,
-                    modifier = Modifier
-                        .background(
-                            color = Color(0xFFD32F2F).copy(alpha = 0.1f),
-                            shape = CircleShape
-                        )
-                        .size(28.dp)
+                    modifier = Modifier.size(32.dp)
                 ) {
                     Icon(
                         Icons.Default.Delete,
                         contentDescription = "Eliminar",
-                        tint = Color(0xFFD32F2F),
-                        modifier = Modifier.size(14.dp)
+                        tint = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(16.dp)
                     )
                 }
             }
         }
     }
+}
+
+ 
+
+@Composable
+fun VoiceSensitivityDialog(
+    currentSensitivity: Float,
+    onSensitivityChange: (Float) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var sensitivity by remember { mutableStateOf(currentSensitivity) }
+    
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                "Configurar Sensibilidad",
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Text(
+                    text = "Ajusta la sensibilidad del reconocimiento de voz",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                
+                // Slider de sensibilidad
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = "Baja",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = "Alta",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    
+                    Slider(
+                        value = sensitivity,
+                        onValueChange = { sensitivity = it },
+                        valueRange = 0.1f..1.0f,
+                        steps = 8,
+                        colors = SliderDefaults.colors(
+                            thumbColor = MaterialTheme.colorScheme.primary,
+                            activeTrackColor = MaterialTheme.colorScheme.primary,
+                            inactiveTrackColor = MaterialTheme.colorScheme.surfaceVariant
+                        )
+                    )
+                    
+                    Text(
+                        text = "Sensibilidad: ${(sensitivity * 100).toInt()}%",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+                
+                // Información sobre la sensibilidad
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(8.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier.padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            text = "¿Cómo funciona la sensibilidad?",
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "• Baja (10-30%): Solo detecta comandos muy claros",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = "• Media (40-60%): Balance entre precisión y detección",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = "• Alta (70-100%): Detecta comandos incluso con ruido",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    onSensitivityChange(sensitivity)
+                    onDismiss()
+                },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary
+                )
+            ) {
+                Icon(
+                    Icons.Default.Save,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text("Guardar")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancelar")
+            }
+        }
+    )
 } 

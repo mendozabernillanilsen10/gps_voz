@@ -1,6 +1,7 @@
 package com.example.demoappchat.presentation.auth
 
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.demoappchat.data.model.User
@@ -28,12 +29,14 @@ class AuthViewModel @Inject constructor(
 
             repository.registerUser(email, password, name)
                 .onSuccess { user ->
+                    Log.d("AuthViewModel", "✅ Registro exitoso: ${user.name}")
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         isAuthenticated = true
                     )
                 }
                 .onFailure { exception ->
+                    Log.d("AuthViewModel", "❌ Error en signUp: ${exception.message}")
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         error = exception.message ?: "Error desconocido"
@@ -69,6 +72,37 @@ class AuthViewModel @Inject constructor(
 
     fun clearError() {
         _uiState.value = _uiState.value.copy(error = null)
+    }
+    
+    /**
+     * Intenta registrar o hacer login automáticamente
+     * Útil cuando el usuario no está seguro si ya tiene cuenta
+     */
+    fun signUpOrSignIn(email: String, password: String, name: String) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+
+            repository.registerOrLogin(email, password, name)
+                .onSuccess { user ->
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        isAuthenticated = true
+                    )
+                }
+                .onFailure { exception ->
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        error = exception.message ?: "Error desconocido"
+                    )
+                }
+        }
+    }
+    
+    /**
+     * Verifica si un email ya está registrado
+     */
+    suspend fun checkEmailExists(email: String): Boolean {
+        return repository.isEmailRegistered(email)
     }
 }
 
