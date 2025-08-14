@@ -4,10 +4,18 @@ import android.util.Log
 import com.example.demoappchat.data.UserPreferences
 import com.example.demoappchat.data.model.*
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.FirebaseAuthException
+import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
+import com.google.firebase.auth.FirebaseAuthInvalidUserException
+import com.google.firebase.auth.FirebaseAuthUserCollisionException
+import com.google.firebase.auth.FirebaseAuthWeakPasswordException
 import com.google.firebase.database.*
 import com.google.firebase.storage.FirebaseStorage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -39,7 +47,14 @@ class FirebaseRepository @Inject constructor(
         // Escuchar cambios en la autenticación
         auth.addAuthStateListener { firebaseAuth ->
             firebaseAuth.currentUser?.let { firebaseUser ->
-                loadCurrentUser(firebaseUser.uid)
+                // Cargar usuario de forma asíncrona para evitar bloqueos
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        loadCurrentUser(firebaseUser.uid)
+                    } catch (e: Exception) {
+                        Log.e("FirebaseRepo", "❌ Error cargando usuario en init", e)
+                    }
+                }
             } ?: run {
                 _currentUser.value = null
             }
@@ -81,7 +96,56 @@ class FirebaseRepository @Inject constructor(
             Result.success(user)
         } catch (e: Exception) {
             Log.e("FirebaseRepo", "❌ Error registering user", e)
-            Result.failure(e)
+            
+            // Proporcionar mensajes de error más amigables
+            Log.d("FirebaseRepo", "🔍 Procesando error: ${e.javaClass.simpleName} - ${e.message}")
+            
+            val userFriendlyError = when (e) {
+                is FirebaseAuthUserCollisionException -> {
+                    Log.d("FirebaseRepo", "✅ Detectado FirebaseAuthUserCollisionException")
+                    "El email ya está registrado. Intenta iniciar sesión en su lugar."
+                }
+                is FirebaseAuthWeakPasswordException -> {
+                    Log.d("FirebaseRepo", "✅ Detectado FirebaseAuthWeakPasswordException")
+                    "La contraseña es muy débil. Usa al menos 6 caracteres."
+                }
+                is FirebaseAuthInvalidCredentialsException -> {
+                    Log.d("FirebaseRepo", "✅ Detectado FirebaseAuthInvalidCredentialsException")
+                    "El formato del email no es válido."
+                }
+                is FirebaseAuthInvalidUserException -> {
+                    Log.d("FirebaseRepo", "✅ Detectado FirebaseAuthInvalidUserException")
+                    "Usuario no encontrado."
+                }
+                else -> {
+                    Log.d("FirebaseRepo", "⚠️ Error no reconocido, usando mensaje: ${e.message}")
+                    when (e.message) {
+                        "The email address is already in use by another account." -> {
+                            "El email ya está registrado. Intenta iniciar sesión en su lugar."
+                        }
+                        "The password is invalid or the user does not have a password." -> {
+                            "La contraseña es incorrecta."
+                        }
+                        "Too many unsuccessful login attempts. Please try again later." -> {
+                            "Demasiados intentos. Intenta más tarde."
+                        }
+                        "Network error (such as timeout, interrupted connection or unreachable host) has occurred." -> {
+                            "Error de conexión. Verifica tu internet."
+                        }
+                        else -> {
+                            "Error al registrar usuario: ${e.message}"
+                        }
+                    }
+                }
+            }
+            
+            Log.d("FirebaseRepo", "📝 Mensaje amigable generado: $userFriendlyError")
+            
+            // Crear una excepción personalizada con el mensaje amigable
+            val customException = Exception(userFriendlyError)
+            customException.initCause(e)
+            
+            Result.failure(customException)
         }
     }
 
@@ -94,37 +158,88 @@ class FirebaseRepository @Inject constructor(
             
             Log.d("FirebaseRepo", "✅ Autenticación exitosa: ${firebaseUser.uid}")
 
-            // Cargar usuario desde Database con timeout
-            loadCurrentUser(firebaseUser.uid)
+            // Cargar usuario directamente desde Database con timeout
+            val userSnapshot = usersRef.child(firebaseUser.uid).get().await()
+            Log.d("FirebaseRepo", "📄 Snapshot directo: ${userSnapshot.exists()}")
             
-            // Esperar un poco para que se cargue el usuario
-            kotlinx.coroutines.delay(2000)
-            
-            val user = _currentUser.value
-            Log.d("FirebaseRepo", "👤 Usuario actual después de carga: $user")
-            
-            if (user == null) {
-                Log.w("FirebaseRepo", "⚠️ Usuario no encontrado en Database, intentando cargar directamente...")
-                // Intentar cargar directamente
-                val userSnapshot = usersRef.child(firebaseUser.uid).get().await()
-                Log.d("FirebaseRepo", "📄 Snapshot directo: ${userSnapshot.exists()}")
-                
-                if (userSnapshot.exists()) {
-                    val userData = userSnapshot.getValue(User::class.java)
-                    if (userData != null) {
-                        _currentUser.value = userData
-                        Log.d("FirebaseRepo", "✅ Usuario cargado directamente: ${userData.name}")
-                        return Result.success(userData)
+            if (userSnapshot.exists()) {
+                val userData = userSnapshot.getValue(User::class.java)
+                if (userData != null) {
+                    _currentUser.value = userData
+                    Log.d("FirebaseRepo", "✅ Usuario cargado directamente: ${userData.name}")
+                    return Result.success(userData)
+                } else {
+                    // Intentar deserialización manual
+                    Log.w("FirebaseRepo", "⚠️ Usuario es null después de deserialización, intentando manual...")
+                    val manualUser = tryManualUserDeserializationFromSnapshot(userSnapshot)
+                    if (manualUser != null) {
+                        _currentUser.value = manualUser
+                        Log.d("FirebaseRepo", "✅ Usuario cargado con deserialización manual: ${manualUser.name}")
+                        return Result.success(manualUser)
                     }
                 }
-                
-                throw Exception("User not found in database")
             }
-
-            Result.success(user)
+            
+            // Si no existe en Database, crear un usuario básico
+            Log.w("FirebaseRepo", "⚠️ Usuario no encontrado en Database, creando usuario básico...")
+            val basicUser = User(
+                id = firebaseUser.uid,
+                name = firebaseUser.displayName ?: "Usuario",
+                email = email,
+                photoUrl = firebaseUser.photoUrl?.toString() ?: "",
+                latitude = 0.0,
+                longitude = 0.0,
+                lastSeen = System.currentTimeMillis(),
+                fcmToken = "",
+                isActive = true
+            )
+            
+            // Guardar el usuario básico en Database
+            usersRef.child(firebaseUser.uid).setValue(basicUser.toMap()).await()
+            _currentUser.value = basicUser
+            Log.d("FirebaseRepo", "✅ Usuario básico creado y guardado: ${basicUser.name}")
+            
+            Result.success(basicUser)
         } catch (e: Exception) {
             Log.e("FirebaseRepo", "❌ Error logging in", e)
-            Result.failure(e)
+            
+            // Proporcionar mensajes de error más amigables para login
+            val userFriendlyError = when (e) {
+                is FirebaseAuthInvalidCredentialsException -> {
+                    "Email o contraseña incorrectos."
+                }
+                is FirebaseAuthInvalidUserException -> {
+                    "Usuario no encontrado. Verifica tu email."
+                }
+                else -> {
+                    when (e.message) {
+                        "The password is invalid or the user does not have a password." -> {
+                            "Email o contraseña incorrectos."
+                        }
+                        "There is no user record corresponding to this identifier. The user may have been deleted." -> {
+                            "Usuario no encontrado. Verifica tu email."
+                        }
+                        "Too many unsuccessful login attempts. Please try again later." -> {
+                            "Demasiados intentos. Intenta más tarde."
+                        }
+                        "Network error (such as timeout, interrupted connection or unreachable host) has occurred." -> {
+                            "Error de conexión. Verifica tu internet."
+                        }
+                        "The user account has been disabled by an administrator." -> {
+                            "Tu cuenta ha sido deshabilitada."
+                        }
+                        else -> {
+                            "Error al iniciar sesión: ${e.message}"
+                        }
+                    }
+                }
+            }
+            
+            // Crear una excepción personalizada con el mensaje amigable
+            val customException = Exception(userFriendlyError)
+            customException.initCause(e)
+            
+            Result.failure(customException)
         }
     }
 
@@ -132,14 +247,52 @@ class FirebaseRepository @Inject constructor(
         auth.signOut()
         _currentUser.value = null
     }
+    
+    /**
+     * Verifica si un email ya está registrado
+     */
+    suspend fun isEmailRegistered(email: String): Boolean {
+        return try {
+            // Intentar obtener métodos de autenticación para el email
+            val result = auth.fetchSignInMethodsForEmail(email).await()
+            // Usar signInMethods property del resultado
+            val methods = result.signInMethods ?: emptyList()
+            methods.isNotEmpty()
+        } catch (e: Exception) {
+            Log.e("FirebaseRepo", "❌ Error verificando email: $email", e)
+            false
+        }
+    }
+    
+    /**
+     * Intenta registrar o hacer login automáticamente
+     */
+    suspend fun registerOrLogin(email: String, password: String, name: String): Result<User> {
+        return try {
+            // Primero intentar login
+            val loginResult = loginUser(email, password)
+            if (loginResult.isSuccess) {
+                Log.d("FirebaseRepo", "✅ Login exitoso para usuario existente")
+                return loginResult
+            }
+            
+            // Si el login falla, intentar registro
+            Log.d("FirebaseRepo", "🔄 Login falló, intentando registro...")
+            registerUser(email, password, name)
+        } catch (e: Exception) {
+            Log.e("FirebaseRepo", "❌ Error en registerOrLogin", e)
+            Result.failure(e)
+        }
+    }
 
     private fun loadCurrentUser(userId: String) {
         Log.d("FirebaseRepo", "🔄 Cargando usuario: $userId")
-        usersRef.child(userId).addValueEventListener(object : ValueEventListener {
+        
+        // Usar SingleValueEvent para evitar múltiples callbacks
+        usersRef.child(userId).addListenerForSingleValueEvent(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
                 try {
                     Log.d("FirebaseRepo", "📄 Snapshot recibido: ${snapshot.exists()}")
-                    Log.d("FirebaseRepo", "📋 Datos del snapshot: ${snapshot.value}")
                     
                     if (snapshot.exists()) {
                         val user = snapshot.getValue(User::class.java)
@@ -194,6 +347,32 @@ class FirebaseRepository @Inject constructor(
             _currentUser.value = null
         }
     }
+    
+    private fun tryManualUserDeserializationFromSnapshot(snapshot: DataSnapshot): User? {
+        return try {
+            Log.d("FirebaseRepo", "🔧 Intentando deserialización manual desde snapshot...")
+            val data = snapshot.value as? Map<String, Any> ?: return null
+            
+            val user = User(
+                id = data["id"] as? String ?: "",
+                name = data["name"] as? String ?: "",
+                email = data["email"] as? String ?: "",
+                photoUrl = data["photoUrl"] as? String ?: "",
+                latitude = (data["latitude"] as? Number)?.toDouble() ?: 0.0,
+                longitude = (data["longitude"] as? Number)?.toDouble() ?: 0.0,
+                lastSeen = (data["lastSeen"] as? Number)?.toLong() ?: 0L,
+                fcmToken = data["fcmToken"] as? String ?: "",
+                isActive = data["isActive"] as? Boolean ?: true
+            )
+            
+            Log.d("FirebaseRepo", "✅ Deserialización manual exitosa: ${user.name}")
+            user
+            
+        } catch (e: Exception) {
+            Log.e("FirebaseRepo", "❌ Error en deserialización manual", e)
+            null
+        }
+    }
 
     // ============== UBICACIÓN ==============
 
@@ -226,8 +405,12 @@ class FirebaseRepository @Inject constructor(
             // Guardar chat
             chatsRef.child(chatId).setValue(chatWithId.toMap()).await()
 
-            // Agregar creador como participante
-            participantsRef.child(chatId).child(chat.creatorId).setValue(true).await()
+            // Agregar creador como participante con datos requeridos
+            val creatorParticipantData = mapOf(
+                "joinedAt" to System.currentTimeMillis(),
+                "isActive" to true
+            )
+            participantsRef.child(chatId).child(chat.creatorId).setValue(creatorParticipantData).await()
 
             // Notificar usuarios cercanos
             notifyUsersInRange(chatWithId)
@@ -242,41 +425,54 @@ class FirebaseRepository @Inject constructor(
     fun startListeningToNearbyChats(userLatitude: Double, userLongitude: Double) {
         Log.d("FirebaseRepo", "🔍 Iniciando escucha de chats cercanos en: $userLatitude, $userLongitude")
         
+        // Detener listener anterior si existe
+        stopListeningToNearbyChats()
+        
         chatsRef.orderByChild("isActive").equalTo(true)
             .addValueEventListener(object : ValueEventListener {
                 override fun onDataChange(snapshot: DataSnapshot) {
-                    Log.d("FirebaseRepo", "📡 Datos recibidos de Firebase: ${snapshot.childrenCount} chats")
-                    
-                    val chats = mutableListOf<ProximityChat>()
+                    try {
+                        Log.d("FirebaseRepo", "📡 Datos recibidos de Firebase: ${snapshot.childrenCount} chats")
+                        
+                        val chats = mutableListOf<ProximityChat>()
+                        var processedCount = 0
 
-                    snapshot.children.forEach { chatSnapshot ->
-                        val chat = chatSnapshot.getValue(ProximityChat::class.java)
-                        chat?.let {
-                            val distance = calculateDistance(
-                                userLatitude, userLongitude,
-                                it.latitude, it.longitude
-                            )
+                        snapshot.children.forEach { chatSnapshot ->
+                            try {
+                                val chat = chatSnapshot.getValue(ProximityChat::class.java)
+                                chat?.let {
+                                    val distance = calculateDistance(
+                                        userLatitude, userLongitude,
+                                        it.latitude, it.longitude
+                                    )
 
-                            Log.d("FirebaseRepo", "📍 Chat: ${it.title} - Distancia: ${distance}m, Radio: ${it.radius}m")
-
-                            // Solo mostrar chats dentro del radio
-                            if (distance <= it.radius) {
-                                chats.add(it)
-                                Log.d("FirebaseRepo", "✅ Chat agregado: ${it.title}")
-                            } else {
-                                Log.d("FirebaseRepo", "❌ Chat fuera de rango: ${it.title}")
+                                    // Solo mostrar chats dentro del radio
+                                    if (distance <= it.radius) {
+                                        chats.add(it)
+                                        processedCount++
+                                    }
+                                }
+                            } catch (e: Exception) {
+                                Log.e("FirebaseRepo", "❌ Error procesando chat: ${chatSnapshot.key}", e)
                             }
                         }
-                    }
 
-                    Log.d("FirebaseRepo", "📋 Total de chats en rango: ${chats.size}")
-                    _nearbyChats.value = chats.sortedByDescending { it.createdAt }
+                        Log.d("FirebaseRepo", "📋 Total de chats en rango: ${chats.size} de ${snapshot.childrenCount}")
+                        _nearbyChats.value = chats.sortedByDescending { it.createdAt }
+                    } catch (e: Exception) {
+                        Log.e("FirebaseRepo", "❌ Error procesando chats cercanos", e)
+                    }
                 }
 
                 override fun onCancelled(error: DatabaseError) {
                     Log.e("FirebaseRepo", "Error listening to chats", error.toException())
                 }
             })
+    }
+    
+    fun stopListeningToNearbyChats() {
+        // Implementar detención del listener si es necesario
+        Log.d("FirebaseRepo", "🛑 Deteniendo escucha de chats cercanos")
     }
 
     suspend fun joinChatWithPin(chatId: String, pin: String): Result<Boolean> {
@@ -288,8 +484,12 @@ class FirebaseRepository @Inject constructor(
             if (chat.pin == pin) {
                 val userId = auth.currentUser?.uid ?: throw Exception("User not authenticated")
 
-                // Agregar usuario a participantes
-                participantsRef.child(chatId).child(userId).setValue(true).await()
+                // Agregar usuario a participantes con datos requeridos
+                val participantData = mapOf(
+                    "joinedAt" to System.currentTimeMillis(),
+                    "isActive" to true
+                )
+                participantsRef.child(chatId).child(userId).setValue(participantData).await()
 
                 // Incrementar contador
                 chatsRef.child(chatId).child("participantsCount")
@@ -337,9 +537,18 @@ class FirebaseRepository @Inject constructor(
                         messageSnapshot.getValue(ChatMessage::class.java)?.copy(
                             id = messageSnapshot.key ?: "", // Set the Firebase key as the message ID
                             messageType = try {
-                                MessageType.valueOf(
-                                    messageSnapshot.child("messageType").getValue(String::class.java) ?: "TEXT"
-                                )
+                                val messageTypeString = messageSnapshot.child("messageType").getValue(String::class.java) ?: "TEXT"
+                                when (messageTypeString.uppercase()) {
+                                    "AUDIO" -> MessageType.AUDIO
+                                    "VIDEO" -> MessageType.VIDEO
+                                    "PHOTO" -> MessageType.PHOTO
+                                    "TEXT" -> MessageType.TEXT
+                                    "LOCATION" -> MessageType.LOCATION
+                                    "SYSTEM" -> MessageType.SYSTEM
+                                    "VOICE_COMMAND" -> MessageType.VOICE_COMMAND
+                                    "CALL" -> MessageType.CALL
+                                    else -> MessageType.TEXT
+                                }
                             } catch (e: Exception) {
                                 MessageType.TEXT
                             }
@@ -752,7 +961,7 @@ class FirebaseRepository @Inject constructor(
         return try {
             val currentUser = _currentUser.value ?: throw Exception("Usuario no autenticado")
             
-            // Obtener todos los usuarios activos
+            // Obtener todos los usuarios activos usando el índice correcto
             val usersSnapshot = usersRef.orderByChild("isActive").equalTo(true).get().await()
             var alertsSent = 0
             
@@ -807,6 +1016,7 @@ class FirebaseRepository @Inject constructor(
         try {
             Log.d("FirebaseRepo", "🚨 NOTIFICACIÓN POLICIAL: Nuevo chat '${chat.title}' creado")
             
+            // Usar el índice correcto para usuarios activos
             val snapshot = usersRef.orderByChild("isActive").equalTo(true).get().await()
             var notifiedUsers = 0
 

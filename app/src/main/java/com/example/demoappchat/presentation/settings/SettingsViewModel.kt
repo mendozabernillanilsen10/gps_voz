@@ -39,7 +39,12 @@ data class SettingsUiState(
         "foto" to "PHOTO",
         "emergencia" to "AUDIO",
         "alerta" to "AUDIO"
-    )
+    ),
+    // NUEVAS CONFIGURACIONES DE VOZ
+    val voiceSensitivity: Float = 0.7f,
+    val stealthMode: Boolean = false,
+    val voiceDetectionEnabled: Boolean = true,
+    val continuousListening: Boolean = true
 )
 
 @HiltViewModel
@@ -71,7 +76,11 @@ class SettingsViewModel @Inject constructor(
                 userPreferences.getPhotoCaptureEnabled(),
                 userPreferences.getAutoSendRecordings(),
                 userPreferences.getRecordingQuality(),
-                userPreferences.getCommandActions()
+                userPreferences.getCommandActions(),
+                userPreferences.getVoiceSensitivity(),
+                userPreferences.getStealthMode(),
+                userPreferences.getVoiceDetectionEnabled(),
+                userPreferences.getContinuousListening()
             ) { flows ->
                 val enabled = flows[0] as Boolean
                 val discrete = flows[1] as Boolean  
@@ -87,6 +96,10 @@ class SettingsViewModel @Inject constructor(
                 val autoSend = flows[11] as Boolean
                 val recordingQuality = flows[12] as String
                 val commandActions = flows[13] as Map<String, String>
+                val sensitivity = flows[14] as Float
+                val stealth = flows[15] as Boolean
+                val detection = flows[16] as Boolean
+                val continuous = flows[17] as Boolean
                 
                 SettingsUiState(
                     isVoiceServiceEnabled = enabled,
@@ -102,12 +115,19 @@ class SettingsViewModel @Inject constructor(
                     photoCaptureEnabled = photoCapture,
                     autoSendRecordings = autoSend,
                     recordingQuality = recordingQuality,
-                    commandActions = commandActions
+                    commandActions = commandActions,
+                    voiceSensitivity = sensitivity,
+                    stealthMode = stealth,
+                    voiceDetectionEnabled = detection,
+                    continuousListening = continuous
                 )
             }.collect { newState ->
                 _uiState.value = newState
             }
         }
+        
+        // Cargar configuraciones adicionales desde SharedPreferences
+        loadAllVoiceSettings()
     }
     
     fun toggleVoiceService(enabled: Boolean) {
@@ -276,6 +296,129 @@ class SettingsViewModel @Inject constructor(
         }
     }
     
+    // NUEVOS MÉTODOS PARA CONFIGURACIÓN AVANZADA DE VOZ
+    fun setVoiceSensitivity(sensitivity: Float) {
+        viewModelScope.launch {
+            userPreferences.setVoiceSensitivity(sensitivity)
+            _uiState.value = _uiState.value.copy(voiceSensitivity = sensitivity)
+            
+            // Sincronizar con el servicio de voz
+            saveVoiceSettingsToSharedPreferences()
+            Log.d("SettingsViewModel", "🎚️ Sensibilidad ajustada: $sensitivity")
+        }
+    }
+    
+    fun toggleStealthMode(enabled: Boolean) {
+        viewModelScope.launch {
+            userPreferences.setStealthMode(enabled)
+            _uiState.value = _uiState.value.copy(stealthMode = enabled)
+            
+            // Sincronizar con el servicio de voz
+            saveVoiceSettingsToSharedPreferences()
+            Log.d("SettingsViewModel", "🔇 Modo sigiloso: ${if (enabled) "activado" else "desactivado"}")
+        }
+    }
+    
+    fun toggleVoiceDetection(enabled: Boolean) {
+        viewModelScope.launch {
+            userPreferences.setVoiceDetectionEnabled(enabled)
+            _uiState.value = _uiState.value.copy(voiceDetectionEnabled = enabled)
+            
+            // Sincronizar con el servicio de voz
+            saveVoiceSettingsToSharedPreferences()
+            Log.d("SettingsViewModel", "🎤 Detección de voz: ${if (enabled) "activada" else "desactivada"}")
+        }
+    }
+    
+    fun toggleContinuousListening(enabled: Boolean) {
+        viewModelScope.launch {
+            userPreferences.setContinuousListening(enabled)
+            _uiState.value = _uiState.value.copy(continuousListening = enabled)
+            
+            // Sincronizar con el servicio de voz
+            saveVoiceSettingsToSharedPreferences()
+            Log.d("SettingsViewModel", "🔄 Escucha continua: ${if (enabled) "activada" else "desactivada"}")
+        }
+    }
+    
+    // MÉTODO PARA CARGAR TODAS LAS CONFIGURACIONES DE VOZ
+    fun loadAllVoiceSettings() {
+        viewModelScope.launch {
+            try {
+                val sharedPrefs = context.getSharedPreferences("voice_prefs", Context.MODE_PRIVATE)
+                
+                // Cargar sensibilidad
+                val sensitivity = sharedPrefs.getFloat("voice_sensitivity", 0.7f)
+                
+                // Cargar modo sigiloso
+                val stealth = sharedPrefs.getBoolean("stealth_mode", false)
+                
+                // Cargar detección de voz
+                val detection = sharedPrefs.getBoolean("voice_detection_enabled", true)
+                
+                // Cargar escucha continua
+                val continuous = sharedPrefs.getBoolean("continuous_listening", true)
+                
+                // Cargar comandos personalizados
+                val commandActionsString = sharedPrefs.getString("command_actions", "")
+                val commandActions = if (commandActionsString.isNullOrEmpty()) {
+                    mapOf<String, String>()
+                } else {
+                    commandActionsString.split(",").associate { pair ->
+                        val parts = pair.split(":")
+                        if (parts.size == 2) parts[0] to parts[1] else "" to ""
+                    }.filter { it.key.isNotEmpty() }
+                }
+                
+                _uiState.value = _uiState.value.copy(
+                    voiceSensitivity = sensitivity,
+                    stealthMode = stealth,
+                    voiceDetectionEnabled = detection,
+                    continuousListening = continuous,
+                    commandActions = commandActions
+                )
+                
+                Log.d("SettingsViewModel", "📥 Configuraciones de voz cargadas - Sensibilidad: $sensitivity, Sigiloso: $stealth, Detección: $detection, Continua: $continuous, Comandos: ${commandActions.size}")
+                
+            } catch (e: Exception) {
+                Log.e("SettingsViewModel", "❌ Error cargando configuraciones de voz: ${e.message}")
+            }
+        }
+    }
+    
+    // MÉTODO PARA REINICIAR CONFIGURACIONES DE VOZ
+    fun resetVoiceSettings() {
+        viewModelScope.launch {
+            try {
+                val sharedPrefs = context.getSharedPreferences("voice_prefs", Context.MODE_PRIVATE)
+                sharedPrefs.edit().clear().apply()
+                
+                _uiState.value = _uiState.value.copy(
+                    voiceSensitivity = 0.7f,
+                    stealthMode = false,
+                    voiceDetectionEnabled = true,
+                    continuousListening = true,
+                    commandActions = mapOf(
+                        "grabar audio" to "AUDIO",
+                        "grabar video" to "VIDEO",
+                        "foto" to "PHOTO",
+                        "emergencia" to "AUDIO",
+                        "alerta" to "AUDIO"
+                    )
+                )
+                
+                // Guardar configuraciones por defecto
+                saveVoiceSettingsToSharedPreferences()
+                saveCommandActionsToSharedPreferences(_uiState.value.commandActions)
+                
+                Log.d("SettingsViewModel", "🔄 Configuraciones de voz reiniciadas")
+                
+            } catch (e: Exception) {
+                Log.e("SettingsViewModel", "❌ Error reiniciando configuraciones: ${e.message}")
+            }
+        }
+    }
+    
     private fun saveCommandActionsToSharedPreferences(actions: Map<String, String>) {
         try {
             val actionsString = actions.map { "${it.key}:${it.value}" }.joinToString(",")
@@ -284,6 +427,22 @@ class SettingsViewModel @Inject constructor(
             Log.d("SettingsViewModel", "💾 Comandos sincronizados con servicio: $actionsString")
         } catch (e: Exception) {
             Log.e("SettingsViewModel", "❌ Error sincronizando comandos: ${e.message}")
+        }
+    }
+    
+    private fun saveVoiceSettingsToSharedPreferences() {
+        try {
+            val sharedPrefs = context.getSharedPreferences("voice_prefs", Context.MODE_PRIVATE)
+            sharedPrefs.edit()
+                .putFloat("voice_sensitivity", _uiState.value.voiceSensitivity)
+                .putBoolean("stealth_mode", _uiState.value.stealthMode)
+                .putBoolean("voice_detection_enabled", _uiState.value.voiceDetectionEnabled)
+                .putBoolean("continuous_listening", _uiState.value.continuousListening)
+                .apply()
+            
+            Log.d("SettingsViewModel", "⚙️ Configuraciones de voz sincronizadas - Sensibilidad: ${_uiState.value.voiceSensitivity}, Sigiloso: ${_uiState.value.stealthMode}")
+        } catch (e: Exception) {
+            Log.e("SettingsViewModel", "❌ Error sincronizando configuraciones de voz: ${e.message}")
         }
     }
     

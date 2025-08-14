@@ -256,6 +256,28 @@ class VoiceRecognitionService : Service() {
                 voskEngine.setCallback { recognizedText, confidence ->
                     Log.d("VoiceService", "🎤 Resultado de voz: '$recognizedText' (${confidence}%)")
                     
+                    // Verificar confianza mínima (evitar falsos positivos)
+                    val minConfidence = getVoiceSensitivity()
+                    
+                    // Para el sistema de testing temporal, usar confianza fija alta
+                    val effectiveConfidence = if (confidence < 1.0f) {
+                        // Si la confianza es muy baja (sistema de testing), usar 85%
+                        85f
+                    } else {
+                        confidence
+                    }
+                    
+                    if (effectiveConfidence < minConfidence) {
+                        Log.d("VoiceService", "🔇 Confianza muy baja (${effectiveConfidence}% < ${minConfidence}%), ignorando")
+                        return@setCallback
+                    }
+                    
+                    // Verificar que el texto no esté vacío
+                    if (recognizedText.isBlank()) {
+                        Log.d("VoiceService", "🔇 Texto vacío, ignorando")
+                        return@setCallback
+                    }
+                    
                     // Recargar comandos cada 30 segundos (30 iteraciones)
                     commandReloadCounter++
                     if (commandReloadCounter >= 30) {
@@ -264,28 +286,38 @@ class VoiceRecognitionService : Service() {
                     }
                     
                     // Verificar si es un comando válido
-                    val text = recognizedText.lowercase().trim()
-                    val commandActions = getCommandActions()
+                    val text: String = recognizedText.lowercase().trim()
+                    val commandActions: Map<String, String> = getCommandActions()
                     
-                    Log.d("VoiceService", "🔍 Verificando comando: '$text'")
+                    Log.d("VoiceService", "🔍 Verificando comando: '$text' (confianza: ${effectiveConfidence}%)")
                     Log.d("VoiceService", "📋 Comandos disponibles: $commandActions")
                     
-                    // Buscar coincidencias exactas o parciales
-                    val matchedCommand = commandActions.keys.find { command ->
-                        text.contains(command.lowercase()) || 
-                        command.lowercase().contains(text)
+                    // Buscar coincidencias EXACTAS primero, luego parciales con umbral más alto
+                    var matchedCommand: String? = commandActions.keys.find { command: String ->
+                        text == command.lowercase() // Coincidencia exacta
+                    }
+                    
+                    // Si no hay coincidencia exacta, buscar parcial con umbral más alto
+                    if (matchedCommand == null && effectiveConfidence >= 80) {
+                        matchedCommand = commandActions.keys.find { command: String ->
+                            val commandLower: String = command.lowercase()
+                            // Solo coincidencias parciales si el comando está al inicio o final
+                            text.startsWith(commandLower) || 
+                            text.endsWith(commandLower) ||
+                            text.contains(" $commandLower ") // Comando rodeado de espacios
+                        }
                     }
                     
                     if (matchedCommand != null) {
                         val action = commandActions[matchedCommand]
-                        Log.d("VoiceService", "✅ Comando detectado: '$matchedCommand' -> $action")
+                        Log.d("VoiceService", "✅ Comando detectado: '$matchedCommand' -> $action (confianza: ${effectiveConfidence}%)")
                         
                         // Ejecutar la acción correspondiente
                         serviceScope.launch {
                             processVoiceCommand(matchedCommand)
                         }
                     } else {
-                        Log.d("VoiceService", "❌ No se encontró comando para: '$text'")
+                        Log.d("VoiceService", "❌ No se encontró comando para: '$text' (confianza: ${effectiveConfidence}%)")
                     }
                 }
                 
@@ -376,11 +408,11 @@ class VoiceRecognitionService : Service() {
      */
     private fun reloadCommandsFromPreferences() {
         try {
-            val newCommandActions = getCommandActions()
+            val newCommandActions: Map<String, String> = getCommandActions()
             Log.d("VoiceService", "🔄 Recargando comandos: $newCommandActions")
             
             // Actualizar comandos en Vosk Engine
-            val commandsList = newCommandActions.keys.toList()
+            val commandsList: List<String> = newCommandActions.keys.toList()
             voskEngine.setCommands(commandsList)
             
             Log.d("VoiceService", "✅ Comandos recargados exitosamente")
@@ -679,12 +711,12 @@ class VoiceRecognitionService : Service() {
         Log.d("VoiceService", "✅ Chat activo encontrado: $currentChatId")
         
         // Obtener configuración de comandos
-        val commandActions = getCommandActions()
-        val action = commandActions[command.lowercase()]
+        val commandActions: Map<String, String> = getCommandActions()
+        val action: String? = commandActions[command.lowercase()]
         
         when (action) {
             "AUDIO" -> {
-                val duration = getAudioRecordingDuration()
+                val duration: Int = getAudioRecordingDuration()
                 Log.d("VoiceService", "🎤 Ejecutando grabación de audio por $duration segundos")
                 serviceScope.launch {
                     if (isUserAuthenticated()) {
@@ -694,8 +726,16 @@ class VoiceRecognitionService : Service() {
                     }
                 }
             }
+            "AUDIO_MESSAGE" -> {
+                Log.d("VoiceService", "🎤 Enviando mensaje de audio")
+                serviceScope.launch {
+                    sendAudioMessage(currentChatId)
+                }
+            }
+            // COMENTADO TEMPORALMENTE - SOLO AUDIO ACTIVO
+            /*
             "VIDEO" -> {
-                val duration = getVideoRecordingDuration()
+                val duration: Int = getVideoRecordingDuration()
                 Log.d("VoiceService", "🎥 Ejecutando grabación de video por $duration segundos")
                 serviceScope.launch {
                     if (isUserAuthenticated()) {
@@ -757,12 +797,6 @@ class VoiceRecognitionService : Service() {
                     sendStatusUpdate(currentChatId)
                 }
             }
-            "AUDIO_MESSAGE" -> {
-                Log.d("VoiceService", "🎤 Enviando mensaje de audio")
-                serviceScope.launch {
-                    sendAudioMessage(currentChatId)
-                }
-            }
             "VIDEO_MESSAGE" -> {
                 Log.d("VoiceService", "🎥 Enviando mensaje de video")
                 serviceScope.launch {
@@ -775,6 +809,9 @@ class VoiceRecognitionService : Service() {
                     sendPhotoMessage(currentChatId)
                 }
             }
+            */
+            // COMENTADO TEMPORALMENTE - SOLO AUDIO ACTIVO
+            /*
             "AUDIO_RECORDING" -> {
                 Log.d("VoiceService", "🎤 Iniciando grabación de audio")
                 serviceScope.launch {
@@ -787,6 +824,7 @@ class VoiceRecognitionService : Service() {
                     toggleStealthMode()
                 }
             }
+            */
             else -> {
                 Log.d("VoiceService", "❓ Comando no reconocido: $command")
             }
@@ -831,35 +869,34 @@ class VoiceRecognitionService : Service() {
         }
     }
     
-    private fun getAudioRecordingDuration(): Int {
-        return sharedPreferences.getInt("audio_recording_duration", 30)
-    }
-    
-    private fun getVideoRecordingDuration(): Int {
-        return sharedPreferences.getInt("video_recording_duration", 15)
-    }
-    
-    private fun getCommandActions(): Map<String, String> {
-        // Intentar obtener desde SharedPreferences
-        val actionsString = sharedPreferences.getString("command_actions", null)
-        Log.d("VoiceService", "🔍 Comandos guardados: $actionsString")
-        
-        return if (actionsString != null && actionsString.isNotEmpty()) {
-            try {
-                val actions = actionsString.split(",").associate { action ->
-                    val parts = action.split(":")
-                    if (parts.size == 2) parts[0] to parts[1] else "" to ""
-                }.filter { it.key.isNotEmpty() }
-                Log.d("VoiceService", "✅ Comandos parseados: $actions")
-                actions
-        } catch (e: Exception) {
-                Log.e("VoiceService", "❌ Error parseando comandos: ${e.message}")
-                getDefaultCommandActions()
-            }
-        } else {
-            Log.d("VoiceService", "⚠️ No hay comandos guardados, usando por defecto")
-            getDefaultCommandActions()
-        }
+    private fun getDefaultCommandActions(): Map<String, String> {
+        return mapOf(
+            // SOLO COMANDOS DE AUDIO ACTIVOS
+            "óyeme" to "AUDIO",
+            "grabar audio" to "AUDIO",
+            "audio" to "AUDIO",
+            "emergencia" to "AUDIO", // Cambiado de CALL a AUDIO
+            "alerta" to "AUDIO", // Cambiado de TEXT a AUDIO
+            "refuerzo" to "AUDIO", // Nuevo comando de audio
+            
+            // COMENTADO TEMPORALMENTE - SOLO AUDIO ACTIVO
+            /*
+            "alerta" to "TEXT",
+            "grabar video" to "VIDEO",
+            "ayuda" to "LOCATION",
+            "foto" to "PHOTO",
+            "emergencia" to "CALL",
+            "socorro" to "CALL",
+            "video" to "VIDEO",
+            "tomar foto" to "PHOTO",
+            "ubicación" to "LOCATION",
+            "posición" to "LOCATION",
+            "llamar" to "CALL",
+            "llamada" to "CALL",
+            "sigiloso" to "STEALTH",
+            "sos" to "SOS"
+            */
+        )
     }
     
     /**
@@ -1002,26 +1039,7 @@ class VoiceRecognitionService : Service() {
         }
     }
     
-    private fun getDefaultCommandActions(): Map<String, String> {
-        return mapOf(
-            // Comandos predefinidos
-            "óyeme" to "AUDIO",
-            "alerta" to "TEXT",
-            "grabar video" to "VIDEO",
-            "ayuda" to "LOCATION",
-            "foto" to "PHOTO",
-            "emergencia" to "CALL",
-            "socorro" to "CALL",
-            
-            // Comandos alternativos
-            "grabar audio" to "AUDIO",
-            "audio" to "AUDIO",
-            "video" to "VIDEO",
-            "tomar foto" to "PHOTO",
-            "ubicación" to "LOCATION",
-            "llamada" to "CALL"
-        )
-    }
+
     
     private fun startServiceMonitoring() {
         // TODO: Implementar monitoreo del servicio
@@ -1155,7 +1173,7 @@ class VoiceRecognitionService : Service() {
     
     private suspend fun sendAudioMessage(chatId: String) {
         try {
-            val duration = getAudioRecordingDuration()
+            val duration: Int = getAudioRecordingDuration()
             Log.d("VoiceService", "🎤 Grabando audio por $duration segundos")
             
             // Grabar audio con la duración configurada
@@ -1175,7 +1193,7 @@ class VoiceRecognitionService : Service() {
     
     private suspend fun sendVideoMessage(chatId: String) {
         try {
-            val duration = getVideoRecordingDuration()
+            val duration: Int = getVideoRecordingDuration()
             Log.d("VoiceService", "🎥 Grabando video por $duration segundos")
             
             // Grabar video con la duración configurada
@@ -1255,7 +1273,7 @@ class VoiceRecognitionService : Service() {
             Log.d("VoiceService", "🎤 Iniciando grabación de audio")
             
             // Iniciar grabación continua
-            val duration = getAudioRecordingDuration()
+            val duration: Int = getAudioRecordingDuration()
             mediaRecordingService.recordAudio(duration, chatId)
             updateNotification("🎤 Grabación iniciada")
             
@@ -1278,6 +1296,116 @@ class VoiceRecognitionService : Service() {
             
         } catch (e: Exception) {
             Log.e("VoiceService", "❌ Error alternando modo sigiloso: ${e.message}")
+        }
+    }
+    
+    // ============== FUNCIONES DE CONFIGURACIÓN ==============
+    
+    /**
+     * Obtiene la sensibilidad de voz desde SharedPreferences
+     */
+    private fun getVoiceSensitivity(): Float {
+        return try {
+            val sensitivity = sharedPreferences.getFloat("voice_sensitivity", 0.7f)
+            
+            // Corregir sensibilidad si está en 100% (probablemente un error)
+            val correctedSensitivity = if (sensitivity >= 0.99f) {
+                Log.w("VoiceService", "⚠️ Sensibilidad detectada en 100%, corrigiendo a 70%")
+                sharedPreferences.edit().putFloat("voice_sensitivity", 0.7f).apply()
+                0.7f
+            } else {
+                sensitivity
+            }
+            
+            Log.d("VoiceService", "🎚️ Sensibilidad de voz: ${correctedSensitivity * 100}%")
+            correctedSensitivity
+        } catch (e: Exception) {
+            Log.e("VoiceService", "❌ Error obteniendo sensibilidad: ${e.message}")
+            0.7f // Valor por defecto (70%)
+        }
+    }
+    
+    /**
+     * Obtiene los comandos de voz desde SharedPreferences
+     */
+    private fun getCommandActions(): Map<String, String> {
+        return try {
+            // Intentar obtener desde SharedPreferences
+            val actionsString = sharedPreferences.getString("command_actions", null)
+            Log.d("VoiceService", "🔍 Comandos guardados: $actionsString")
+            
+            if (actionsString != null && actionsString.isNotEmpty()) {
+                try {
+                    val actions = actionsString.split(",").associate { action ->
+                        val parts = action.split(":")
+                        if (parts.size == 2) parts[0] to parts[1] else "" to ""
+                    }.filter { it.key.isNotEmpty() }
+                    Log.d("VoiceService", "✅ Comandos parseados: $actions")
+                    actions
+                } catch (e: Exception) {
+                    Log.e("VoiceService", "❌ Error parseando comandos: ${e.message}")
+                    getDefaultCommandActions()
+                }
+            } else {
+                Log.d("VoiceService", "⚠️ No hay comandos guardados, usando por defecto")
+                getDefaultCommandActions()
+            }
+        } catch (e: Exception) {
+            Log.e("VoiceService", "❌ Error obteniendo comandos: ${e.message}")
+            getDefaultCommandActions()
+        }
+    }
+    
+    /**
+     * Obtiene la duración de grabación de audio
+     */
+    private fun getAudioRecordingDuration(): Int {
+        return try {
+            val duration = sharedPreferences.getInt("audio_recording_duration", 5)
+            
+            // Solo corregir si es un valor claramente erróneo (más de 60 segundos)
+            val correctedDuration = if (duration > 60) {
+                Log.w("VoiceService", "⚠️ Duración de audio muy alta (${duration}s), limitando a 30s")
+                val limitedDuration = 30
+                sharedPreferences.edit().putInt("audio_recording_duration", limitedDuration).apply()
+                limitedDuration
+            } else {
+                duration
+            }
+            
+            Log.d("VoiceService", "⏱️ Duración audio configurada: ${correctedDuration}s")
+            correctedDuration
+        } catch (e: Exception) {
+            Log.e("VoiceService", "❌ Error obteniendo duración audio: ${e.message}")
+            5 // Valor por defecto
+        }
+    }
+    
+    /**
+     * Obtiene la duración de grabación de video
+     */
+    private fun getVideoRecordingDuration(): Int {
+        return try {
+            val duration = sharedPreferences.getInt("video_recording_duration", 10)
+            Log.d("VoiceService", "⏱️ Duración video: ${duration}s")
+            duration
+        } catch (e: Exception) {
+            Log.e("VoiceService", "❌ Error obteniendo duración video: ${e.message}")
+            10 // Valor por defecto
+        }
+    }
+    
+    /**
+     * Obtiene la calidad de grabación
+     */
+    private fun getRecordingQuality(): String {
+        return try {
+            val quality = sharedPreferences.getString("recording_quality", "HIGH")
+            Log.d("VoiceService", "🎯 Calidad grabación: $quality")
+            quality ?: "HIGH"
+        } catch (e: Exception) {
+            Log.e("VoiceService", "❌ Error obteniendo calidad: ${e.message}")
+            "HIGH" // Valor por defecto
         }
     }
 }

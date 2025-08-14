@@ -15,6 +15,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 import javax.inject.Inject
 
 @HiltViewModel
@@ -41,51 +42,79 @@ class MainViewModel @Inject constructor(
     private val _currentLocation = MutableStateFlow<Location?>(null)
     val currentLocation: StateFlow<Location?> = _currentLocation.asStateFlow()
 
+    // Debounce para evitar múltiples actualizaciones de ubicación
+    private var locationUpdateJob: kotlinx.coroutines.Job? = null
+
     fun updateLocation(location: Location) {
         Log.d("MainViewModel", "📍 Actualizando ubicación: ${location.latitude}, ${location.longitude}")
         _currentLocation.value = location
 
-        viewModelScope.launch {
-            Log.d("MainViewModel", "🔄 Actualizando ubicación en Firebase")
-            repository.updateUserLocation(location.latitude, location.longitude)
-            Log.d("MainViewModel", "🎧 Iniciando escucha de chats cercanos")
-            repository.startListeningToNearbyChats(location.latitude, location.longitude)
+        // Cancelar actualización anterior si existe
+        locationUpdateJob?.cancel()
+        
+        // Debounce de 1 segundo para evitar múltiples actualizaciones
+        locationUpdateJob = viewModelScope.launch {
+            delay(1000) // Esperar 1 segundo antes de actualizar
+            
+            try {
+                Log.d("MainViewModel", "🔄 Actualizando ubicación en Firebase")
+                repository.updateUserLocation(location.latitude, location.longitude)
+                
+                Log.d("MainViewModel", "🎧 Iniciando escucha de chats cercanos")
+                repository.startListeningToNearbyChats(location.latitude, location.longitude)
+            } catch (e: Exception) {
+                Log.e("MainViewModel", "❌ Error actualizando ubicación", e)
+            }
         }
     }
 
     fun createChat(chat: ProximityChat) {
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true)
+            try {
+                _uiState.value = _uiState.value.copy(isLoading = true)
 
-            repository.createProximityChat(chat)
-                .onSuccess { chatId ->
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        createdChatId = chatId
-                    )
-                }
-                .onFailure { exception ->
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        error = exception.message
-                    )
-                }
+                repository.createProximityChat(chat)
+                    .onSuccess { chatId ->
+                        _uiState.value = _uiState.value.copy(
+                            isLoading = false,
+                            createdChatId = chatId
+                        )
+                    }
+                    .onFailure { exception ->
+                        _uiState.value = _uiState.value.copy(
+                            isLoading = false,
+                            error = exception.message
+                        )
+                    }
+            } catch (e: Exception) {
+                Log.e("MainViewModel", "❌ Error creando chat", e)
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    error = e.message
+                )
+            }
         }
     }
 
     fun joinChat(chatId: String, pin: String, onResult: (Boolean) -> Unit) {
         viewModelScope.launch {
-            repository.joinChatWithPin(chatId, pin)
-                .onSuccess { success ->
-                    onResult(success)
-                    if (success) {
-                        _uiState.value = _uiState.value.copy(joinedChatId = chatId)
+            try {
+                repository.joinChatWithPin(chatId, pin)
+                    .onSuccess { success ->
+                        onResult(success)
+                        if (success) {
+                            _uiState.value = _uiState.value.copy(joinedChatId = chatId)
+                        }
                     }
-                }
-                .onFailure { exception ->
-                    _uiState.value = _uiState.value.copy(error = exception.message)
-                    onResult(false)
-                }
+                    .onFailure { exception ->
+                        _uiState.value = _uiState.value.copy(error = exception.message)
+                        onResult(false)
+                    }
+            } catch (e: Exception) {
+                Log.e("MainViewModel", "❌ Error uniéndose al chat", e)
+                _uiState.value = _uiState.value.copy(error = e.message)
+                onResult(false)
+            }
         }
     }
 
@@ -102,14 +131,18 @@ class MainViewModel @Inject constructor(
 
     fun toggleVoiceService(enabled: Boolean) {
         viewModelScope.launch {
-            userPreferences.setVoiceServiceEnabled(enabled)
-            
-            Log.d("MainViewModel", "Toggle voice service: $enabled")
-            
-            if (enabled) {
-                startVoiceService()
-            } else {
-                stopVoiceService()
+            try {
+                userPreferences.setVoiceServiceEnabled(enabled)
+                
+                Log.d("MainViewModel", "Toggle voice service: $enabled")
+                
+                if (enabled) {
+                    startVoiceService()
+                } else {
+                    stopVoiceService()
+                }
+            } catch (e: Exception) {
+                Log.e("MainViewModel", "❌ Error toggling voice service", e)
             }
         }
     }
@@ -139,6 +172,13 @@ class MainViewModel @Inject constructor(
         } catch (e: Exception) {
             Log.e("MainViewModel", "Error stopping voice service", e)
         }
+    }
+    
+    override fun onCleared() {
+        super.onCleared()
+        // Limpiar recursos al destruir el ViewModel
+        locationUpdateJob?.cancel()
+        repository.stopListeningToNearbyChats()
     }
 }
 

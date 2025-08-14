@@ -94,9 +94,11 @@ fun MainScreen(
         }
     }
 
-    // Inicializar ubicación
+    // Inicializar ubicación con delay para evitar bloqueos
     LaunchedEffect(locationPermissions.allPermissionsGranted) {
         if (locationPermissions.allPermissionsGranted) {
+            // Pequeño delay para evitar bloqueos en el inicio
+            kotlinx.coroutines.delay(500)
             LocationHelper.getCurrentLocation(context) { location ->
                 viewModel.updateLocation(location)
             }
