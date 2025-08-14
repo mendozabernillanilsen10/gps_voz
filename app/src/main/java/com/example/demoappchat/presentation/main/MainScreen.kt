@@ -437,7 +437,9 @@ fun MainScreen(
                 // Chat items
                 if (nearbyChats.isEmpty()) {
                     item {
-                        EmptyStateContent()
+                        EmptyStateContent(
+                            onCreateChat = { showCreateDialog = true } // Pasar la misma función que usa el FAB
+                        )
                     }
                 } else {
                     items(
@@ -668,7 +670,9 @@ fun ModernChatCard(
 }
 
 @Composable
-fun EmptyStateContent() {
+fun EmptyStateContent(
+    onCreateChat: () -> Unit // Agregar este parámetro
+) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -714,7 +718,7 @@ fun EmptyStateContent() {
         Spacer(modifier = Modifier.height(24.dp))
 
         Surface(
-            onClick = { /* TODO: Implementar acción */ },
+            onClick = onCreateChat, // Usar la función pasada como parámetro
             shape = RoundedCornerShape(10.dp),
             color = MaterialTheme.colorScheme.primary
         ) {
