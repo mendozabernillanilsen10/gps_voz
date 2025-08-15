@@ -1,5 +1,6 @@
 package com.example.demoappchat.presentation.auth
 
+import android.app.Activity
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -20,14 +21,58 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.platform.LocalContext
 import com.example.demoappchat.ui.theme.*
 import com.example.demoappchat.ui.theme.MinimalistBlue
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions
+import com.google.android.gms.common.api.ApiException
+import android.util.Log
 
 @Composable
 fun LoginScreen(
     onNavigateToMain: () -> Unit,
     viewModel: AuthViewModel = hiltViewModel()
 ) {
+    val context = LocalContext.current
+    
+    // Configurar Google Sign-In Client
+    val googleSignInClient = remember {
+        val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+            .requestIdToken("142685213126-gjsnjun3vbhnjm5lo9gr24ebl0apgmoe.apps.googleusercontent.com")
+            .requestEmail()
+            .requestProfile()
+            .build()
+        GoogleSignIn.getClient(context, gso)
+    }
+    
+    // Launcher para Google Sign-In
+    val signInLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
+            try {
+                val account = task.getResult(ApiException::class.java)
+                Log.d("GoogleSignIn", "✅ Sign in successful: ${account.email}")
+                viewModel.signInWithGoogle(account)
+            } catch (e: ApiException) {
+                Log.e("GoogleSignIn", "❌ Sign in failed: ${e.statusCode}")
+                val errorMessage = when (e.statusCode) {
+                    7 -> "Error de conexión. Verifica tu internet."
+                    12501 -> "Inicio de sesión cancelado por el usuario."
+                    12500 -> "Error en la configuración de Google Sign-In."
+                    else -> "Error al iniciar sesión con Google: ${e.message}"
+                }
+                // El error se manejará a través del AuthViewModel
+            }
+        } else {
+            Log.e("GoogleSignIn", "❌ Sign in failed: ${result.resultCode}")
+        }
+    }
     val uiState by viewModel.uiState.collectAsState()
     val currentUser by viewModel.currentUser.collectAsState()
 
@@ -194,7 +239,12 @@ fun LoginScreen(
                 Spacer(modifier = Modifier.height(20.dp))
 
                 // Botones sociales
-                SocialLoginButtons()
+                SocialLoginButtons(
+                    onGoogleSignIn = { 
+                        val signInIntent = googleSignInClient.signInIntent
+                        signInLauncher.launch(signInIntent)
+                    }
+                )
 
                 Spacer(modifier = Modifier.height(16.dp))
             }
@@ -385,13 +435,15 @@ fun CleanButton(
 }
 
 @Composable
-fun SocialLoginButtons() {
+fun SocialLoginButtons(
+    onGoogleSignIn: () -> Unit
+) {
     Column(
         modifier = Modifier.fillMaxWidth()
     ) {
         // Google
         OutlinedButton(
-            onClick = { /* TODO: Google login */ },
+            onClick = onGoogleSignIn,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(48.dp),
@@ -402,14 +454,39 @@ fun SocialLoginButtons() {
             shape = RoundedCornerShape(12.dp)
         ) {
             Row(
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
             ) {
-                Text("G", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.Red)
+                // Ícono de Google más profesional
+                Box(
+                    modifier = Modifier
+                        .size(20.dp)
+                        .background(
+                            brush = androidx.compose.ui.graphics.Brush.linearGradient(
+                                colors = listOf(
+                                    Color(0xFF4285F4), // Google Blue
+                                    Color(0xFF34A853), // Google Green
+                                    Color(0xFFFBBC05), // Google Yellow
+                                    Color(0xFFEA4335)  // Google Red
+                                )
+                            ),
+                            shape = RoundedCornerShape(4.dp)
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        "G",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                }
                 Spacer(modifier = Modifier.width(12.dp))
                 Text(
                     "Continuar con Google",
                     color = Color.Black,
-                    fontSize = 14.sp
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium
                 )
             }
         }
