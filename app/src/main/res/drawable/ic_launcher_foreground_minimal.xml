@@ -1,0 +1,39 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108"
+    android:tint="#FFFFFF">
+    
+    <!-- Sombra suave -->
+    <path
+        android:fillColor="#15000000"
+        android:pathData="M54,80 Q54,88 46,88 Q38,88 38,80 L38,72 Q38,64 46,64 Q54,64 54,72 Z"/>
+    
+    <!-- Micrófono principal minimalista -->
+    <path
+        android:fillColor="#4A90E2"
+        android:pathData="M46,28 L62,28 Q66,28 66,32 L66,52 Q66,56 62,56 L46,56 Q42,56 42,52 L42,32 Q42,28 46,28 Z"/>
+    
+    <!-- Base del micrófono -->
+    <path
+        android:fillColor="#357ABD"
+        android:pathData="M50,56 L58,56 L58,62 L50,62 Z"/>
+    
+    <!-- Ondas de sonido minimalistas -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:fillAlpha="0.7"
+        android:pathData="M66,42 Q72,42 72,44 Q72,46 66,46 Q60,46 60,44 Q60,42 66,42 Z"/>
+    
+    <path
+        android:fillColor="#FFFFFF"
+        android:fillAlpha="0.5"
+        android:pathData="M72,44 Q78,44 78,46 Q78,48 72,48 Q66,48 66,46 Q66,44 72,44 Z"/>
+    
+    <!-- Punto de luz -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:fillAlpha="0.8"
+        android:pathData="M48,34 L50,34 L50,36 L48,36 Z"/>
+</vector>
