@@ -6,10 +6,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.demoappchat.data.model.User
 import com.example.demoappchat.data.repository.FirebaseRepository
+import com.google.android.gms.auth.api.signin.GoogleSignInAccount
+import com.google.firebase.auth.GoogleAuthProvider
 
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 
 
@@ -62,6 +65,37 @@ class AuthViewModel @Inject constructor(
                         error = exception.message ?: "Error desconocido"
                     )
                 }
+        }
+    }
+
+    fun signInWithGoogle(account: GoogleSignInAccount) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+            
+            try {
+                val credential = GoogleAuthProvider.getCredential(account.idToken, null)
+                val result = repository.signInWithGoogle(credential)
+                
+                result.onSuccess { user ->
+                    Log.d("AuthViewModel", "✅ Login con Google exitoso: ${user.name}")
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        isAuthenticated = true
+                    )
+                }.onFailure { exception ->
+                    Log.e("AuthViewModel", "❌ Error en login con Google: ${exception.message}")
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        error = exception.message ?: "Error al iniciar sesión con Google"
+                    )
+                }
+            } catch (e: Exception) {
+                Log.e("AuthViewModel", "❌ Error procesando cuenta de Google", e)
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    error = "Error al procesar la cuenta de Google"
+                )
+            }
         }
     }
 

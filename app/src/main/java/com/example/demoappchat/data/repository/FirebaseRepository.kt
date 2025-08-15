@@ -9,6 +9,7 @@ import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
 import com.google.firebase.auth.FirebaseAuthInvalidUserException
 import com.google.firebase.auth.FirebaseAuthUserCollisionException
 import com.google.firebase.auth.FirebaseAuthWeakPasswordException
+import com.google.firebase.auth.AuthCredential
 import com.google.firebase.database.*
 import com.google.firebase.storage.FirebaseStorage
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -246,6 +247,72 @@ class FirebaseRepository @Inject constructor(
     fun signOut() {
         auth.signOut()
         _currentUser.value = null
+    }
+
+    suspend fun signInWithGoogle(credential: AuthCredential): Result<User> {
+        return try {
+            Log.d("FirebaseRepo", "🔄 Iniciando login con Google")
+            
+            val result = auth.signInWithCredential(credential).await()
+            val firebaseUser = result.user ?: throw Exception("Error signing in with Google")
+            
+            Log.d("FirebaseRepo", "✅ Autenticación con Google exitosa: ${firebaseUser.uid}")
+
+            // Verificar si el usuario ya existe en Database
+            val userSnapshot = usersRef.child(firebaseUser.uid).get().await()
+            
+            if (userSnapshot.exists()) {
+                // Usuario existe, cargarlo
+                val userData = userSnapshot.getValue(User::class.java)
+                if (userData != null) {
+                    _currentUser.value = userData
+                    Log.d("FirebaseRepo", "✅ Usuario existente cargado: ${userData.name}")
+                    return Result.success(userData)
+                }
+            }
+            
+            // Usuario no existe, crear uno nuevo
+            val newUser = User(
+                id = firebaseUser.uid,
+                name = firebaseUser.displayName ?: "Usuario",
+                email = firebaseUser.email ?: "",
+                photoUrl = firebaseUser.photoUrl?.toString() ?: "",
+                latitude = 0.0,
+                longitude = 0.0,
+                lastSeen = System.currentTimeMillis(),
+                fcmToken = "",
+                isActive = true
+            )
+            
+            // Guardar el nuevo usuario en Database
+            usersRef.child(firebaseUser.uid).setValue(newUser.toMap()).await()
+            _currentUser.value = newUser
+            Log.d("FirebaseRepo", "✅ Nuevo usuario creado con Google: ${newUser.name}")
+            
+            Result.success(newUser)
+        } catch (e: Exception) {
+            Log.e("FirebaseRepo", "❌ Error signing in with Google", e)
+            
+            val userFriendlyError = when (e.message) {
+                "The account exists with different credentials." -> {
+                    "Esta cuenta ya existe con otro método de inicio de sesión."
+                }
+                "The user account has been disabled." -> {
+                    "Tu cuenta de Google ha sido deshabilitada."
+                }
+                "Network error (such as timeout, interrupted connection or unreachable host) has occurred." -> {
+                    "Error de conexión. Verifica tu internet."
+                }
+                else -> {
+                    "Error al iniciar sesión con Google: ${e.message}"
+                }
+            }
+            
+            val customException = Exception(userFriendlyError)
+            customException.initCause(e)
+            
+            Result.failure(customException)
+        }
     }
     
     /**
