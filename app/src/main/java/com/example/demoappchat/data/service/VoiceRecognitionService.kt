@@ -171,86 +171,29 @@ class VoiceRecognitionService : Service() {
     }
 
     /**
-     * Inicia el reconocimiento de voz usando Use Cases
+     * Inicia el reconocimiento de voz
      */
     private fun startVoiceRecognition() {
         serviceScope.launch {
             try {
                 Log.d("VoiceService", "🎤 Iniciando reconocimiento de voz...")
                 
-                // Configurar comandos en Vosk Engine
-                val commandActions = getCommandActions()
-                val commandsList = commandActions.keys.toList()
-                Log.d("VoiceService", "🎯 Configurando comandos en Vosk Engine: $commandsList")
-                voskEngine.setCommands(commandsList)
-                
-                // Guardar comandos por defecto si no existen
-                if (sharedPreferences.getString("command_actions", null) == null) {
-                    saveCommandActions(commandActions)
+                // Verificar si ya está ejecutándose para evitar reinicios
+                if (isListening) {
+                    Log.d("VoiceService", "ℹ️ Reconocimiento ya está activo, saltando inicio")
+                    return@launch
                 }
                 
-                // Configurar sensibilidad
-                voskEngine.setSensitivity(0.7f)
+                // Cargar comandos desde preferencias
+                reloadCommandsFromPreferences()
                 
-                // Iniciar Vosk Engine para reconocimiento real
-                voskEngine.startListening()
-                
-                // Iniciar procesamiento de comandos
-                startVoiceProcessing()
-                
-                // Marcar como escuchando
-                isListening = true
-                
-                Log.d("VoiceService", "✅ Reconocimiento iniciado exitosamente")
-                
-                // Actualizar notificación
-                updateNotification("🎤 Escuchando comandos...")
-                
-            } catch (e: Exception) {
-                Log.e("VoiceService", "❌ Excepción iniciando reconocimiento", e)
-                updateNotification("❌ Error crítico")
-            }
-        }
-    }
-
-    /**
-     * Detiene el reconocimiento de voz
-     */
-    private fun stopVoiceRecognition() {
-        serviceScope.launch {
-            try {
-                Log.d("VoiceService", "🛑 Deteniendo reconocimiento...")
-                
-                // Cancelar jobs de procesamiento
-                voiceProcessingJob?.cancel()
-                monitoringJob?.cancel()
-                
-                // Detener Vosk Engine
-                try {
-                    voskEngine.stopListening()
-                    Log.d("VoiceService", "✅ Vosk Engine detenido")
-            } catch (e: Exception) {
-                    Log.e("VoiceService", "❌ Error deteniendo Vosk Engine: ${e.message}")
+                // Inicializar servicios si no están inicializados
+                if (!::voskEngine.isInitialized) {
+                    voskEngine = SimpleVoskEngine(this@VoiceRecognitionService)
                 }
-                
-                updateNotification("⏹️ Reconocimiento detenido")
-            
-        } catch (e: Exception) {
-                Log.e("VoiceService", "❌ Error deteniendo reconocimiento", e)
-            }
-        }
-    }
-
-    /**
-     * Inicia el procesamiento continuo de reconocimiento de voz
-     */
-    private fun startVoiceProcessing() {
-        voiceProcessingJob?.cancel()
-        voiceProcessingJob = serviceScope.launch {
-            try {
-                Log.d("VoiceService", "🔄 Iniciando procesamiento de voz...")
-                
-                var commandReloadCounter = 0
+                if (!::mediaRecordingService.isInitialized) {
+                    mediaRecordingService = SimpleMediaRecordingService(this@VoiceRecognitionService)
+                }
                 
                 // Configurar callback del Vosk Engine
                 voskEngine.setCallback { recognizedText, confidence ->
@@ -276,13 +219,6 @@ class VoiceRecognitionService : Service() {
                     if (recognizedText.isBlank()) {
                         Log.d("VoiceService", "🔇 Texto vacío, ignorando")
                         return@setCallback
-                    }
-                    
-                    // Recargar comandos cada 30 segundos (30 iteraciones)
-                    commandReloadCounter++
-                    if (commandReloadCounter >= 30) {
-                        reloadCommandsFromPreferences()
-                        commandReloadCounter = 0
                     }
                     
                     // Verificar si es un comando válido
@@ -321,16 +257,61 @@ class VoiceRecognitionService : Service() {
                     }
                 }
                 
-                // Mantener el job activo
-                while (true) {
-                    kotlinx.coroutines.delay(1000)
+                // Iniciar Vosk Engine con manejo de errores mejorado
+                val startResult = voskEngine.startListening()
+                if (startResult.isSuccess) {
+                    // Marcar como escuchando
+                    isListening = true
+                    
+                    Log.d("VoiceService", "✅ Reconocimiento iniciado exitosamente")
+                    
+                    // Actualizar notificación
+                    updateNotification("🎤 Escuchando comandos...")
+                    
+                    // Iniciar monitoreo de salud del servicio
+                    startHealthMonitoring()
+                    
+                } else {
+                    Log.e("VoiceService", "❌ Error iniciando Vosk Engine: ${startResult.exceptionOrNull()?.message}")
+                    updateNotification("❌ Error iniciando reconocimiento")
                 }
-            
-        } catch (e: Exception) {
-                Log.e("VoiceService", "❌ Error en procesamiento de voz", e)
+                
+            } catch (e: Exception) {
+                Log.e("VoiceService", "❌ Excepción iniciando reconocimiento", e)
+                updateNotification("❌ Error crítico")
             }
         }
     }
+
+    /**
+     * Detiene el reconocimiento de voz
+     */
+    private fun stopVoiceRecognition() {
+        serviceScope.launch {
+            try {
+                Log.d("VoiceService", "🛑 Deteniendo reconocimiento...")
+                
+                // Cancelar jobs de procesamiento
+                voiceProcessingJob?.cancel()
+                monitoringJob?.cancel()
+                
+                // Detener Vosk Engine
+                try {
+                    voskEngine.stopListening()
+                    Log.d("VoiceService", "✅ Vosk Engine detenido")
+            } catch (e: Exception) {
+                    Log.e("VoiceService", "❌ Error deteniendo Vosk Engine: ${e.message}")
+                }
+                
+                updateNotification("⏹️ Reconocimiento detenido")
+            
+        } catch (e: Exception) {
+                Log.e("VoiceService", "❌ Error deteniendo reconocimiento", e)
+            }
+        }
+    }
+
+
 
     /**
      * Maneja los resultados del procesamiento de voz
@@ -408,16 +389,32 @@ class VoiceRecognitionService : Service() {
      */
     private fun reloadCommandsFromPreferences() {
         try {
-            val newCommandActions: Map<String, String> = getCommandActions()
-            Log.d("VoiceService", "🔄 Recargando comandos: $newCommandActions")
+            val commandActions = getCommandActions()
+            val commandsList = commandActions.keys.toList()
+            Log.d("VoiceService", "🔍 Comandos guardados: ${commandActions.entries.joinToString(",") { "${it.key}:${it.value}" }}")
+            Log.d("VoiceService", "✅ Comandos parseados: $commandActions")
+            Log.d("VoiceService", "🎯 Configurando comandos en Vosk Engine: $commandsList")
+            Log.d("VoiceService", "📝 Comandos configurados: $commandsList")
+            Log.d("VoiceService", "🎯 Total de comandos: ${commandsList.size}")
+            commandsList.forEachIndexed { index, command ->
+                Log.d("VoiceService", "   ${index + 1}. '$command'")
+            }
             
-            // Actualizar comandos en Vosk Engine
-            val commandsList: List<String> = newCommandActions.keys.toList()
-            voskEngine.setCommands(commandsList)
+            // Configurar comandos en Vosk Engine
+            if (::voskEngine.isInitialized) {
+                voskEngine.setCommands(commandsList)
+                voskEngine.setSensitivity(0.7f)
+                Log.d("VoiceService", "🔄 Reconfigurando recognizer existente con nuevos comandos")
+            }
             
-            Log.d("VoiceService", "✅ Comandos recargados exitosamente")
+            // Guardar comandos por defecto si no existen
+            if (sharedPreferences.getString("command_actions", null) == null) {
+                saveCommandActions(commandActions)
+                Log.d("VoiceService", "💾 Comandos por defecto guardados")
+            }
+            
         } catch (e: Exception) {
-            Log.e("VoiceService", "❌ Error recargando comandos: ${e.message}")
+            Log.e("VoiceService", "❌ Error recargando comandos", e)
         }
     }
 
@@ -1406,6 +1403,39 @@ class VoiceRecognitionService : Service() {
         } catch (e: Exception) {
             Log.e("VoiceService", "❌ Error obteniendo calidad: ${e.message}")
             "HIGH" // Valor por defecto
+        }
+    }
+
+    /**
+     * Monitoreo de salud del servicio para detectar problemas
+     */
+    private fun startHealthMonitoring() {
+        serviceScope.launch {
+            var consecutiveFailures = 0
+            val maxFailures = 5
+            
+            while (isListening) {
+                try {
+                    delay(30000) // Verificar cada 30 segundos
+                    
+                    // Verificar salud del Vosk Engine
+                    if (!voskEngine.isHealthy()) {
+                        consecutiveFailures++
+                        Log.w("VoiceService", "⚠️ Vosk Engine no saludable (fallo $consecutiveFailures/$maxFailures)")
+                        
+                        if (consecutiveFailures >= maxFailures) {
+                            Log.e("VoiceService", "💀 Demasiados fallos consecutivos, reiniciando motor")
+                            restartVoiceRecognition()
+                            consecutiveFailures = 0
+                        }
+                    } else {
+                        consecutiveFailures = 0 // Resetear contador si está saludable
+                    }
+                    
+                } catch (e: Exception) {
+                    Log.e("VoiceService", "❌ Error en monitoreo de salud", e)
+                }
+            }
         }
     }
 }

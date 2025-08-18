@@ -4,71 +4,55 @@
     ".write": false,
     
     "users": {
-      ".indexOn": ["isActive", "lastSeen", "status"],
       "$uid": {
         ".read": "auth != null",
         ".write": "$uid === auth.uid",
-        ".validate": "newData.hasChildren(['email', 'displayName', 'isActive'])"
+        ".validate": "newData.hasChildren(['email', 'name', 'isActive']) || newData.hasChildren(['email', 'displayName', 'isActive'])"
       }
     },
     
     "proximity_chats": {
-      ".indexOn": ["latitude", "longitude", "createdAt", "isActive"],
       ".read": "auth != null",
       ".write": "auth != null",
       "$chatId": {
-        ".validate": "newData.hasChildren(['creatorId', 'title', 'latitude', 'longitude', 'pin', 'createdAt'])"
+        ".validate": "newData.hasChildren(['creatorId', 'title', 'latitude', 'longitude', 'pin'])"
       }
     },
     
     "chat_messages": {
-      ".indexOn": ["timestamp", "userId", "messageType"],
       "$chatId": {
         ".read": "auth != null",
-        ".write": "auth != null",
-        "$messageId": {
-          ".validate": "newData.hasChildren(['userId', 'content', 'timestamp', 'messageType'])"
-        }
+        ".write": "auth != null"
       }
     },
     
     "chat_participants": {
-      ".indexOn": ["joinedAt", "isActive"],
       "$chatId": {
         "$uid": {
           ".read": "auth != null",
-          ".write": "auth != null",
-          ".validate": "newData.hasChildren(['joinedAt', 'isActive']) || newData.isBoolean()"
+          ".write": "auth != null"
         }
       }
     },
     
     "user_locations": {
-      ".indexOn": ["latitude", "longitude", "lastUpdated"],
       "$uid": {
         ".read": "auth != null",
-        ".write": "auth != null",
-        ".validate": "newData.hasChildren(['latitude', 'longitude', 'lastUpdated'])"
+        ".write": "auth != null"
       }
     },
     
     "webrtc_calls": {
-      ".indexOn": ["chatId", "callType", "timestamp", "status"],
       ".read": "auth != null",
-      ".write": "auth != null",
-      "$callId": {
-        ".validate": "newData.hasChildren(['chatId', 'callType', 'initiatorId', 'timestamp', 'status'])"
-      }
+      ".write": "auth != null"
     },
     
     "webrtc_signals": {
-      ".indexOn": ["callId", "timestamp"],
       ".read": "auth != null",
       ".write": "auth != null"
     },
     
     "chat_notifications": {
-      ".indexOn": ["chatId", "timestamp", "type"],
       "$chatId": {
         ".read": "auth != null",
         ".write": "auth != null"
@@ -76,76 +60,64 @@
     },
     
     "fcm_tokens": {
-      ".indexOn": ["userId", "deviceId"],
       "$uid": {
         ".read": "auth != null && auth.uid == $uid",
-        ".write": "auth != null && auth.uid == $uid",
-        ".validate": "newData.hasChildren(['token', 'deviceId', 'lastUpdated'])"
+        ".write": "auth != null && auth.uid == $uid"
       }
     },
     
     "notification_logs": {
-      ".indexOn": ["timestamp", "userId", "type"],
       ".read": "auth != null",
       ".write": "auth != null"
     },
     
     "error_logs": {
-      ".indexOn": ["timestamp", "severity", "userId"],
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    
+    "voice_commands": {
+      "$uid": {
+        ".read": "auth != null && auth.uid == $uid",
+        ".write": "auth != null && auth.uid == $uid"
+      }
+    },
+    
+    "system_notifications": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    
+    "emergency_alerts": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    
+    "app_settings": {
+      "$uid": {
+        ".read": "auth != null && auth.uid == $uid",
+        ".write": "auth != null && auth.uid == $uid"
+      }
+    },
+    
+    "debug_logs": {
       ".read": "auth != null",
       ".write": "auth != null"
     },
     
     "group_calls": {
-      ".indexOn": ["chatId", "callType", "timestamp", "status"],
       ".read": "auth != null",
-      ".write": "auth != null",
-      "$callId": {
-        ".validate": "newData.hasChildren(['chatId', 'callType', 'initiatorId', 'timestamp', 'status'])"
-      }
-    },
-    
-    "voice_commands": {
-      ".indexOn": ["userId", "command", "isActive"],
-      "$uid": {
-        ".read": "auth != null && auth.uid == $uid",
-        ".write": "auth != null && auth.uid == $uid"
-      }
-    },
-    
-    "voice_settings": {
-      ".indexOn": ["userId", "settingType"],
-      "$uid": {
-        ".read": "auth != null && auth.uid == $uid",
-        ".write": "auth != null && auth.uid == $uid"
-      }
+      ".write": "auth != null"
     },
     
     "media_recordings": {
-      ".indexOn": ["chatId", "userId", "timestamp", "mediaType"],
-      "$recordingId": {
-        ".read": "auth != null",
-        ".write": "auth != null",
-        ".validate": "newData.hasChildren(['chatId', 'userId', 'mediaType', 'timestamp', 'fileUrl'])"
-      }
-    },
-    
-    "emergency_alerts": {
-      ".indexOn": ["userId", "timestamp", "status", "priority"],
-      "$alertId": {
-        ".read": "auth != null",
-        ".write": "auth != null",
-        ".validate": "newData.hasChildren(['userId', 'timestamp', 'status', 'priority', 'location'])"
-      }
+      ".read": "auth != null",
+      ".write": "auth != null"
     },
     
     "surveillance_logs": {
-      ".indexOn": ["userId", "timestamp", "actionType"],
-      "$logId": {
-        ".read": "auth != null",
-        ".write": "auth != null",
-        ".validate": "newData.hasChildren(['userId', 'timestamp', 'actionType', 'details'])"
-      }
+      ".read": "auth != null",
+      ".write": "auth != null"
     }
   }
 } 
