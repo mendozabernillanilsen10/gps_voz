@@ -1083,32 +1083,42 @@ class FirebaseRepository @Inject constructor(
         try {
             Log.d("FirebaseRepo", "🚨 NOTIFICACIÓN POLICIAL: Nuevo chat '${chat.title}' creado")
             
-            // Cambiar a consulta simple para evitar error de permisos
-            val snapshot = usersRef.get().await()
+            // Usar consulta específica con filtros para evitar error de permisos
+            val query = usersRef
+                .orderByChild("isActive")
+                .equalTo(true)
+                .limitToFirst(50) // Limitar resultados para evitar sobrecarga
+            
+            val snapshot = query.get().await()
             var notifiedUsers = 0
 
             snapshot.children.forEach { userSnapshot ->
-                val user = userSnapshot.getValue(User::class.java)
-                user?.let {
-                    // Filtrar por usuario activo y que no sea el creador
-                    if (it.id != chat.creatorId && it.isActive) {
-                        val distance = calculateDistance(
-                            chat.latitude, chat.longitude,
-                            it.latitude, it.longitude
-                        )
-
-                        if (distance <= chat.radius) {
-                            // Enviar notificación push
-                            sendPushNotification(
-                                user = it,
-                                chat = chat,
-                                distance = distance
+                try {
+                    val user = userSnapshot.getValue(User::class.java)
+                    user?.let {
+                        // Filtrar por usuario activo y que no sea el creador
+                        if (it.id != chat.creatorId && it.isActive) {
+                            val distance = calculateDistance(
+                                chat.latitude, chat.longitude,
+                                it.latitude, it.longitude
                             )
-                            notifiedUsers++
-                            
-                            Log.d("FirebaseRepo", "📡 Usuario ${it.name} notificado - Distancia: ${String.format("%.0f", distance)}m")
+
+                            if (distance <= chat.radius) {
+                                // Enviar notificación push
+                                sendPushNotification(
+                                    user = it,
+                                    chat = chat,
+                                    distance = distance
+                                )
+                                notifiedUsers++
+                                
+                                Log.d("FirebaseRepo", "📡 Usuario ${it.name} notificado - Distancia: ${String.format("%.0f", distance)}m")
+                            }
                         }
                     }
+                } catch (e: Exception) {
+                    Log.w("FirebaseRepo", "⚠️ Error procesando usuario ${userSnapshot.key}: ${e.message}")
+                    // Continuar con el siguiente usuario
                 }
             }
             
@@ -1116,6 +1126,61 @@ class FirebaseRepository @Inject constructor(
             
         } catch (e: Exception) {
             Log.e("FirebaseRepo", "❌ Error crítico notificando usuarios", e)
+            
+            // Intentar método alternativo si falla la consulta principal
+            try {
+                Log.d("FirebaseRepo", "🔄 Intentando método alternativo de notificación...")
+                notifyUsersAlternative(chat)
+            } catch (altException: Exception) {
+                Log.e("FirebaseRepo", "❌ Método alternativo también falló", altException)
+            }
+        }
+    }
+    
+    /**
+     * Método alternativo de notificación que no requiere consulta masiva
+     */
+    private suspend fun notifyUsersAlternative(chat: ProximityChat) {
+        try {
+            Log.d("FirebaseRepo", "🔄 Usando método alternativo de notificación")
+            
+            // Solo notificar al usuario actual si está en rango
+            val currentUser = _currentUser.value
+            if (currentUser != null && currentUser.id != chat.creatorId) {
+                val distance = calculateDistance(
+                    chat.latitude, chat.longitude,
+                    currentUser.latitude, currentUser.longitude
+                )
+                
+                if (distance <= chat.radius) {
+                    sendPushNotification(currentUser, chat, distance)
+                    Log.d("FirebaseRepo", "📡 Usuario actual notificado - Distancia: ${String.format("%.0f", distance)}m")
+                }
+            }
+            
+            // Guardar notificación en Database para que otros usuarios la vean
+            val notificationData = mapOf(
+                "chatId" to chat.id,
+                "chatTitle" to chat.title,
+                "creatorId" to chat.creatorId,
+                "creatorName" to chat.creatorName,
+                "timestamp" to System.currentTimeMillis(),
+                "type" to "new_chat_alert",
+                "latitude" to chat.latitude,
+                "longitude" to chat.longitude,
+                "radius" to chat.radius
+            )
+            
+            database.getReference("chat_notifications")
+                .child(chat.id)
+                .setValue(notificationData)
+                .await()
+            
+            Log.d("FirebaseRepo", "✅ Notificación alternativa completada")
+            
+        } catch (e: Exception) {
+            Log.e("FirebaseRepo", "❌ Error en método alternativo", e)
+            throw e
         }
     }
 
