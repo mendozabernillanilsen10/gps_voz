@@ -1,5 +1,6 @@
 package com.example.demoappchat.data.model
 
+import com.google.firebase.database.PropertyName
 
 data class ProximityChat(
     var id: String = "",
@@ -12,6 +13,8 @@ data class ProximityChat(
     var radius: Int = 4000,
     var pin: String = "",
     var createdAt: Long = 0L,
+    @get:PropertyName("isActive")
+    @set:PropertyName("isActive")
     var isActive: Boolean = true,
     var participantsCount: Int = 0,
     var lastActivity: Long = 0L,

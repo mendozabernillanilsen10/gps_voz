@@ -11,6 +11,7 @@ import com.example.demoappchat.data.model.ProximityChat
 import com.example.demoappchat.data.repository.FirebaseRepository
 import com.example.demoappchat.data.UserPreferences
 import com.example.demoappchat.data.service.VoiceRecognitionService
+import com.example.demoappchat.data.service.ErrorLogger
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.*
@@ -22,6 +23,7 @@ import javax.inject.Inject
 class MainViewModel @Inject constructor(
     private val repository: FirebaseRepository,
     private val userPreferences: UserPreferences,
+    private val errorLogger: ErrorLogger,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
 
@@ -71,26 +73,115 @@ class MainViewModel @Inject constructor(
     fun createChat(chat: ProximityChat) {
         viewModelScope.launch {
             try {
+                Log.d("MainViewModel", "🔄 Iniciando creación de chat: ${chat.title}")
+                
+                // Log específico para Honor devices
+               // if (ErrorLogger.isHonorDevice()) {
+                    errorLogger.logHonorSpecificIssue(
+                        issue = "chat_creation_start",
+                        context = "MainViewModel.createChat",
+                        additionalData = mapOf(
+                            "chat_title" to chat.title,
+                            "chat_category" to chat.category,
+                            "pin_length" to chat.pin.length
+                        )
+                    )
+               // }
+                
                 _uiState.value = _uiState.value.copy(isLoading = true)
 
+                // Validar datos del chat antes de enviarlo
+                if (chat.title.isBlank() || chat.description.isBlank() || chat.pin.length != 4) {
+                    val error = Exception("Datos del chat incompletos")
+                    errorLogger.logChatCreationError(
+                        chatTitle = chat.title,
+                        step = "validation",
+                        throwable = error,
+                        additionalData = mapOf(
+                            "title_blank" to chat.title.isBlank(),
+                            "description_blank" to chat.description.isBlank(),
+                            "pin_length" to chat.pin.length
+                        )
+                    )
+                    throw error
+                }
+
+                Log.d("MainViewModel", "📝 Datos del chat validados correctamente")
+                
                 repository.createProximityChat(chat)
                     .onSuccess { chatId ->
+                        Log.d("MainViewModel", "✅ Chat creado exitosamente con ID: $chatId")
+                        
+                        // Log de éxito para Honor
+                        //if (ErrorLogger.isHonorDevice()) {
+                            errorLogger.logHonorSpecificIssue(
+                                issue = "chat_creation_success",
+                                context = "MainViewModel.createChat",
+                                additionalData = mapOf(
+                                    "chat_id" to chatId,
+                                    "chat_title" to chat.title
+                                )
+                            )
+                       // }
+                        
+                        // Esperar un momento antes de actualizar el estado
+                        kotlinx.coroutines.delay(100)
+                        
                         _uiState.value = _uiState.value.copy(
                             isLoading = false,
-                            createdChatId = chatId
+                            createdChatId = chatId,
+                            error = null
                         )
+                        
+                        Log.d("MainViewModel", "🎯 Estado actualizado para navegación con chatId: $chatId")
+                        
+                        // Log adicional para Honor después de actualizar estado
+                        //if (ErrorLogger.isHonorDevice()) {
+                            errorLogger.logHonorSpecificIssue(
+                                issue = "state_updated_for_navigation",
+                                context = "MainViewModel.createChat",
+                                additionalData = mapOf(
+                                    "chat_id" to chatId,
+                                    "ui_state_chat_id" to (_uiState.value.createdChatId ?: "null"),
+                                    "ui_state_loading" to _uiState.value.isLoading
+                                )
+                            )
+                        //}
                     }
                     .onFailure { exception ->
+                        Log.e("MainViewModel", "❌ Error en repositorio creando chat", exception)
+                        
+                        errorLogger.logChatCreationError(
+                            chatTitle = chat.title,
+                            step = "repository_creation",
+                            throwable = exception,
+                            additionalData = mapOf(
+                                "exception_type" to (exception::class.simpleName ?: "Unknown"),
+                                "exception_message" to (exception.message ?: "No message")
+                            )
+                        )
+                        
                         _uiState.value = _uiState.value.copy(
                             isLoading = false,
-                            error = exception.message
+                            error = exception.message ?: "Error desconocido creando chat"
                         )
                     }
             } catch (e: Exception) {
-                Log.e("MainViewModel", "❌ Error creando chat", e)
+                Log.e("MainViewModel", "❌ Error general creando chat", e)
+                
+                errorLogger.logChatCreationError(
+                    chatTitle = chat.title,
+                    step = "general_error",
+                    throwable = e,
+                    additionalData = mapOf(
+                        "exception_type" to (e::class.simpleName ?: "Unknown"),
+                        "exception_message" to (e.message ?: "No message")
+                    )
+                )
+                
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
-                    error = e.message
+                    error = e.message ?: "Error desconocido"
                 )
             }
         }
@@ -123,9 +214,11 @@ class MainViewModel @Inject constructor(
     }
 
     fun clearNavigationEvents() {
+        Log.d("MainViewModel", "🧹 Limpiando eventos de navegación")
         _uiState.value = _uiState.value.copy(
             createdChatId = null,
-            joinedChatId = null
+            joinedChatId = null,
+            error = null
         )
     }
 

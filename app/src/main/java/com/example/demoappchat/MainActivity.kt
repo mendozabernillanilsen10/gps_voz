@@ -30,12 +30,17 @@ import com.example.demoappchat.presentation.main.MainScreen
 import com.example.demoappchat.presentation.settings.SettingsScreen
 import com.example.demoappchat.presentation.splash.ModernSplashScreen
 import com.example.demoappchat.ui.theme.SecurityChatTheme
+import com.example.demoappchat.utils.NavigationHelper
+import com.example.demoappchat.data.service.ErrorLogger
 import dagger.hilt.android.AndroidEntryPoint
 import com.google.firebase.FirebaseApp
+import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
+    private val errorLogger = ErrorLogger()
+    
     private lateinit var userPreferences: UserPreferences
     private var permissionsGranted = false
 
@@ -204,7 +209,55 @@ fun SafeVoiceApp() {
             composable("main") {
                 MainScreen(
                     onNavigateToChat = { chatId ->
-                        navController.navigate("chat/$chatId")
+                        try {
+                            android.util.Log.d("MainActivity", "🔄 Navegando a chat: $chatId")
+                            
+                            // Validar que el chatId no esté vacío
+                            if (chatId.isNotBlank()) {
+                                navController.navigate("chat/$chatId") {
+                                    // Evitar múltiples instancias del mismo chat
+                                    launchSingleTop = true
+                                }
+                                android.util.Log.d("MainActivity", "✅ Navegación exitosa a chat: $chatId")
+                                
+                                // Log éxito para Honor devices
+                               // if (ErrorLogger.isHonorDevice()) {
+                                    ErrorLogger().logHonorSpecificIssue(
+                                        issue = "navigation_success",
+                                        context = "MainActivity.onNavigateToChat",
+                                        additionalData = mapOf(
+                                            "chat_id" to chatId,
+                                            "navigation_method" to "traditional"
+                                        )
+                                    )
+                               // }
+                            } else {
+                                android.util.Log.e("MainActivity", "❌ ChatId vacío, no se puede navegar")
+                                
+                                ErrorLogger().logNavigationError(
+                                    fromScreen = "main",
+                                    toScreen = "chat",
+                                    chatId = "empty",
+                                    throwable = Exception("ChatId vacío"),
+                                    additionalData = mapOf(
+                                        "validation_error" to "empty_chat_id"
+                                    )
+                                )
+                            }
+                        } catch (e: Exception) {
+                            android.util.Log.e("MainActivity", "❌ Error en navegación a chat: $chatId", e)
+                            
+                            ErrorLogger().logNavigationError(
+                                fromScreen = "main",
+                                toScreen = "chat",
+                                chatId = chatId,
+                                throwable = e,
+                                additionalData = mapOf(
+                                    "navigation_method" to "traditional",
+                                    "device_info" to ErrorLogger.getDeviceInfo()
+                                )
+                            )
+                        }
                     },
                     onSignOut = {
                         authViewModel.signOut()
@@ -228,12 +281,30 @@ fun SafeVoiceApp() {
             
             composable("chat/{chatId}") { backStackEntry ->
                 val chatId = backStackEntry.arguments?.getString("chatId") ?: ""
-                ChatScreen(
-                    chatId = chatId,
-                    onNavigateBack = {
-                        navController.popBackStack()
+                
+                android.util.Log.d("MainActivity", "🎯 Cargando ChatScreen con ID: $chatId")
+                
+                if (chatId.isNotBlank()) {
+                    ChatScreen(
+                        chatId = chatId,
+                        onNavigateBack = {
+                            try {
+                                android.util.Log.d("MainActivity", "⬅️ Volviendo desde chat: $chatId")
+                                navController.popBackStack()
+                            } catch (e: Exception) {
+                                android.util.Log.e("MainActivity", "❌ Error al volver desde chat", e)
+                            }
+                        }
+                    )
+                } else {
+                    // Si no hay chatId válido, volver al main
+                    android.util.Log.e("MainActivity", "❌ ChatId inválido, volviendo a main")
+                    LaunchedEffect(Unit) {
+                        navController.navigate("main") {
+                            popUpTo("main") { inclusive = true }
+                        }
                     }
-                )
+                }
             }
         }
     }

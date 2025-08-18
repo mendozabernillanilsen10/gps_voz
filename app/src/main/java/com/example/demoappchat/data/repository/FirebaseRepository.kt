@@ -1083,14 +1083,15 @@ class FirebaseRepository @Inject constructor(
         try {
             Log.d("FirebaseRepo", "🚨 NOTIFICACIÓN POLICIAL: Nuevo chat '${chat.title}' creado")
             
-            // Usar el índice correcto para usuarios activos
-            val snapshot = usersRef.orderByChild("isActive").equalTo(true).get().await()
+            // Cambiar a consulta simple para evitar error de permisos
+            val snapshot = usersRef.get().await()
             var notifiedUsers = 0
 
             snapshot.children.forEach { userSnapshot ->
                 val user = userSnapshot.getValue(User::class.java)
                 user?.let {
-                    if (it.id != chat.creatorId) {
+                    // Filtrar por usuario activo y que no sea el creador
+                    if (it.id != chat.creatorId && it.isActive) {
                         val distance = calculateDistance(
                             chat.latitude, chat.longitude,
                             it.latitude, it.longitude

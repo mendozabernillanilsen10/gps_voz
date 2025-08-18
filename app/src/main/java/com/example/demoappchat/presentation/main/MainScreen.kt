@@ -1,6 +1,7 @@
 package com.example.demoappchat.presentation.main
 
 import android.Manifest
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -32,6 +33,7 @@ import com.example.demoappchat.presentation.components.LocationPermissionDialog
 import com.example.demoappchat.presentation.components.CompactRecordingIndicator
 import com.example.demoappchat.presentation.recording.RecordingViewModel
 import com.example.demoappchat.utils.LocationHelper
+import com.example.demoappchat.data.service.ErrorLogger
 import androidx.compose.foundation.BorderStroke
 
 @OptIn(ExperimentalPermissionsApi::class, ExperimentalMaterial3Api::class)
@@ -50,6 +52,9 @@ fun MainScreen(
     val isVoiceServiceEnabled by viewModel.isVoiceServiceEnabled.collectAsState()
     val recordingState by recordingViewModel.recordingState.collectAsState()
     val currentLocation by viewModel.currentLocation.collectAsState()
+    
+    // Crear instancia de ErrorLogger
+    val errorLogger = remember { ErrorLogger() }
 
     var showCreateDialog by remember { mutableStateOf(false) }
     var showJoinDialog by remember { mutableStateOf<ProximityChat?>(null) }
@@ -105,15 +110,188 @@ fun MainScreen(
         }
     }
 
-    // Navegar a chat creado/unido
+    // Navegar a chat creado/unido con manejo mejorado para Honor y logging completo
     LaunchedEffect(uiState.createdChatId, uiState.joinedChatId) {
         uiState.createdChatId?.let { chatId ->
-            onNavigateToChat(chatId)
-            viewModel.clearNavigationEvents()
+            Log.d("MainScreen", "🔄 Navegando a chat creado: $chatId")
+            
+            // Log inicial para Honor
+           // if (ErrorLogger.isHonorDevice()) {
+                errorLogger.logHonorSpecificIssue(
+                    issue = "navigation_attempt_start",
+                    context = "MainScreen.LaunchedEffect.createdChatId",
+                    additionalData = mapOf(
+                        "chat_id" to chatId,
+                        "ui_state_loading" to uiState.isLoading,
+                        "navigation_type" to "created_chat"
+                    )
+                )
+           // }
+            
+            try {
+                // Delay específico para Honor devices
+                val delay = if (ErrorLogger.isHonorDevice()) 300L else 200L
+                kotlinx.coroutines.delay(delay)
+                
+                // Verificar que el chatId sigue siendo válido después del delay
+                if (uiState.createdChatId == chatId) {
+                    onNavigateToChat(chatId)
+                    viewModel.clearNavigationEvents()
+                    Log.d("MainScreen", "✅ Navegación exitosa a chat: $chatId")
+                    
+                    // Log éxito para Honor
+                   // if (ErrorLogger.isHonorDevice()) {
+                        errorLogger.logHonorSpecificIssue(
+                            issue = "navigation_success",
+                            context = "MainScreen.LaunchedEffect.createdChatId",
+                            additionalData = mapOf(
+                                "chat_id" to chatId,
+                                "delay_used" to delay,
+                                "attempt" to "first"
+                            )
+                        )
+                  //  }
+                } else {
+                    Log.w("MainScreen", "⚠️ ChatId cambió durante el delay: $chatId vs ${uiState.createdChatId}")
+                    
+                    //if (ErrorLogger.isHonorDevice()) {
+                        errorLogger.logHonorSpecificIssue(
+                            issue = "chatid_changed_during_delay",
+                            context = "MainScreen.LaunchedEffect.createdChatId",
+                            additionalData = mapOf(
+                                "original_chat_id" to chatId,
+                                "current_chat_id" to (uiState.createdChatId ?: "null"),
+                                "delay_used" to delay
+                            )
+                        )
+                   // }
+                }
+            } catch (e: Exception) {
+                Log.e("MainScreen", "❌ Error navegando a chat creado: $chatId", e)
+                
+                // Log error para Firebase
+                errorLogger.logNavigationError(
+                    fromScreen = "main",
+                    toScreen = "chat",
+                    chatId = chatId,
+                    throwable = e,
+                    additionalData = mapOf(
+                        "navigation_type" to "created_chat",
+                        "attempt" to "first",
+                        "device_brand" to android.os.Build.BRAND,
+                        "device_model" to android.os.Build.MODEL
+                    )
+                )
+                
+                // Reintentar después de un delay más largo
+                kotlinx.coroutines.delay(800)
+                try {
+                    Log.d("MainScreen", "🔄 Reintentando navegación a chat: $chatId")
+                    onNavigateToChat(chatId)
+                    viewModel.clearNavigationEvents()
+                    Log.d("MainScreen", "✅ Navegación exitosa en reintento: $chatId")
+                    
+                    //if (ErrorLogger.isHonorDevice()) {
+                        errorLogger.logHonorSpecificIssue(
+                            issue = "navigation_success_retry",
+                            context = "MainScreen.LaunchedEffect.createdChatId",
+                            additionalData = mapOf(
+                                "chat_id" to chatId,
+                                "attempt" to "retry"
+                            )
+                        )
+                   // }
+                } catch (retryError: Exception) {
+                    Log.e("MainScreen", "❌ Error en reintento de navegación: $chatId", retryError)
+                    
+                    errorLogger.logNavigationError(
+                        fromScreen = "main",
+                        toScreen = "chat",
+                        chatId = chatId,
+                        throwable = retryError,
+                        additionalData = mapOf(
+                            "navigation_type" to "created_chat",
+                            "attempt" to "retry_failed",
+                            "device_brand" to android.os.Build.BRAND,
+                            "device_model" to android.os.Build.MODEL,
+                            "original_error" to (e.message ?: "unknown")
+                        )
+                    )
+                    
+                    // Limpiar el estado para evitar bucles infinitos
+                    viewModel.clearNavigationEvents()
+                }
+            }
         }
+        
         uiState.joinedChatId?.let { chatId ->
-            onNavigateToChat(chatId)
-            viewModel.clearNavigationEvents()
+            Log.d("MainScreen", "🔄 Navegando a chat unido: $chatId")
+            
+         //   if (ErrorLogger.isHonorDevice()) {
+                errorLogger.logHonorSpecificIssue(
+                    issue = "navigation_attempt_start",
+                    context = "MainScreen.LaunchedEffect.joinedChatId",
+                    additionalData = mapOf(
+                        "chat_id" to chatId,
+                        "navigation_type" to "joined_chat"
+                    )
+                )
+        //    }
+            
+            try {
+                val delay = if (ErrorLogger.isHonorDevice()) 300L else 200L
+                kotlinx.coroutines.delay(delay)
+                
+                if (uiState.joinedChatId == chatId) {
+                    onNavigateToChat(chatId)
+                    viewModel.clearNavigationEvents()
+                    Log.d("MainScreen", "✅ Navegación exitosa a chat: $chatId")
+                    
+                   // if (ErrorLogger.isHonorDevice()) {
+                        errorLogger.logHonorSpecificIssue(
+                            issue = "navigation_success",
+                            context = "MainScreen.LaunchedEffect.joinedChatId",
+                            additionalData = mapOf(
+                                "chat_id" to chatId,
+                                "delay_used" to delay,
+                                "attempt" to "first"
+                            )
+                        )
+                   // }
+                }
+            } catch (e: Exception) {
+                Log.e("MainScreen", "❌ Error navegando a chat unido: $chatId", e)
+                
+                errorLogger.logNavigationError(
+                    fromScreen = "main",
+                    toScreen = "chat",
+                    chatId = chatId,
+                    throwable = e,
+                    additionalData = mapOf(
+                        "navigation_type" to "joined_chat",
+                        "attempt" to "first"
+                    )
+                )
+                
+                kotlinx.coroutines.delay(800)
+                try {
+                    onNavigateToChat(chatId)
+                    viewModel.clearNavigationEvents()
+                } catch (retryError: Exception) {
+                    Log.e("MainScreen", "❌ Error en reintento de navegación", retryError)
+                    errorLogger.logNavigationError(
+                        fromScreen = "main",
+                        toScreen = "chat",
+                        chatId = chatId,
+                        throwable = retryError,
+                        additionalData = mapOf(
+                            "navigation_type" to "joined_chat",
+                            "attempt" to "retry_failed"
+                        )
+                    )
+                    viewModel.clearNavigationEvents()
+                }
+            }
         }
     }
 
