@@ -40,14 +40,20 @@ This is an Android chat application with advanced voice recognition capabilities
 # Install debug APK
 ./gradlew installDebug
 
-# Run with logging
+# Run with logging (all components)
 ./gradlew installDebug && adb logcat -s "DemoAppChat"
+
+# Monitor voice services specifically
+adb logcat | grep -E "(VoiceService|BackgroundVoiceService|VoskEngine)"
 
 # Generate icons (Python required)
 python generate_icons.py
 
 # Extract Vosk model (PowerShell)
 powershell -ExecutionPolicy Bypass -File download_vosk_model.ps1
+
+# Test voice commands (PowerShell)
+powershell -ExecutionPolicy Bypass -File test_voice_commands.ps1
 ```
 
 ## Architecture
@@ -60,10 +66,12 @@ powershell -ExecutionPolicy Bypass -File download_vosk_model.ps1
 ### Key Components
 
 #### Voice Recognition System
-- **VoiceRecognitionService**: Foreground service for continuous voice monitoring
+- **VoiceRecognitionService**: Foreground service for continuous voice monitoring with automatic chat creation
+- **BackgroundVoiceService**: Background service for voice command detection when app is closed
 - **VoskEngine**: Offline speech recognition using Vosk models
 - **VoiceCommandsRepository**: Manages voice commands and actions
 - **Audio Pattern Detection**: Real-time audio analysis
+- **Automatic Chat Creation**: Creates group chats based on voice commands (emergency, surveillance, general)
 
 #### Firebase Integration
 - **Authentication**: Google Sign-In and Firebase Auth
@@ -124,8 +132,21 @@ Ensure `google-services.json` is present in the `app/` directory. Firebase rules
 powershell -ExecutionPolicy Bypass -File apply_firebase_rules_fixed.ps1
 ```
 
-### Background Services
-The app uses foreground services for voice recognition. Battery optimization exemption is automatically requested through `MainActivity.requestBatteryOptimizationExemption()`.
+### Background Services and Voice Commands
+The app uses multiple services for 24/7 voice recognition:
+- **Foreground service**: `VoiceRecognitionService` for active voice monitoring
+- **Background service**: `BackgroundVoiceService` for voice command detection when app is closed
+- **Automatic chat creation**: Voice commands automatically create group chats with configured radius
+- **Battery optimization**: Exemption automatically requested through `MainActivity.requestBatteryOptimizationExemption()`
+
+#### Automatic Voice Commands
+| Command | Action | Chat Radius | Description |
+|---------|--------|-------------|-------------|
+| "emergencia", "ayuda", "socorro" | Emergency chat | 5km | Critical situations |
+| "alerta" | Alert chat | 3km | Important alerts |
+| "vigilancia", "observar", "monitorear" | Surveillance chat | 4km | Monitoring |
+| "grabar", "audio", "sonido" | Recording chat | 2km | Audio recording |
+| "chat grupal", "grupo", "conversar" | General chat | 3km | General conversations |
 
 ## Common Issues and Solutions
 
@@ -151,21 +172,29 @@ If encountering type inference or overload resolution errors:
 ## Debugging
 
 ### Logging Tags
-- `VoiceRecognitionService` - Voice service operations
+- `VoiceRecognitionService` - Voice service operations and automatic chat creation
+- `BackgroundVoiceService` - Background voice command detection
 - `VoskEngine` - Speech recognition engine
 - `MyApplication` - App initialization and model extraction
 - `MainActivity` - Activity lifecycle and permissions
+- `FirebaseRepository` - Database operations and notifications
 
 ### Common Debug Commands
 ```bash
-# Monitor voice service
-adb logcat -s "VoiceRecognitionService"
+# Monitor voice services (foreground and background)
+adb logcat -s "VoiceRecognitionService" -s "BackgroundVoiceService"
 
 # Monitor Vosk engine
 adb logcat -s "VoskEngine"
 
 # Monitor all app logs
 adb logcat -s "DemoAppChat"
+
+# Monitor voice command system specifically
+adb logcat | grep -E "(VoiceService|BackgroundVoiceService|FirebaseRepo|automatic|voice command)"
+
+# Monitor chat creation and notifications
+adb logcat | grep -E "(chat|notification|FCM)"
 ```
 
 ## Dependencies Management
@@ -177,3 +206,87 @@ The project uses Gradle Version Catalogs (`gradle/libs.versions.toml`) for depen
 - Vosk for speech recognition
 - WebRTC for voice/video calls
 - CameraX for media capture
+
+## Automatic Voice Command System
+
+### Overview
+The app includes an advanced automatic voice command system that operates 24/7, even when the app is closed. When specific voice commands are detected, the system automatically:
+
+1. Creates a group chat based on command type
+2. Registers the user in the chat
+3. Starts audio recording automatically
+4. Notifies nearby users within configured radius
+
+### System Components
+
+#### Voice Command Flow
+```
+Voice Input → VoiceRecognitionService/BackgroundVoiceService → 
+Command Processing → Chat Creation → User Registration → 
+Audio Recording → Nearby User Notifications
+```
+
+#### Key Services
+- **VoiceRecognitionService**: Primary foreground service for active monitoring
+- **BackgroundVoiceService**: Handles commands when app is inactive
+- **VoiceCommandReceiver**: Broadcast receiver for voice command events
+
+#### Chat Configuration
+Each command type has predefined settings:
+```kotlin
+data class ChatConfig(
+    val title: String,        // Chat title
+    val description: String,  // Chat description  
+    val radius: Int,         // Notification radius in meters
+    val pin: String,         // Access PIN
+    val category: String     // Chat category
+)
+```
+
+### Implementation Details
+
+#### Service Management
+Both voice services use:
+- **WakeLock**: Keeps services active in background
+- **Foreground notification**: Prevents system termination
+- **Location tracking**: For proximity-based notifications
+- **Automatic restart**: Services restart if killed by system
+
+#### Firebase Integration
+The system integrates with Firebase for:
+- **Chat creation**: Real-time database storage
+- **User registration**: Automatic participant addition
+- **FCM notifications**: Push notifications to nearby users
+- **Location queries**: Finding users within specified radius
+
+#### Permissions Required
+- `RECORD_AUDIO` - Voice recognition
+- `ACCESS_FINE_LOCATION` - Precise location for proximity
+- `WAKE_LOCK` - Background service operation
+- `VIBRATE` - Notification feedback
+- `POST_NOTIFICATIONS` - Push notifications (Android 13+)
+
+### Development Notes
+
+#### Testing Voice Commands
+Use the included PowerShell scripts:
+```bash
+# Test voice command detection
+powershell -ExecutionPolicy Bypass -File test_voice_commands.ps1
+
+# Test voice system integration
+powershell -ExecutionPolicy Bypass -File test_voice_system.ps1
+```
+
+#### Customizing Commands
+To add new voice commands:
+1. Update command mappings in `MainActivity.setupAutomaticVoiceCommands()`
+2. Add chat configuration in `BackgroundVoiceService.defaultChatConfig`
+3. Configure notification radius in `getNotificationRadiusForChatType()`
+
+#### Troubleshooting Voice Commands
+Common issues and solutions:
+- **Commands not detected**: Check microphone permissions and service status
+- **Chats not created**: Verify Firebase connectivity and user authentication
+- **Notifications not sent**: Check location permissions and FCM configuration
+- **Service stops**: Ensure battery optimization is disabled for the app

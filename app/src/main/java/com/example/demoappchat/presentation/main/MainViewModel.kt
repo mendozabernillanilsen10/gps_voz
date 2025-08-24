@@ -109,7 +109,7 @@ class MainViewModel @Inject constructor(
                 Log.d("MainViewModel", "📝 Datos del chat validados correctamente")
                 
                 repository.createProximityChat(chat)
-                    .onSuccess { chatId ->
+                    .onSuccess { chatId: String ->
                         Log.d("MainViewModel", "✅ Chat creado exitosamente con ID: $chatId")
                         
                         // Log de éxito para Honor

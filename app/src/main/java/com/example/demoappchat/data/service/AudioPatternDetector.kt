@@ -1,9 +1,13 @@
 package com.example.demoappchat.data.service
 
+import android.Manifest
+import android.content.Context
+import android.content.pm.PackageManager
 import android.media.AudioFormat
 import android.media.AudioRecord
 import android.media.MediaRecorder
 import android.util.Log
+import androidx.core.content.ContextCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -20,7 +24,9 @@ import kotlin.math.sqrt
  * Sistema ultra-liviano que detecta patrones específicos sin reconocimiento de voz completo
  */
 @Singleton
-class AudioPatternDetector @Inject constructor() {
+class AudioPatternDetector @Inject constructor(
+    private val context: Context
+) {
     
     private var audioRecord: AudioRecord? = null
     private var isDetecting = false
@@ -46,13 +52,19 @@ class AudioPatternDetector @Inject constructor() {
         try {
             val bufferSize = AudioRecord.getMinBufferSize(sampleRate, channelConfig, audioFormat)
             
-            audioRecord = AudioRecord(
-                MediaRecorder.AudioSource.MIC,
-                sampleRate,
-                channelConfig,
-                audioFormat,
-                bufferSize * 2
-            )
+            // Verificar permisos antes de crear AudioRecord
+            if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+                audioRecord = AudioRecord(
+                    MediaRecorder.AudioSource.MIC,
+                    sampleRate,
+                    channelConfig,
+                    audioFormat,
+                    bufferSize * 2
+                )
+            } else {
+                Log.e("AudioPattern", "❌ Permiso de grabación de audio no concedido")
+                return
+            }
             
             if (audioRecord?.state != AudioRecord.STATE_INITIALIZED) {
                 Log.e("AudioPattern", "❌ Error inicializando AudioRecord")
