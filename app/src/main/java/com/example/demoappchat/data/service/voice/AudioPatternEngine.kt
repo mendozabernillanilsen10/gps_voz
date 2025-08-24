@@ -1,9 +1,12 @@
 package com.example.demoappchat.data.service.voice
 
+import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
 import android.media.AudioFormat
 import android.media.AudioRecord
 import android.media.MediaRecorder
+import androidx.core.content.ContextCompat
 import com.example.demoappchat.domain.model.VoiceCommand
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
@@ -73,14 +76,20 @@ class AudioPatternEngine @Inject constructor(
         return try {
             android.util.Log.d("AudioPatternEngine", "🎤 Iniciando Audio Pattern Engine...")
             
-            // Configurar AudioRecord
-            audioRecord = AudioRecord(
-                audioSource,
-                sampleRate,
-                channelConfig,
-                audioFormat,
-                bufferSize
-            )
+            // Verificar permisos antes de crear AudioRecord
+            if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+                // Configurar AudioRecord
+                audioRecord = AudioRecord(
+                    audioSource,
+                    sampleRate,
+                    channelConfig,
+                    audioFormat,
+                    bufferSize
+                )
+            } else {
+                android.util.Log.e("AudioPatternEngine", "❌ Permiso de grabación de audio no concedido")
+                return Result.failure(Exception("Permiso de grabación de audio no concedido"))
+            }
             
             if (audioRecord?.state != AudioRecord.STATE_INITIALIZED) {
                 return Result.failure(Exception("AudioRecord no se pudo inicializar"))

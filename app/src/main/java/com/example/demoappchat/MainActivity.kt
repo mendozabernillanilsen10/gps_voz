@@ -23,6 +23,8 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.demoappchat.data.UserPreferences
 import com.example.demoappchat.data.service.VoiceRecognitionService
+import com.example.demoappchat.data.service.BackgroundVoiceService
+import com.example.demoappchat.data.receiver.VoiceCommandReceiver
 import com.example.demoappchat.presentation.auth.AuthViewModel
 import com.example.demoappchat.presentation.auth.LoginScreen
 import com.example.demoappchat.presentation.chat.ChatScreen
@@ -35,6 +37,7 @@ import com.example.demoappchat.data.service.ErrorLogger
 import dagger.hilt.android.AndroidEntryPoint
 import com.google.firebase.FirebaseApp
 import javax.inject.Inject
+import android.util.Log
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -50,8 +53,8 @@ class MainActivity : ComponentActivity() {
     ) { permissions ->
         permissionsGranted = permissions.all { it.value }
         if (permissionsGranted) {
-            // Si los permisos fueron concedidos y el servicio estaba habilitado, iniciarlo
-            // Voice service will be handled through the new settings system
+            // Inicializar todos los servicios de voz automáticamente
+            initializeAllVoiceServices()
         }
     }
 
@@ -68,6 +71,9 @@ class MainActivity : ComponentActivity() {
         // Solicitar exención de optimización de batería
         requestBatteryOptimizationExemption()
 
+        // Registrar receptor de comandos de voz
+        registerVoiceCommandReceiver()
+
         setContent {
             SecurityChatTheme {
                 Surface(
@@ -77,6 +83,136 @@ class MainActivity : ComponentActivity() {
                     SafeVoiceApp()
                 }
             }
+        }
+    }
+
+    /**
+     * Inicializa todos los servicios de voz automáticamente
+     */
+    private fun initializeAllVoiceServices() {
+        try {
+            Log.d("MainActivity", "🚀 Inicializando todos los servicios de voz...")
+            
+            // 1. Iniciar servicio de reconocimiento de voz principal
+            startVoiceRecognitionService()
+            
+            // 2. Iniciar servicio de voz en segundo plano
+            startBackgroundVoiceService()
+            
+            // 3. Configurar comandos de voz automáticos
+            setupAutomaticVoiceCommands()
+            
+            // 4. Activar modo 24/7
+            activate24x7Mode()
+            
+            Log.d("MainActivity", "✅ Todos los servicios de voz inicializados correctamente")
+            
+        } catch (e: Exception) {
+            Log.e("MainActivity", "❌ Error inicializando servicios de voz", e)
+        }
+    }
+
+    /**
+     * Inicia el servicio de reconocimiento de voz principal
+     */
+    private fun startVoiceRecognitionService() {
+        try {
+            Log.d("MainActivity", "🎤 Iniciando servicio de reconocimiento de voz...")
+            
+            val intent = Intent(this, VoiceRecognitionService::class.java)
+            intent.action = VoiceRecognitionService.ACTION_START_LISTENING
+
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                startForegroundService(intent)
+            } else {
+                startService(intent)
+            }
+            
+            Log.d("MainActivity", "✅ Servicio de reconocimiento de voz iniciado")
+            
+        } catch (e: Exception) {
+            Log.e("MainActivity", "❌ Error iniciando servicio de reconocimiento", e)
+        }
+    }
+
+    /**
+     * Inicia el servicio de voz en segundo plano
+     */
+    private fun startBackgroundVoiceService() {
+        try {
+            Log.d("MainActivity", "🎧 Iniciando servicio de voz en segundo plano...")
+            
+            val intent = Intent(this, BackgroundVoiceService::class.java)
+            intent.action = BackgroundVoiceService.ACTION_START_BACKGROUND
+
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                startForegroundService(intent)
+            } else {
+                startService(intent)
+            }
+            
+            Log.d("MainActivity", "✅ Servicio de voz en segundo plano iniciado")
+            
+        } catch (e: Exception) {
+            Log.e("MainActivity", "❌ Error iniciando servicio de fondo", e)
+        }
+    }
+
+    /**
+     * Configura comandos de voz automáticos para crear chats grupales
+     */
+    private fun setupAutomaticVoiceCommands() {
+        try {
+            Log.d("MainActivity", "🎯 Configurando comandos de voz automáticos...")
+            
+            // Configurar comandos que crean chats grupales automáticamente
+            val automaticCommands = mapOf(
+                "emergencia" to "CREATE_EMERGENCY_CHAT",
+                "ayuda" to "CREATE_EMERGENCY_CHAT", 
+                "socorro" to "CREATE_EMERGENCY_CHAT",
+                "alerta" to "CREATE_ALERT_CHAT",
+                "vigilancia" to "CREATE_SURVEILLANCE_CHAT",
+                "observar" to "CREATE_SURVEILLANCE_CHAT",
+                "monitorear" to "CREATE_SURVEILLANCE_CHAT",
+                "grabar" to "CREATE_RECORDING_CHAT",
+                "audio" to "CREATE_RECORDING_CHAT",
+                "sonido" to "CREATE_RECORDING_CHAT",
+                "chat grupal" to "CREATE_GENERAL_CHAT",
+                "grupo" to "CREATE_GENERAL_CHAT",
+                "conversar" to "CREATE_GENERAL_CHAT"
+            )
+            
+            // Guardar comandos en SharedPreferences
+            val sharedPrefs = getSharedPreferences("voice_prefs", MODE_PRIVATE)
+            val commandsString = automaticCommands.map { "${it.key}:${it.value}" }.joinToString(",")
+            sharedPrefs.edit().putString("automatic_commands", commandsString).apply()
+            
+            Log.d("MainActivity", "✅ Comandos automáticos configurados: $commandsString")
+            
+        } catch (e: Exception) {
+            Log.e("MainActivity", "❌ Error configurando comandos automáticos", e)
+        }
+    }
+
+    /**
+     * Activa el modo 24/7 para funcionar siempre
+     */
+    private fun activate24x7Mode() {
+        try {
+            Log.d("MainActivity", "🔄 Activando modo 24/7...")
+            
+            // Configurar para que los servicios se reinicien automáticamente
+            val sharedPrefs = getSharedPreferences("voice_prefs", MODE_PRIVATE)
+            sharedPrefs.edit()
+                .putBoolean("24x7_mode", true)
+                .putBoolean("auto_restart", true)
+                .putLong("last_activation", System.currentTimeMillis())
+                .apply()
+            
+            Log.d("MainActivity", "✅ Modo 24/7 activado")
+            
+        } catch (e: Exception) {
+            Log.e("MainActivity", "❌ Error activando modo 24/7", e)
         }
     }
 
@@ -108,6 +244,9 @@ class MainActivity : ComponentActivity() {
 
         if (!permissionsGranted) {
             permissionLauncher.launch(permissions.toTypedArray())
+        } else {
+            // Si los permisos ya están concedidos, inicializar servicios
+            initializeAllVoiceServices()
         }
     }
 
@@ -176,6 +315,15 @@ class MainActivity : ComponentActivity() {
     override fun onDestroy() {
         super.onDestroy()
         // No detener el servicio aquí para que continúe en segundo plano
+    }
+
+    private fun registerVoiceCommandReceiver() {
+        try {
+            VoiceCommandReceiver.register(this)
+            android.util.Log.d("MainActivity", "✅ Receptor de comandos de voz registrado")
+        } catch (e: Exception) {
+            android.util.Log.e("MainActivity", "❌ Error registrando receptor de comandos de voz", e)
+        }
     }
 }
 

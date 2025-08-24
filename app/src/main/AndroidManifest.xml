@@ -129,6 +129,15 @@
             android:isolatedProcess="false"
             android:permission="android.permission.BIND_JOB_SERVICE" />
 
+        <!-- 🆕 SERVICIO DE FONDO PARA COMANDOS DE VOZ AUTOMÁTICOS -->
+        <service
+            android:name=".data.service.BackgroundVoiceService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="microphone|location"
+            android:stopWithTask="false"
+            android:isolatedProcess="false" />
+
         <!-- 🆕 SERVICIO FCM PARA NOTIFICACIONES PUSH POLICIALES -->
         <service
             android:name=".data.service.MyFirebaseMessagingService"
@@ -185,6 +194,20 @@
                 <action android:name="com.example.demoappchat.VOICE_COMMAND" />
                 <action android:name="com.example.demoappchat.EMERGENCY_ACTIVATE" />
                 <action android:name="com.example.demoappchat.START_RECORDING" />
+            </intent-filter>
+        </receiver>
+
+        <!-- 🆕 RECEPTOR PARA COMANDOS DE VOZ DEL SISTEMA -->
+        <receiver
+            android:name=".data.receiver.VoiceCommandReceiver"
+            android:enabled="true"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.VOICE_COMMAND" />
+                <action android:name="android.media.action.VOICE_COMMAND" />
+                <action android:name="com.example.demoappchat.VOICE_COMMAND" />
+                <action android:name="android.intent.action.SCREEN_OFF" />
+                <action android:name="android.intent.action.SCREEN_ON" />
             </intent-filter>
         </receiver>
 

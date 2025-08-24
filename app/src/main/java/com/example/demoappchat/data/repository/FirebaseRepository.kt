@@ -1066,14 +1066,14 @@ class FirebaseRepository @Inject constructor(
 
     // ============== UTILIDADES ==============
 
-    private fun calculateDistance(lat1: Double, lng1: Double, lat2: Double, lng2: Double): Double {
+    private fun calculateDistance(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
         val earthRadius = 6371000.0 // metros
         val dLat = Math.toRadians(lat2 - lat1)
-        val dLng = Math.toRadians(lng2 - lng1)
+        val dLon = Math.toRadians(lon2 - lon1)
 
         val a = kotlin.math.sin(dLat / 2) * kotlin.math.sin(dLat / 2) +
                 kotlin.math.cos(Math.toRadians(lat1)) * kotlin.math.cos(Math.toRadians(lat2)) *
-                kotlin.math.sin(dLng / 2) * kotlin.math.sin(dLng / 2)
+                kotlin.math.sin(dLon / 2) * kotlin.math.sin(dLon / 2)
 
         val c = 2 * kotlin.math.atan2(kotlin.math.sqrt(a), kotlin.math.sqrt(1 - a))
         return earthRadius * c
@@ -1238,5 +1238,219 @@ class FirebaseRepository @Inject constructor(
             Log.e("FirebaseRepo", "❌ Error en FCM", e)
             throw e
         }
+    }
+
+    // ============== MÉTODOS PARA SERVICIO DE FONDO ==============
+
+    suspend fun getCurrentUserId(): String? {
+        return _currentUser.value?.id
+    }
+
+    suspend fun createProximityChatFromVoice(chat: ProximityChat): Result<ProximityChat> {
+        return try {
+            Log.d("FirebaseRepo", "🏗️ Creando chat de proximidad: ${chat.id}")
+            
+            // Guardar chat en Database
+            chatsRef.child(chat.id).setValue(chat.toMap()).await()
+            
+            // Agregar creador como participante
+            val participantData = mapOf(
+                "userId" to chat.creatorId,
+                "userName" to chat.creatorName,
+                "joinedAt" to System.currentTimeMillis(),
+                "isActive" to true
+            )
+            
+            participantsRef.child(chat.id).child(chat.creatorId).setValue(participantData).await()
+            
+            // Actualizar lista local
+            val currentChats = _nearbyChats.value.toMutableList()
+            currentChats.add(chat)
+            _nearbyChats.value = currentChats
+            
+            Log.d("FirebaseRepo", "✅ Chat creado exitosamente")
+            Result.success(chat)
+            
+        } catch (e: Exception) {
+            Log.e("FirebaseRepo", "❌ Error creando chat", e)
+            Result.failure(e)
+        }
+    }
+
+    suspend fun uploadAudioToChat(chatId: String, fileName: String, audioData: ByteArray): Result<String> {
+        return try {
+            Log.d("FirebaseRepo", "🎙️ Subiendo audio a chat: $chatId")
+            
+            // Crear referencia en Storage
+            val audioRef = storage.reference.child("chat_audio/$chatId/$fileName")
+            
+            // Subir audio
+            val uploadTask = audioRef.putBytes(audioData)
+            val downloadUrl = uploadTask.await().storage.downloadUrl.await()
+            
+            // Guardar referencia en Database
+            val audioMessage = mapOf<String, Any>(
+                "id" to generateMessageId(),
+                "chatId" to chatId,
+                "senderId" to (_currentUser.value?.id ?: "unknown"),
+                "senderName" to (_currentUser.value?.name ?: "Usuario"),
+                "type" to "audio",
+                "content" to downloadUrl.toString(),
+                "fileName" to fileName,
+                "timestamp" to System.currentTimeMillis(),
+                "fileSize" to audioData.size
+            )
+            
+            messagesRef.child(chatId).push().setValue(audioMessage).await()
+            
+            Log.d("FirebaseRepo", "✅ Audio subido exitosamente: ${downloadUrl}")
+            Result.success(downloadUrl.toString())
+            
+        } catch (e: Exception) {
+            Log.e("FirebaseRepo", "❌ Error subiendo audio", e)
+            Result.failure(e)
+        }
+    }
+
+    suspend fun sendNotificationToAllUsers(notificationData: Map<String, String>): Result<Unit> {
+        return try {
+            Log.d("FirebaseRepo", "📢 Enviando notificación a todos los usuarios")
+            
+            // Obtener todos los usuarios
+            val usersSnapshot = usersRef.get().await()
+            val allUsers = mutableListOf<User>()
+            
+            for (userSnapshot in usersSnapshot.children) {
+                userSnapshot.getValue(User::class.java)?.let { user ->
+                    if (user.id != _currentUser.value?.id) { // No notificar al usuario actual
+                        allUsers.add(user)
+                    }
+                }
+            }
+            
+            // Enviar notificación a cada usuario
+            allUsers.forEach { user ->
+                if (user.fcmToken.isNotEmpty()) {
+                    val fcmData = mapOf<String, String>(
+                        "title" to "🎤 Comando de Voz Detectado",
+                        "body" to (notificationData["message"] ?: "Nuevo comando de voz"),
+                        "chatType" to (notificationData["chat_type"] ?: ""),
+                        "chatId" to (notificationData["chat_id"] ?: ""),
+                        "timestamp" to (notificationData["timestamp"] ?: ""),
+                        "type" to "voice_command_notification"
+                    )
+                    
+                    sendFCMNotification(user.fcmToken, fcmData)
+                }
+            }
+            
+            // Guardar notificación global en Database
+            val globalNotification = mapOf<String, Any>(
+                "type" to "voice_command",
+                "data" to notificationData,
+                "timestamp" to System.currentTimeMillis(),
+                "targetUsers" to allUsers.size
+            )
+            
+            database.getReference("global_notifications")
+                .push()
+                .setValue(globalNotification)
+                .await()
+            
+            Log.d("FirebaseRepo", "✅ Notificaciones enviadas a ${allUsers.size} usuarios")
+            Result.success(Unit)
+            
+        } catch (e: Exception) {
+            Log.e("FirebaseRepo", "❌ Error enviando notificaciones globales", e)
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Envía notificaciones a usuarios cercanos basado en radio en metros
+     */
+    suspend fun sendNotificationToNearbyUsers(notificationData: Map<String, String>, radiusInMeters: Int): Result<Unit> {
+        return try {
+            Log.d("FirebaseRepo", "📢 Enviando notificación a usuarios cercanos (radio: ${radiusInMeters}m)")
+            
+            val currentUser = _currentUser.value
+            if (currentUser == null) {
+                Log.w("FirebaseRepo", "❌ Usuario actual no disponible")
+                return Result.failure(Exception("Usuario no autenticado"))
+            }
+            
+            // Obtener todos los usuarios
+            val usersSnapshot = usersRef.get().await()
+            val nearbyUsers = mutableListOf<User>()
+            
+            for (userSnapshot in usersSnapshot.children) {
+                userSnapshot.getValue(User::class.java)?.let { user ->
+                    if (user.id != currentUser.id) { // No notificar al usuario actual
+                        // Calcular distancia entre usuarios
+                        val distance = calculateDistance(
+                            currentUser.latitude, currentUser.longitude,
+                            user.latitude, user.longitude
+                        )
+                        
+                        // Si el usuario está dentro del radio, agregarlo a la lista
+                        if (distance <= radiusInMeters) {
+                            nearbyUsers.add(user)
+                            Log.d("FirebaseRepo", "📍 Usuario cercano encontrado: ${user.name} (${distance}m)")
+                        }
+                    }
+                }
+            }
+            
+            // Enviar notificación a usuarios cercanos
+            nearbyUsers.forEach { user ->
+                if (user.fcmToken.isNotEmpty()) {
+                    val fcmData = mapOf<String, String>(
+                        "title" to "🎤 Comando de Voz Cercano",
+                        "body" to (notificationData["message"] ?: "Nuevo comando de voz en tu área"),
+                        "chatType" to (notificationData["chat_type"] ?: ""),
+                        "chatId" to (notificationData["chat_id"] ?: ""),
+                        "timestamp" to (notificationData["timestamp"] ?: ""),
+                        "notificationRadius" to (notificationData["notification_radius"] ?: ""),
+                        "priority" to (notificationData["priority"] ?: "normal"),
+                        "type" to "voice_command_nearby_notification"
+                    )
+                    
+                    sendFCMNotification(user.fcmToken, fcmData)
+                }
+            }
+            
+            // Guardar notificación de proximidad en Database
+            val proximityNotification = mapOf<String, Any>(
+                "type" to "voice_command_proximity",
+                "data" to notificationData,
+                "radius" to radiusInMeters,
+                "timestamp" to System.currentTimeMillis(),
+                "targetUsers" to nearbyUsers.size,
+                "creatorLocation" to mapOf(
+                    "latitude" to currentUser.latitude,
+                    "longitude" to currentUser.longitude
+                )
+            )
+            
+            database.getReference("proximity_notifications")
+                .push()
+                .setValue(proximityNotification)
+                .await()
+            
+            Log.d("FirebaseRepo", "✅ Notificaciones enviadas a ${nearbyUsers.size} usuarios cercanos")
+            Result.success(Unit)
+            
+        } catch (e: Exception) {
+            Log.e("FirebaseRepo", "❌ Error enviando notificaciones de proximidad", e)
+            Result.failure(e)
+        }
+    }
+    
+
+    
+
+
+    private fun generateMessageId(): String {
+        return "msg_${System.currentTimeMillis()}_${(0..999).random()}"
     }
 }

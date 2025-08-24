@@ -72,7 +72,7 @@ class VoiceRecognitionService : Service() {
     // Media recording
     private lateinit var mediaRecordingService: SimpleMediaRecordingService
     private lateinit var voskEngine: SimpleVoskEngine
-    // private lateinit var firebaseRepository: FirebaseRepository
+    private lateinit var firebaseRepository: FirebaseRepository
     // private lateinit var voicePreferences: VoicePreferences
     private lateinit var sharedPreferences: SharedPreferences
     
@@ -118,8 +118,9 @@ class VoiceRecognitionService : Service() {
             }
         }
         
-        // Comentar temporalmente FirebaseRepository
-        // firebaseRepository = FirebaseRepository(userPreferences)
+        // Inicializar UserPreferences y FirebaseRepository
+        val userPreferences = com.example.demoappchat.data.UserPreferences(this)
+        firebaseRepository = FirebaseRepository(userPreferences)
         
         initializeService()
         createNotificationChannel()
@@ -698,6 +699,14 @@ class VoiceRecognitionService : Service() {
     private suspend fun processVoiceCommand(command: String) {
         Log.d("VoiceService", "🎯 Comando detectado: $command")
         
+        // Primero verificar si es un comando automático para crear chat grupal
+        val automaticCommand = getAutomaticCommandAction(command)
+        if (automaticCommand != null) {
+            Log.d("VoiceService", "🏗️ Comando automático detectado: $automaticCommand")
+            handleAutomaticChatCreation(automaticCommand, command)
+            return
+        }
+        
         val currentChatId = getCurrentChatId()
         if (currentChatId == null || currentChatId.isEmpty()) {
             Log.d("VoiceService", "🔇 Comando ignorado: No hay chat grupal activo")
@@ -827,6 +836,343 @@ class VoiceRecognitionService : Service() {
             }
         }
     }
+    
+    /**
+     * Obtiene la acción de comando automático si existe
+     */
+    private fun getAutomaticCommandAction(command: String): String? {
+        return try {
+            val automaticCommands = getAutomaticCommands()
+            val commandLower = command.lowercase().trim()
+            
+            // Buscar coincidencia exacta primero
+            var matchedCommand = automaticCommands.keys.find { cmd ->
+                commandLower == cmd.lowercase()
+            }
+            
+            // Si no hay coincidencia exacta, buscar parcial
+            if (matchedCommand == null) {
+                matchedCommand = automaticCommands.keys.find { cmd ->
+                    commandLower.contains(cmd.lowercase()) || cmd.lowercase().contains(commandLower)
+                }
+            }
+            
+            matchedCommand?.let { automaticCommands[it] }
+            
+        } catch (e: Exception) {
+            Log.e("VoiceService", "❌ Error obteniendo comando automático", e)
+            null
+        }
+    }
+    
+    /**
+     * Obtiene los comandos automáticos desde SharedPreferences
+     */
+    private fun getAutomaticCommands(): Map<String, String> {
+        return try {
+            val commandsString = sharedPreferences.getString("automatic_commands", null)
+            
+            if (commandsString != null && commandsString.isNotEmpty()) {
+                commandsString.split(",").associate { action ->
+                    val parts = action.split(":")
+                    if (parts.size == 2) parts[0] to parts[1] else "" to ""
+                }.filter { it.key.isNotEmpty() }
+            } else {
+                // Comandos por defecto si no están configurados
+                mapOf(
+                    "emergencia" to "CREATE_EMERGENCY_CHAT",
+                    "ayuda" to "CREATE_EMERGENCY_CHAT",
+                    "socorro" to "CREATE_EMERGENCY_CHAT",
+                    "alerta" to "CREATE_ALERT_CHAT",
+                    "vigilancia" to "CREATE_SURVEILLANCE_CHAT",
+                    "seguridad" to "CREATE_SURVEILLANCE_CHAT",
+                    "tráfico" to "CREATE_TRAFFIC_CHAT",
+                    "trafico" to "CREATE_TRAFFIC_CHAT",
+                    "transito" to "CREATE_TRAFFIC_CHAT",
+                    "grabar" to "CREATE_RECORDING_CHAT",
+                    "audio" to "CREATE_RECORDING_CHAT",
+                    "chat grupal" to "CREATE_GENERAL_CHAT",
+                    "grupo" to "CREATE_GENERAL_CHAT"
+                )
+            }
+        } catch (e: Exception) {
+            Log.e("VoiceService", "❌ Error obteniendo comandos automáticos", e)
+            emptyMap()
+        }
+    }
+    
+    /**
+     * Maneja la creación automática de chats grupales
+     */
+    private suspend fun handleAutomaticChatCreation(action: String, originalCommand: String) {
+        try {
+            Log.d("VoiceService", "🏗️ Creando chat grupal automático: $action")
+            
+            // Verificar que el usuario esté autenticado
+            if (!isUserAuthenticated()) {
+                Log.w("VoiceService", "⚠️ Usuario no autenticado para crear chat")
+                updateNotification("⚠️ Usuario no autenticado")
+                return
+            }
+            
+            // Crear chat grupal según el tipo
+            val chatConfig = getChatConfigForAction(action)
+            val chatId = createGroupChat(chatConfig, originalCommand)
+            
+            if (chatId != null) {
+                Log.d("VoiceService", "✅ Chat grupal creado: $chatId")
+                
+                // Guardar el chat activo
+                sharedPreferences.edit().putString("current_chat_id", chatId).apply()
+                
+                // Registrar al usuario en el chat
+                registerUserInChat(chatId)
+                
+                // Comenzar grabación de audio automáticamente
+                startAutomaticAudioRecording(chatId)
+                
+                // Notificar a usuarios cercanos
+                notifyNearbyUsers(chatId, action, originalCommand)
+                
+                // Actualizar notificación
+                updateNotification("✅ Chat grupal creado y grabando")
+                
+            } else {
+                Log.e("VoiceService", "❌ Error creando chat grupal")
+                updateNotification("❌ Error creando chat")
+            }
+            
+        } catch (e: Exception) {
+            Log.e("VoiceService", "❌ Error en creación automática de chat", e)
+            updateNotification("❌ Error en chat automático")
+        }
+    }
+    
+    /**
+     * Obtiene la configuración del chat según la acción
+     */
+    private fun getChatConfigForAction(action: String): ChatConfig {
+        return when (action) {
+            "CREATE_EMERGENCY_CHAT" -> ChatConfig(
+                title = "🚨 Emergencia Automática",
+                description = "Chat de emergencia creado por comando de voz",
+                radius = 5000, // 5km
+                pin = "1234",
+                category = "emergency"
+            )
+            "CREATE_ALERT_CHAT" -> ChatConfig(
+                title = "⚠️ Alerta Automática",
+                description = "Chat de alerta activado por voz",
+                radius = 3000, // 3km
+                pin = "1234",
+                category = "alert"
+            )
+            "CREATE_SURVEILLANCE_CHAT" -> ChatConfig(
+                title = "👁️ Vigilancia Automática",
+                description = "Chat de vigilancia activado por voz",
+                radius = 4000, // 4km
+                pin = "1234",
+                category = "security"
+            )
+            "CREATE_RECORDING_CHAT" -> ChatConfig(
+                title = "🎤 Grabación Automática",
+                description = "Chat de grabación activado por voz",
+                radius = 2000, // 2km
+                pin = "0000",
+                category = "recording"
+            )
+            "CREATE_TRAFFIC_CHAT" -> ChatConfig(
+                title = "🚦 Tráfico Automático",
+                description = "Chat de tráfico activado por voz",
+                radius = 2500, // 2.5km
+                pin = "1234",
+                category = "traffic"
+            )
+            "CREATE_GENERAL_CHAT" -> ChatConfig(
+                title = "💬 Chat General Automático",
+                description = "Chat general creado por comando de voz",
+                radius = 3000, // 3km
+                pin = "1234",
+                category = "community"
+            )
+            else -> ChatConfig(
+                title = "💬 Chat Automático",
+                description = "Chat creado por comando de voz",
+                radius = 3000,
+                pin = "1234",
+                category = "community"
+            )
+        }
+    }
+    
+    /**
+     * Crea un chat grupal usando ProximityChat y FirebaseRepository
+     */
+    private suspend fun createGroupChat(config: ChatConfig, originalCommand: String): String? {
+        return try {
+            Log.d("VoiceService", "🏗️ Iniciando creación de chat grupal: ${config.title}")
+            
+            val userId = firebaseRepository.getCurrentUserId()
+            if (userId == null) {
+                Log.w("VoiceService", "❌ Usuario no autenticado para crear chat")
+                updateNotification("❌ Usuario no autenticado")
+                return null
+            }
+            
+            val currentUser = firebaseRepository.currentUser.value
+            if (currentUser == null) {
+                Log.w("VoiceService", "❌ Datos de usuario no disponibles")
+                updateNotification("❌ Datos de usuario no disponibles")
+                return null
+            }
+            
+            Log.d("VoiceService", "🔐 Usuario creador: ${currentUser.id} - ${currentUser.name}")
+            
+            // Generar ID único para el chat
+            val chatId = "auto_${System.currentTimeMillis()}_${(0..999).random()}"
+            
+            // Obtener ubicación actual (simulada por ahora)
+            val latitude = -6.758615 // Coordenadas de ejemplo
+            val longitude = -79.8489161
+            
+            // Crear objeto ProximityChat completo
+            val chat = com.example.demoappchat.data.model.ProximityChat(
+                id = chatId,
+                creatorId = currentUser.id,
+                creatorName = currentUser.name,
+                title = config.title,
+                description = config.description,
+                latitude = latitude,
+                longitude = longitude,
+                radius = config.radius,
+                pin = config.pin,
+                createdAt = System.currentTimeMillis(),
+                isActive = true,
+                participantsCount = 1,
+                lastActivity = System.currentTimeMillis(),
+                category = config.category
+            )
+            
+            Log.d("VoiceService", "📝 Chat a crear: ${chat.title} (${chat.category})")
+            
+            // Crear chat usando FirebaseRepository
+            val result = firebaseRepository.createProximityChatFromVoice(chat)
+            
+            result.onSuccess { createdChat ->
+                Log.d("VoiceService", "✅ Chat grupal creado exitosamente: ${createdChat.id}")
+                updateNotification("✅ Chat grupal creado: ${createdChat.title}")
+            }.onFailure { error ->
+                Log.e("VoiceService", "❌ Error creando chat grupal", error)
+                updateNotification("❌ Error creando chat grupal")
+                return null
+            }
+            
+            chatId
+            
+        } catch (e: Exception) {
+            Log.e("VoiceService", "❌ Error creando chat grupal", e)
+            updateNotification("❌ Error creando chat grupal")
+            null
+        }
+    }
+    
+    /**
+     * Registra al usuario actual en el chat grupal
+     * Nota: FirebaseRepository.createProximityChatFromVoice ya registra automáticamente al creador
+     */
+    private suspend fun registerUserInChat(chatId: String) {
+        try {
+            Log.d("VoiceService", "👤 Usuario ya registrado automáticamente en chat: $chatId")
+            Log.d("VoiceService", "✅ El creador del chat fue registrado durante la creación")
+            updateNotification("✅ Usuario registrado en chat")
+            
+        } catch (e: Exception) {
+            Log.e("VoiceService", "❌ Error en registro de usuario: $chatId", e)
+            updateNotification("❌ Error registrando usuario")
+        }
+    }
+    
+    /**
+     * Comienza la grabación de audio automática
+     */
+    private suspend fun startAutomaticAudioRecording(chatId: String) {
+        try {
+            Log.d("VoiceService", "🎤 Iniciando grabación automática en chat: $chatId")
+            
+            val duration = getAudioRecordingDuration()
+            
+            // Grabar audio automáticamente
+            val result = mediaRecordingService.recordAudio(duration, chatId)
+            
+            if (result.isSuccess) {
+                Log.d("VoiceService", "✅ Grabación automática iniciada")
+                updateNotification("🎤 Grabando audio automáticamente")
+            } else {
+                Log.e("VoiceService", "❌ Error en grabación automática: ${result.exceptionOrNull()?.message}")
+                updateNotification("❌ Error grabando audio")
+            }
+            
+        } catch (e: Exception) {
+            Log.e("VoiceService", "❌ Error iniciando grabación automática", e)
+        }
+    }
+    
+    /**
+     * Notifica a usuarios cercanos sobre el nuevo chat grupal
+     */
+    private suspend fun notifyNearbyUsers(chatId: String, action: String, originalCommand: String) {
+        try {
+            Log.d("VoiceService", "📢 Notificando a usuarios cercanos...")
+            
+            val database = com.google.firebase.database.FirebaseDatabase.getInstance()
+            val messagesRef = database.reference.child("chat_messages").child(chatId)
+            
+            val auth = com.google.firebase.auth.FirebaseAuth.getInstance()
+            val currentUser = auth.currentUser
+            
+            if (currentUser != null) {
+                val notificationMessage = when (action) {
+                    "CREATE_EMERGENCY_CHAT" -> "🚨 EMERGENCIA: Chat de emergencia creado por comando de voz"
+                    "CREATE_ALERT_CHAT" -> "⚠️ ALERTA: Chat de alerta activado por voz"
+                    "CREATE_SURVEILLANCE_CHAT" -> "👁️ VIGILANCIA: Chat de vigilancia activado por voz"
+                    "CREATE_RECORDING_CHAT" -> "🎤 GRABACIÓN: Chat de grabación activado por voz"
+                    "CREATE_GENERAL_CHAT" -> "💬 CHAT: Chat grupal creado por comando de voz"
+                    else -> "💬 Chat grupal creado automáticamente"
+                }
+                
+                val messageData = mapOf(
+                    "chatId" to chatId,
+                    "userId" to currentUser.uid,
+                    "userName" to (currentUser.displayName ?: "Usuario"),
+                    "userPhotoUrl" to (currentUser.photoUrl?.toString() ?: ""),
+                    "messageType" to "SYSTEM_NOTIFICATION",
+                    "content" to notificationMessage,
+                    "timestamp" to System.currentTimeMillis(),
+                    "voiceCommand" to originalCommand,
+                    "autoCreated" to true
+                )
+                
+                val newMessageRef = messagesRef.push()
+                newMessageRef.setValue(messageData)
+                
+                Log.d("VoiceService", "✅ Notificación enviada a usuarios cercanos")
+            }
+            
+        } catch (e: Exception) {
+            Log.e("VoiceService", "❌ Error notificando usuarios cercanos", e)
+        }
+    }
+    
+    /**
+     * Clase de configuración para chats automáticos
+     */
+    data class ChatConfig(
+        val title: String,
+        val description: String,
+        val radius: Int,
+        val pin: String,
+        val category: String
+    )
     
     /**
      * Simular comandos de voz para testing

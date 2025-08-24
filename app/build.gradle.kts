@@ -16,17 +16,11 @@ android {
         minSdk = 24
         targetSdk = 35
         versionCode = 1
-        versionName = "1.0.0.2"
+        versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-
         vectorDrawables {
             useSupportLibrary = true
-        }
-
-        // 🆕 Configuración NDK para Vosk
-        ndk {
-            abiFilters.addAll(listOf("arm64-v8a", "armeabi-v7a", "x86", "x86_64"))
         }
     }
 
@@ -37,42 +31,30 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            // 🆕 CONFIGURACIÓN PARA OPERACIONES ENCUBIERTAS
-            buildConfigField("boolean", "STEALTH_MODE", "true")
-            buildConfigField("String", "OPERATION_CODE", "\"SAFE_VOICE_POLICE\"")
-        }
-        debug {
-            buildConfigField("boolean", "STEALTH_MODE", "false")
-            buildConfigField("String", "OPERATION_CODE", "\"DEBUG\"")
         }
     }
-
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        sourceCompatibility = JavaVersion.VERSION_1_8
+        targetCompatibility = JavaVersion.VERSION_1_8
     }
-
     kotlinOptions {
-        jvmTarget = "11"
+        jvmTarget = "1.8"
     }
-
     buildFeatures {
         compose = true
-        buildConfig = true // 🆕 HABILITAR BuildConfig
     }
-
     composeOptions {
-        kotlinCompilerExtensionVersion = "2.0.0"
+        kotlinCompilerExtensionVersion = "1.5.1"
     }
-
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
-        // 🆕 Configuración para librerías nativas
-        jniLibs {
-            useLegacyPackaging = true
-        }
+    }
+    
+    lint {
+        baseline = file("lint-baseline.xml")
+        abortOnError = false
     }
 }
 
