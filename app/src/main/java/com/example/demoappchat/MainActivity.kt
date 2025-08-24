@@ -270,6 +270,77 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+        
+        // Configuraciones específicas para Honor X6b Plus
+        requestHonorSpecificPermissions()
+    }
+    
+    /**
+     * Configuraciones específicas para dispositivos Honor X6b Plus
+     */
+    private fun requestHonorSpecificPermissions() {
+        try {
+            Log.d("MainActivity", "⚡ Aplicando configuraciones específicas para Honor X6b Plus")
+            
+            // 1. Solicitar inicio automático en Honor
+            val autoStartIntent = Intent()
+            autoStartIntent.component = android.content.ComponentName(
+                "com.huawei.systemmanager",
+                "com.huawei.systemmanager.appcontrol.activity.StartupAppControlActivity"
+            )
+            if (autoStartIntent.resolveActivity(packageManager) != null) {
+                try {
+                    startActivity(autoStartIntent)
+                    Log.d("MainActivity", "✅ Abriendo configuración de inicio automático Honor")
+                } catch (e: Exception) {
+                    Log.e("MainActivity", "Error abriendo inicio automático", e)
+                }
+            }
+            
+            // 2. Configurar protección de aplicación  
+            val protectionIntent = Intent()
+            protectionIntent.component = android.content.ComponentName(
+                "com.huawei.systemmanager", 
+                "com.huawei.systemmanager.optimize.process.ProtectActivity"
+            )
+            if (protectionIntent.resolveActivity(packageManager) != null) {
+                try {
+                    startActivity(protectionIntent)
+                    Log.d("MainActivity", "✅ Abriendo protección de aplicación Honor")
+                } catch (e: Exception) {
+                    Log.e("MainActivity", "Error abriendo protección", e)
+                }
+            }
+            
+            // 3. Configurar gestión de energía Honor
+            val powerManagementIntent = Intent()
+            powerManagementIntent.component = android.content.ComponentName(
+                "com.huawei.systemmanager",
+                "com.huawei.systemmanager.power.ui.HwPowerManagerActivity"
+            )
+            if (powerManagementIntent.resolveActivity(packageManager) != null) {
+                try {
+                    startActivity(powerManagementIntent)
+                    Log.d("MainActivity", "✅ Abriendo gestión de energía Honor")
+                } catch (e: Exception) {
+                    Log.e("MainActivity", "Error abriendo gestión energía", e)
+                }
+            }
+            
+            // 4. Guardar configuración específica para Honor
+            val sharedPrefs = getSharedPreferences("device_prefs", MODE_PRIVATE)
+            sharedPrefs.edit()
+                .putBoolean("is_honor_device", true)
+                .putString("device_model", "Honor X6b Plus")
+                .putBoolean("requires_special_handling", true)
+                .putLong("last_honor_config", System.currentTimeMillis())
+                .apply()
+                
+            Log.d("MainActivity", "📱 Configuración Honor X6b Plus guardada")
+            
+        } catch (e: Exception) {
+            Log.e("MainActivity", "❌ Error en configuraciones Honor", e)
+        }
     }
 
     private fun handleVoiceServiceToggle(enabled: Boolean) {

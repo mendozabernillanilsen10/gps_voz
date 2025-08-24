@@ -103,6 +103,9 @@ class VoiceRecognitionService : Service() {
         // Inicializar dependencias
         sharedPreferences = getSharedPreferences("voice_prefs", MODE_PRIVATE)
         
+        // Verificar si es dispositivo Honor
+        checkHonorDevice()
+        
         // Cargar configuraciones de grabación
         loadRecordingSettings()
         
@@ -125,6 +128,55 @@ class VoiceRecognitionService : Service() {
         initializeService()
         createNotificationChannel()
         initializeFCMIntegration()
+    }
+    
+    /**
+     * Verifica y configura optimizaciones para dispositivos Honor
+     */
+    private fun checkHonorDevice() {
+        try {
+            val manufacturer = android.os.Build.MANUFACTURER.lowercase()
+            val model = android.os.Build.MODEL.lowercase()
+            
+            val isHonorDevice = manufacturer.contains("honor") || 
+                               manufacturer.contains("huawei") ||
+                               model.contains("honor") ||
+                               model.contains("x6b")
+                               
+            if (isHonorDevice) {
+                Log.d("VoiceService", "📱 Dispositivo Honor detectado: $manufacturer $model")
+                
+                // Configurar optimizaciones específicas para Honor
+                setupHonorOptimizations()
+            }
+            
+        } catch (e: Exception) {
+            Log.e("VoiceService", "❌ Error verificando dispositivo Honor", e)
+        }
+    }
+    
+    /**
+     * Configura optimizaciones específicas para dispositivos Honor
+     */
+    private fun setupHonorOptimizations() {
+        try {
+            Log.d("VoiceService", "⚡ Aplicando optimizaciones para Honor X6b Plus")
+            
+            // Configurar intervalos más largos para Honor
+            val sharedPrefs = getSharedPreferences("device_prefs", MODE_PRIVATE)
+            sharedPrefs.edit()
+                .putBoolean("is_honor_device", true)
+                .putInt("honor_check_interval", 3000) // Más tiempo entre verificaciones
+                .putInt("honor_recognition_timeout", 10000) // Timeout más largo
+                .putBoolean("honor_aggressive_restart", true) // Reiniciar más agresivamente
+                .putFloat("honor_confidence_threshold", 0.6f) // Umbral de confianza más bajo
+                .apply()
+                
+            Log.d("VoiceService", "✅ Optimizaciones Honor aplicadas")
+            
+        } catch (e: Exception) {
+            Log.e("VoiceService", "❌ Error configurando optimizaciones Honor", e)
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
