@@ -81,9 +81,10 @@ powershell -ExecutionPolicy Bypass -File test_voice_commands.ps1
 
 #### Dependency Injection (Hilt)
 - **FirebaseModule**: Firebase services configuration
-- **RepositoryModule**: Repository implementations
-- **VoiceModule**: Voice-related dependencies
+- **RepositoryModule**: Repository implementations binding interfaces to implementations
+- **VoiceModule**: Voice-related dependencies and Vosk engine configuration
 - **UseCaseModule**: Business logic use cases
+- **ServiceModule**: Background services and workers
 
 ### File Structure Patterns
 
@@ -115,16 +116,22 @@ The Vosk speech recognition model is stored in `app/src/main/assets/vosk-model/`
 
 ### Permissions
 The app requires multiple sensitive permissions:
-- `RECORD_AUDIO` - Voice recognition
-- `CAMERA` - Video recording
-- `ACCESS_FINE_LOCATION` - Location services
+- `RECORD_AUDIO` - Voice recognition and audio recording
+- `CAMERA` - Video recording and capture
+- `ACCESS_FINE_LOCATION` + `ACCESS_BACKGROUND_LOCATION` - Location services for proximity chats
 - `POST_NOTIFICATIONS` - Push notifications (Android 13+)
+- `WAKE_LOCK` - Keep services active in background
+- `FOREGROUND_SERVICE_*` - Multiple foreground service types (microphone, camera, location)
+- `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` - Prevent system from killing services
+- `SYSTEM_ALERT_WINDOW` - Display overlay windows
 
 ### Build Configuration
 - **Min SDK**: 24 (Android 7.0)
 - **Target SDK**: 35 (Android 14)
 - **Compile SDK**: 35
 - **NDK Filters**: arm64-v8a, armeabi-v7a, x86, x86_64 (for Vosk)
+- **Java Version**: 1.8
+- **Kotlin Compiler Extension**: 1.5.1
 
 ### Firebase Setup
 Ensure `google-services.json` is present in the `app/` directory. Firebase rules can be applied using:
@@ -200,12 +207,15 @@ adb logcat | grep -E "(chat|notification|FCM)"
 ## Dependencies Management
 
 The project uses Gradle Version Catalogs (`gradle/libs.versions.toml`) for dependency management. Key libraries include:
-- Jetpack Compose for UI
-- Hilt for dependency injection
-- Firebase suite for backend
-- Vosk for speech recognition
-- WebRTC for voice/video calls
-- CameraX for media capture
+- **Jetpack Compose** (2024.10.01 BOM) - Modern declarative UI
+- **Hilt** (2.48) - Dependency injection
+- **Firebase** (32.7.0 BOM) - Backend services suite
+- **Vosk** (0.3.47) - Offline speech recognition
+- **WebRTC** (libjingle 11139) - Voice/video calls
+- **CameraX** (1.3.1) - Media capture
+- **Coroutines** (1.7.3) - Asynchronous programming
+- **Navigation Compose** (2.7.5) - App navigation
+- **WorkManager** (2.9.0) - Background task scheduling
 
 ## Automatic Voice Command System
 
@@ -290,3 +300,32 @@ Common issues and solutions:
 - **Chats not created**: Verify Firebase connectivity and user authentication
 - **Notifications not sent**: Check location permissions and FCM configuration
 - **Service stops**: Ensure battery optimization is disabled for the app
+
+## Additional Scripts and Tools
+
+### PowerShell Scripts (Windows Development)
+```bash
+# Extract Vosk speech model from assets
+powershell -ExecutionPolicy Bypass -File download_vosk_model.ps1
+
+# Test voice command detection system
+powershell -ExecutionPolicy Bypass -File test_voice_commands.ps1
+
+# Test complete voice system integration  
+powershell -ExecutionPolicy Bypass -File test_voice_system.ps1
+
+# Apply Firebase security rules
+powershell -ExecutionPolicy Bypass -File apply_firebase_rules_fixed.ps1
+
+# Get SHA1 fingerprint for Firebase setup
+powershell -ExecutionPolicy Bypass -File get_sha1_fingerprint.ps1
+
+# Test on Honor X6B Plus device specifically
+powershell -ExecutionPolicy Bypass -File test_honor_device.ps1
+```
+
+### Python Utilities
+```bash
+# Generate app icons in multiple resolutions
+python generate_icons.py
+```
