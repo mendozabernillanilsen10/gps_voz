@@ -33,6 +33,7 @@ import com.example.demoappchat.presentation.settings.SettingsScreen
 import com.example.demoappchat.presentation.splash.ModernSplashScreen
 import com.example.demoappchat.ui.theme.SecurityChatTheme
 import com.example.demoappchat.utils.NavigationHelper
+import com.example.demoappchat.utils.DeviceCompatibilityManager
 import com.example.demoappchat.data.service.ErrorLogger
 import dagger.hilt.android.AndroidEntryPoint
 import com.google.firebase.FirebaseApp
@@ -65,11 +66,18 @@ class MainActivity : ComponentActivity() {
         FirebaseApp.initializeApp(this)
         // Initialize userPreferences through Hilt injection
 
+        // Log device information for debugging
+        DeviceCompatibilityManager.logDeviceInfo()
+        
+        // Apply device-specific optimizations
+        DeviceCompatibilityManager.applyOptimizations(this)
+        
         // Solicitar permisos necesarios
         requestVoicePermissions()
         
-        // Solicitar exención de optimización de batería
-        requestBatteryOptimizationExemption()
+        // NO solicitar automáticamente optimización de batería
+        // Solo verificar si es necesario, pero NO abrir configuración automáticamente
+        checkBatteryOptimizationStatus()
 
         // Registrar receptor de comandos de voz
         registerVoiceCommandReceiver()
@@ -250,96 +258,51 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun requestBatteryOptimizationExemption() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            val powerManager = getSystemService(POWER_SERVICE) as PowerManager
-            if (!powerManager.isIgnoringBatteryOptimizations(packageName)) {
-                try {
-                    val intent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS).apply {
-                        data = Uri.parse("package:$packageName")
-                    }
-                    startActivity(intent)
-                } catch (e: Exception) {
-                    // Si no se puede abrir la configuración específica, abrir la general
-                    try {
-                        val intent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
-                        startActivity(intent)
-                    } catch (e2: Exception) {
-                        e2.printStackTrace()
-                    }
+    /**
+     * Verificar estado de optimización de batería SIN abrir configuración automáticamente
+     */
+    private fun checkBatteryOptimizationStatus() {
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                val powerManager = getSystemService(POWER_SERVICE) as PowerManager
+                if (!powerManager.isIgnoringBatteryOptimizations(packageName)) {
+                    Log.d("MainActivity", "⚠️ App está siendo optimizada por batería")
+                    Log.d("MainActivity", "ℹ️ Esto puede afectar servicios en segundo plano")
+                    // NO abrir nada automáticamente
+                } else {
+                    Log.d("MainActivity", "✅ App exenta de optimización de batería")
                 }
             }
+            
+            // Log configuración del dispositivo sin abrir nada
+            val config = DeviceCompatibilityManager.getDeviceConfig()
+            if (config.requiresAggressiveOptimization) {
+                Log.d("MainActivity", "📱 Dispositivo ${config.manufacturer} detectado")
+                Log.d("MainActivity", "ℹ️ Se recomienda configurar batería manualmente si es necesario")
+            }
+            
+        } catch (e: Exception) {
+            Log.e("MainActivity", "❌ Error verificando batería", e)
         }
-        
-        // Configuraciones específicas para Honor X6b Plus
-        requestHonorSpecificPermissions()
     }
     
     /**
-     * Configuraciones específicas para dispositivos Honor X6b Plus
+     * Request battery optimization exemption ONLY when user explicitly wants it
+     * (Esta función se puede usar desde Settings si se implementa)
      */
-    private fun requestHonorSpecificPermissions() {
+    private fun requestBatteryOptimizationExemption() {
         try {
-            Log.d("MainActivity", "⚡ Aplicando configuraciones específicas para Honor X6b Plus")
-            
-            // 1. Solicitar inicio automático en Honor
-            val autoStartIntent = Intent()
-            autoStartIntent.component = android.content.ComponentName(
-                "com.huawei.systemmanager",
-                "com.huawei.systemmanager.appcontrol.activity.StartupAppControlActivity"
-            )
-            if (autoStartIntent.resolveActivity(packageManager) != null) {
-                try {
-                    startActivity(autoStartIntent)
-                    Log.d("MainActivity", "✅ Abriendo configuración de inicio automático Honor")
-                } catch (e: Exception) {
-                    Log.e("MainActivity", "Error abriendo inicio automático", e)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                val powerManager = getSystemService(POWER_SERVICE) as PowerManager
+                if (!powerManager.isIgnoringBatteryOptimizations(packageName)) {
+                    val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                        data = Uri.parse("package:$packageName")
+                    }
+                    startActivity(intent)
                 }
             }
-            
-            // 2. Configurar protección de aplicación  
-            val protectionIntent = Intent()
-            protectionIntent.component = android.content.ComponentName(
-                "com.huawei.systemmanager", 
-                "com.huawei.systemmanager.optimize.process.ProtectActivity"
-            )
-            if (protectionIntent.resolveActivity(packageManager) != null) {
-                try {
-                    startActivity(protectionIntent)
-                    Log.d("MainActivity", "✅ Abriendo protección de aplicación Honor")
-                } catch (e: Exception) {
-                    Log.e("MainActivity", "Error abriendo protección", e)
-                }
-            }
-            
-            // 3. Configurar gestión de energía Honor
-            val powerManagementIntent = Intent()
-            powerManagementIntent.component = android.content.ComponentName(
-                "com.huawei.systemmanager",
-                "com.huawei.systemmanager.power.ui.HwPowerManagerActivity"
-            )
-            if (powerManagementIntent.resolveActivity(packageManager) != null) {
-                try {
-                    startActivity(powerManagementIntent)
-                    Log.d("MainActivity", "✅ Abriendo gestión de energía Honor")
-                } catch (e: Exception) {
-                    Log.e("MainActivity", "Error abriendo gestión energía", e)
-                }
-            }
-            
-            // 4. Guardar configuración específica para Honor
-            val sharedPrefs = getSharedPreferences("device_prefs", MODE_PRIVATE)
-            sharedPrefs.edit()
-                .putBoolean("is_honor_device", true)
-                .putString("device_model", "Honor X6b Plus")
-                .putBoolean("requires_special_handling", true)
-                .putLong("last_honor_config", System.currentTimeMillis())
-                .apply()
-                
-            Log.d("MainActivity", "📱 Configuración Honor X6b Plus guardada")
-            
         } catch (e: Exception) {
-            Log.e("MainActivity", "❌ Error en configuraciones Honor", e)
+            Log.e("MainActivity", "❌ Error solicitando exención de batería", e)
         }
     }
 

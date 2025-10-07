@@ -567,10 +567,10 @@ class SimpleVoskEngine(private val context: Context) {
                                                 Log.d(TAG, "🔇 Resultados vacíos consecutivos: $emptyResultCount")
                                             }
                                             
-                                            // Si hay demasiados resultados vacíos y hay actividad de audio, usar simulación
-                                            if (emptyResultCount >= maxEmptyResults && audioLevel > 50) {
-                                                Log.d(TAG, "🔄 Demasiados resultados vacíos con actividad de audio, activando simulación")
-                                                processSimulatedRecognition(audioLevel)
+                                            // DESHABILITADO: NO activar simulación
+                                            // Solo usar reconocimiento de voz REAL
+                                            if (emptyResultCount >= maxEmptyResults) {
+                                                Log.d(TAG, "🔇 Resultados vacíos - esperando palabras reales")
                                                 emptyResultCount = 0
                                             }
                                         }
@@ -630,43 +630,14 @@ class SimpleVoskEngine(private val context: Context) {
     
     /**
      * Procesar reconocimiento simulado cuando Vosk falla
+     * ⚠️ COMPLETAMENTE DESHABILITADO - Solo usar reconocimiento REAL
      */
     private fun processSimulatedRecognition(audioLevel: Double) {
-        if (commands.isEmpty()) return
-        
-        // Calcular probabilidad de detección basada en nivel de audio
-        val detectionProbability = when {
-            audioLevel > 100 -> 0.85f  // 85% para actividad alta
-            audioLevel > 70 -> 0.70f   // 70% para actividad moderada
-            audioLevel > 50 -> 0.50f   // 50% para actividad baja
-            else -> 0.20f              // 20% para actividad mínima
-        }
-        
-        val random = kotlin.random.Random(System.currentTimeMillis())
-        
-        if (random.nextFloat() < detectionProbability) {
-            // Seleccionar comando basado en nivel de audio
-            val selectedCommand = when {
-                audioLevel > 100 -> {
-                    // Nivel alto - priorizar comandos de emergencia
-                    val emergencyCommands = commands.filter { 
-                        it.contains("emergencia") || it.contains("alerta") || it.contains("refuerzo") 
-                    }
-                    emergencyCommands.randomOrNull() ?: commands.random()
-                }
-                audioLevel > 70 -> {
-                    // Nivel moderado - comandos normales
-                    val normalCommands = commands.filter { 
-                        it.contains("óyeme") || it.contains("audio") || it.contains("grabar") 
-                    }
-                    normalCommands.randomOrNull() ?: commands.random()
-                }
-                else -> commands.random()
-            }
-            
-            Log.d(TAG, "✅ Comando simulado detectado: '$selectedCommand' (nivel: $audioLevel, prob: $detectionProbability)")
-            callback?.invoke(selectedCommand, 0.85f)
-        }
+        // DESHABILITADO PERMANENTEMENTE
+        // NO ejecutar comandos simulados bajo NINGUNA circunstancia
+        // Solo usar reconocimiento de voz REAL con palabras detectadas
+        Log.d(TAG, "🔇 Simulación deshabilitada - solo reconocimiento real")
+        return
     }
     
     /**
@@ -674,42 +645,148 @@ class SimpleVoskEngine(private val context: Context) {
      */
     private fun processRecognitionResult(result: String?) {
         result?.let { jsonResult ->
-            Log.d(TAG, "🎯 Resultado JSON: $jsonResult")
+            // Ignorar resultados vacíos
+            if (jsonResult.contains("\"\"") || jsonResult == "{}" || jsonResult.isBlank()) {
+                return
+            }
             
             // Extraer texto del resultado JSON de Vosk
             val text = extractTextFromVoskResult(jsonResult)
             
-            if (text.isNotBlank()) {
-                Log.d(TAG, "🎯 Texto extraído: $text")
+            // Validar que el texto sea válido y tenga contenido real
+            if (text.isNotBlank() && text.length >= 2) {
+                Log.d(TAG, "🎯 Texto extraído: '$text'")
+                Log.d(TAG, "📋 Comandos disponibles: $commands")
                 
-                // Buscar comando en la lista
-                val detectedCommand = commands.find { command ->
-                    text.contains(command, ignoreCase = true)
+                // Normalizar el texto extraído
+                val normalizedText = normalizeSpanishText(text)
+                
+                // Buscar comando en la lista con múltiples estrategias
+                var detectedCommand: String? = null
+                var matchType = ""
+                
+                // Estrategia 1: Coincidencia exacta
+                detectedCommand = commands.find { command ->
+                    normalizedText == normalizeSpanishText(command)
+                }
+                if (detectedCommand != null) matchType = "exacta"
+                
+                // Estrategia 2: Comando contiene el texto
+                if (detectedCommand == null) {
+                    detectedCommand = commands.find { command ->
+                        normalizedText.contains(normalizeSpanishText(command))
+                    }
+                    if (detectedCommand != null) matchType = "contenido"
                 }
                 
-                detectedCommand?.let { command ->
-                    val confidence = calculateConfidence(text, command)
-                    
-                    if (confidence >= sensitivity) {
-                        Log.d(TAG, "✅ Comando confirmado: '$command' (confianza: $confidence)")
-                        callback?.invoke(command, confidence)
-                    } else {
-                        Log.d(TAG, "❌ Comando rechazado por baja confianza: $confidence")
+                // Estrategia 3: PREFIJO - "al" → "alerta", "oy" → "oyeme"
+                if (detectedCommand == null && normalizedText.length >= 2) {
+                    detectedCommand = commands.find { command ->
+                        val normalizedCommand = normalizeSpanishText(command)
+                        // "al" inicia "alerta"
+                        normalizedCommand.startsWith(normalizedText)
+                    }
+                    if (detectedCommand != null) {
+                        matchType = "prefijo"
+                        Log.d(TAG, "🎯 MATCH PREFIJO: '$normalizedText' → '$detectedCommand'")
                     }
                 }
+                
+                // Estrategia 4: Texto contiene el comando
+                if (detectedCommand == null) {
+                    detectedCommand = commands.find { command ->
+                        normalizeSpanishText(command).contains(normalizedText)
+                    }
+                    if (detectedCommand != null) matchType = "parcial"
+                }
+                
+                // Estrategia 5: Similitud con comandos comunes en español
+                if (detectedCommand == null) {
+                    detectedCommand = findSimilarSpanishCommand(normalizedText)
+                    if (detectedCommand != null) matchType = "similar"
+                }
+                
+                if (detectedCommand != null) {
+                    // UMBRAL MUY BAJO para audio desde bolsillo
+                    // Si es match de prefijo, aceptar con confianza mínima
+                    val minConfidence = if (matchType == "prefijo") 0.25f else 0.35f
+                    val adjustedSensitivity = sensitivity * 0.5f // 50% del umbral original
+                    val finalThreshold = minOf(adjustedSensitivity, minConfidence)
+                    
+                    val confidence = calculateConfidence(text, detectedCommand)
+                    
+                    if (confidence >= finalThreshold || matchType == "prefijo") {
+                        Log.d(TAG, "✅ Comando confirmado ($matchType): '$detectedCommand' (confianza: $confidence, umbral: $finalThreshold)")
+                        callback?.invoke(detectedCommand, maxOf(confidence, 0.6f))
+                    } else {
+                        Log.d(TAG, "⚠️ Comando rechazado por baja confianza: $confidence < $finalThreshold")
+                        Log.d(TAG, "💡 Intenta hablar más fuerte o cerca del micrófono")
+                    }
+                } else {
+                    // Solo loguear si el texto tiene contenido significativo
+                    if (text.length > 3) {
+                        Log.d(TAG, "❌ No se encontró comando para: '$text'")
+                    }
+                }
+            } else if (text.isNotEmpty()) {
+                Log.d(TAG, "🔇 Texto muy corto ignorado: '$text' (${text.length} caracteres)")
             }
         }
     }
     
     /**
      * Extraer texto del resultado JSON de Vosk
+     * Mejorado para soportar múltiples formatos de respuesta
      */
     private fun extractTextFromVoskResult(jsonResult: String): String {
         return try {
-            // Buscar el campo "text" en el JSON
-            val textPattern = "\"text\"\\s*:\\s*\"([^\"]*)\"".toRegex()
-            val matchResult = textPattern.find(jsonResult)
-            matchResult?.groupValues?.get(1) ?: ""
+            // No loguear JSONs vacíos para evitar spam
+            if (jsonResult.contains("\"\"") || jsonResult == "{}" || jsonResult.isBlank()) {
+                return ""
+            }
+            
+            Log.d(TAG, "📝 JSON recibido: $jsonResult")
+            
+            // Intentar múltiples patrones de extracción
+            
+            // Patrón 1: "text": "contenido"
+            val textPattern1 = "\"text\"\\s*:\\s*\"([^\"]*)\"".toRegex()
+            val match1 = textPattern1.find(jsonResult)
+            if (match1 != null && match1.groupValues.size > 1) {
+                val extracted = match1.groupValues[1].trim()
+                // Validar que el texto tenga al menos 2 caracteres
+                if (extracted.length >= 2) {
+                    Log.d(TAG, "✅ Texto extraído (patrón 1): '$extracted'")
+                    return normalizeSpanishText(extracted)
+                }
+            }
+            
+            // Patrón 2: "partial": "contenido"
+            val textPattern2 = "\"partial\"\\s*:\\s*\"([^\"]*)\"".toRegex()
+            val match2 = textPattern2.find(jsonResult)
+            if (match2 != null && match2.groupValues.size > 1) {
+                val extracted = match2.groupValues[1].trim()
+                // Validar que el texto tenga al menos 2 caracteres
+                if (extracted.length >= 2) {
+                    Log.d(TAG, "✅ Texto extraído (patrón 2 - partial): '$extracted'")
+                    return normalizeSpanishText(extracted)
+                }
+            }
+            
+            // Patrón 3: Buscar cualquier texto entre comillas después de ":"
+            val textPattern3 = ":\\s*\"([^\"]{2,})\"".toRegex()
+            val match3 = textPattern3.find(jsonResult)
+            if (match3 != null && match3.groupValues.size > 1) {
+                val extracted = match3.groupValues[1].trim()
+                // Validar que el texto tenga al menos 2 caracteres
+                if (extracted.length >= 2) {
+                    Log.d(TAG, "✅ Texto extraído (patrón 3 - genérico): '$extracted'")
+                    return normalizeSpanishText(extracted)
+                }
+            }
+            
+            // No loguear si es texto vacío o muy corto
+            ""
         } catch (e: Exception) {
             Log.e(TAG, "❌ Error extrayendo texto del JSON: ${e.message}")
             ""
@@ -717,14 +794,52 @@ class SimpleVoskEngine(private val context: Context) {
     }
     
     /**
+     * Normalizar texto en español (eliminar acentos, minúsculas, etc)
+     */
+    private fun normalizeSpanishText(text: String): String {
+        return text.lowercase()
+            .replace("á", "a")
+            .replace("é", "e")
+            .replace("í", "i")
+            .replace("ó", "o")
+            .replace("ú", "u")
+            .replace("ñ", "n")
+            .trim()
+    }
+    
+    /**
      * Procesar resultado parcial
      */
     private fun processPartialResult(result: String?) {
         result?.let { text ->
-            if (text.isNotBlank() && text != "{}") {
+            // Solo mostrar resultados parciales con contenido real
+            if (text.isNotBlank() && text != "{}" && !text.contains("\"\"") && text.length > 5) {
                 Log.d(TAG, "👂 Escuchando: $text")
             }
         }
+    }
+    
+    /**
+     * Encontrar comando similar en español usando palabras clave
+     */
+    private fun findSimilarSpanishCommand(normalizedText: String): String? {
+        // Mapeo de palabras clave a comandos estándar
+        val spanishKeywords = mapOf(
+            "emergencia" to listOf("emergencia", "sos", "ayuda", "socorro", "auxilio"),
+            "alerta" to listOf("alerta", "aviso", "atencion", "cuidado"),
+            "vigilancia" to listOf("vigilancia", "vigilar", "observar", "monitorear", "controlar"),
+            "grabar" to listOf("grabar", "grabacion", "audio", "sonido", "registrar"),
+            "chat" to listOf("chat", "grupo", "conversar", "hablar")
+        )
+        
+        for ((command, keywords) in spanishKeywords) {
+            if (keywords.any { keyword -> normalizedText.contains(keyword) }) {
+                Log.d(TAG, "🔍 Comando similar encontrado: '$command' para texto: '$normalizedText'")
+                return command
+            }
+        }
+        
+        return null
     }
     
     /**
@@ -806,20 +921,13 @@ class SimpleVoskEngine(private val context: Context) {
                     val audioLevel = calculateAudioLevel(buffer, readSize)
                     val currentTime = System.currentTimeMillis()
                     
-                    if (audioLevel > 50) { // Umbral optimizado para reducir falsos positivos
-                        Log.d(TAG, "🎤 Actividad de voz detectada (nivel: $audioLevel)")
+                    // DESHABILITADO: No detectar comandos por patrones de audio
+                    // Solo usar reconocimiento Vosk real con texto válido
+                    if (audioLevel > 50) {
+                        // Solo loguear para debugging, NO ejecutar comandos
                         consecutiveHighLevel++
-                        
-                        // HABILITADO TEMPORALMENTE: Sistema de testing para comandos básicos
-                        // Mientras se arregla el modelo Vosk
-                        if (consecutiveHighLevel >= 5 && (currentTime - lastCommandTime) > commandCooldown) {
-                            val detectedCommand = detectCommandFromAudioPattern(buffer, readSize, audioLevel)
-                            if (detectedCommand != null) {
-                                Log.d(TAG, "✅ Comando detectado por patrón de audio: $detectedCommand")
-                                callback?.invoke(detectedCommand, 0.8f)
-                                lastCommandTime = currentTime
-                                consecutiveHighLevel = 0
-                            }
+                        if (consecutiveHighLevel == 5) {
+                            Log.d(TAG, "🔇 Audio detectado pero ignorado - esperando texto válido de Vosk")
                         }
                     } else {
                         consecutiveHighLevel = 0

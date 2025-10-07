@@ -14,6 +14,7 @@ import com.example.demoappchat.MainActivity
 import com.example.demoappchat.R
 import com.example.demoappchat.data.service.voice.VoiceEngineManager
 import com.example.demoappchat.data.service.voice.SimpleVoskEngine
+import com.example.demoappchat.utils.DeviceCompatibilityManager
 import com.example.demoappchat.domain.usecase.voice.StartVoiceRecognitionUseCase
 import com.example.demoappchat.domain.usecase.voice.ProcessVoiceRecognitionUseCase
 import com.example.demoappchat.domain.usecase.voice.MonitorVoiceServiceUseCase
@@ -81,6 +82,11 @@ class VoiceRecognitionService : Service() {
     private var videoRecordingDuration = 10 // segundos por defecto
     private var recordingQuality = "HIGH" // calidad por defecto
     
+    // Cooldown para evitar comandos duplicados
+    private var lastCommandTime = 0L
+    private val COMMAND_COOLDOWN_MS = 5000L // 5 segundos entre comandos
+    private var lastCommandExecuted = ""
+    
     // Notification
     private lateinit var notificationManager: NotificationManager
     
@@ -103,8 +109,9 @@ class VoiceRecognitionService : Service() {
         // Inicializar dependencias
         sharedPreferences = getSharedPreferences("voice_prefs", MODE_PRIVATE)
         
-        // Verificar si es dispositivo Honor
-        checkHonorDevice()
+        // Apply device-specific optimizations
+        DeviceCompatibilityManager.applyOptimizations(this)
+        applyDeviceOptimizations()
         
         // Cargar configuraciones de grabación
         loadRecordingSettings()
@@ -131,51 +138,37 @@ class VoiceRecognitionService : Service() {
     }
     
     /**
-     * Verifica y configura optimizaciones para dispositivos Honor
+     * Apply device-specific optimizations for voice recognition
      */
-    private fun checkHonorDevice() {
+    private fun applyDeviceOptimizations() {
         try {
-            val manufacturer = android.os.Build.MANUFACTURER.lowercase()
-            val model = android.os.Build.MODEL.lowercase()
+            val config = DeviceCompatibilityManager.getDeviceConfig()
+            val devicePrefs = getSharedPreferences("device_prefs", MODE_PRIVATE)
             
-            val isHonorDevice = manufacturer.contains("honor") || 
-                               manufacturer.contains("huawei") ||
-                               model.contains("honor") ||
-                               model.contains("x6b")
-                               
-            if (isHonorDevice) {
-                Log.d("VoiceService", "📱 Dispositivo Honor detectado: $manufacturer $model")
-                
-                // Configurar optimizaciones específicas para Honor
-                setupHonorOptimizations()
+            Log.d("VoiceService", "📱 Device: ${config.manufacturer} - Applying optimizations")
+            
+            if (config.requiresAggressiveOptimization) {
+                Log.d("VoiceService", "⚡ Aggressive optimization required for ${config.manufacturer}")
+                Log.d("VoiceService", """
+                    |Optimizations:
+                    |  Check Interval: ${config.checkInterval}ms
+                    |  Recognition Timeout: ${config.recognitionTimeout}ms
+                    |  Confidence Threshold: ${config.confidenceThreshold}
+                """.trimMargin())
             }
             
-        } catch (e: Exception) {
-            Log.e("VoiceService", "❌ Error verificando dispositivo Honor", e)
-        }
-    }
-    
-    /**
-     * Configura optimizaciones específicas para dispositivos Honor
-     */
-    private fun setupHonorOptimizations() {
-        try {
-            Log.d("VoiceService", "⚡ Aplicando optimizaciones para Honor X6b Plus")
-            
-            // Configurar intervalos más largos para Honor
-            val sharedPrefs = getSharedPreferences("device_prefs", MODE_PRIVATE)
-            sharedPrefs.edit()
-                .putBoolean("is_honor_device", true)
-                .putInt("honor_check_interval", 3000) // Más tiempo entre verificaciones
-                .putInt("honor_recognition_timeout", 10000) // Timeout más largo
-                .putBoolean("honor_aggressive_restart", true) // Reiniciar más agresivamente
-                .putFloat("honor_confidence_threshold", 0.6f) // Umbral de confianza más bajo
+            // Store device config in voice preferences
+            sharedPreferences.edit()
+                .putInt("device_check_interval", config.checkInterval)
+                .putInt("device_recognition_timeout", config.recognitionTimeout)
+                .putFloat("device_confidence_threshold", config.confidenceThreshold)
+                .putBoolean("device_aggressive_optimization", config.requiresAggressiveOptimization)
                 .apply()
                 
-            Log.d("VoiceService", "✅ Optimizaciones Honor aplicadas")
+            Log.d("VoiceService", "✅ Device optimizations applied for ${config.manufacturer}")
             
         } catch (e: Exception) {
-            Log.e("VoiceService", "❌ Error configurando optimizaciones Honor", e)
+            Log.e("VoiceService", "❌ Error applying device optimizations", e)
         }
     }
 
@@ -250,9 +243,15 @@ class VoiceRecognitionService : Service() {
                 
                 // Configurar callback del Vosk Engine
                 voskEngine.setCallback { recognizedText, confidence ->
+                    // VALIDACIÓN 1: Ignorar texto vacío o muy corto
+                    if (recognizedText.isBlank() || recognizedText.trim().length < 3) {
+                        // No loguear para evitar spam de logs
+                        return@setCallback
+                    }
+                    
                     Log.d("VoiceService", "🎤 Resultado de voz: '$recognizedText' (${confidence}%)")
                     
-                    // Verificar confianza mínima (evitar falsos positivos)
+                    // VALIDACIÓN 2: Verificar confianza mínima (evitar falsos positivos)
                     val minConfidence = getVoiceSensitivity()
                     
                     // Para el sistema de testing temporal, usar confianza fija alta
@@ -268,9 +267,10 @@ class VoiceRecognitionService : Service() {
                         return@setCallback
                     }
                     
-                    // Verificar que el texto no esté vacío
-                    if (recognizedText.isBlank()) {
-                        Log.d("VoiceService", "🔇 Texto vacío, ignorando")
+                    // VALIDACIÓN 3: Verificar que no sea solo espacios o caracteres especiales
+                    val cleanText = recognizedText.trim().replace(Regex("[^a-záéíóúñA-ZÁÉÍÓÚÑ]"), "")
+                    if (cleanText.length < 3) {
+                        Log.d("VoiceService", "🔇 Texto sin contenido válido, ignorando")
                         return@setCallback
                     }
                     
@@ -300,6 +300,19 @@ class VoiceRecognitionService : Service() {
                     if (matchedCommand != null) {
                         val action = commandActions[matchedCommand]
                         Log.d("VoiceService", "✅ Comando detectado: '$matchedCommand' -> $action (confianza: ${effectiveConfidence}%)")
+                        
+                        // PROTECCIÓN COOLDOWN: Evitar comandos duplicados
+                        val currentTime = System.currentTimeMillis()
+                        val timeSinceLastCommand = currentTime - lastCommandTime
+                        
+                        if (timeSinceLastCommand < COMMAND_COOLDOWN_MS && matchedCommand == lastCommandExecuted) {
+                            Log.d("VoiceService", "🔇 Comando ignorado - demasiado pronto ($timeSinceLastCommand ms < $COMMAND_COOLDOWN_MS ms)")
+                            return@setCallback
+                        }
+                        
+                        // Actualizar tracking de comandos
+                        lastCommandTime = currentTime
+                        lastCommandExecuted = matchedCommand
                         
                         // Ejecutar la acción correspondiente
                         serviceScope.launch {
