@@ -39,6 +39,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         const val TYPE_AUDIO_CALL = "audio_call"
         const val TYPE_EMERGENCY_ALERT = "emergency_alert"
         const val TYPE_VOICE_COMMAND = "voice_command"
+        const val TYPE_PROXIMITY_CHAT = "proximity_chat_alert"
     }
 
     override fun onCreate() {
@@ -70,6 +71,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
                 TYPE_AUDIO_CALL -> handleAudioCall(data)
                 TYPE_EMERGENCY_ALERT -> handleEmergencyAlert(data)
                 TYPE_VOICE_COMMAND -> handleVoiceCommand(data)
+                TYPE_PROXIMITY_CHAT -> handleProximityChatAlert(data)
                 else -> {
                     Log.w(TAG, "⚠️ Tipo de mensaje desconocido: $type")
                     // Manejar como notificación general
@@ -258,6 +260,76 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         
         showNotification(command.hashCode(), notification)
     }
+    
+    /**
+     * ⭐ NUEVO: Manejar alertas de chats creados por voz
+     * Con sonido fuerte, vibración y pantalla bloqueada
+     */
+    private fun handleProximityChatAlert(data: Map<String, String>) {
+        val chatTitle = data["chatTitle"] ?: "Nuevo Chat"
+        val creatorName = data["creatorName"] ?: "Usuario"
+        val distance = data["distance"]?.toDouble()?.toInt() ?: 0
+        val category = data["category"] ?: "community"
+        val chatId = data["chatId"] ?: return
+        
+        Log.d(TAG, "🚨 ALERTA: Nuevo chat cercano - $chatTitle por $creatorName")
+        
+        // Intent para abrir el chat
+        val intent = Intent(this, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            putExtra("open_chat_id", chatId)
+            putExtra("proximity_alert", true)
+        }
+        
+        val pendingIntent = PendingIntent.getActivity(
+            this,
+            chatId.hashCode(),
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        
+        // Determinar emoji e importancia según categoría
+        val (emoji, priority, importance) = when (category) {
+            "emergency" -> Triple("🚨", NotificationCompat.PRIORITY_MAX, NotificationManager.IMPORTANCE_HIGH)
+            "alert" -> Triple("⚠️", NotificationCompat.PRIORITY_HIGH, NotificationManager.IMPORTANCE_HIGH)
+            "security", "surveillance" -> Triple("🛡️", NotificationCompat.PRIORITY_HIGH, NotificationManager.IMPORTANCE_HIGH)
+            "recording" -> Triple("🎤", NotificationCompat.PRIORITY_DEFAULT, NotificationManager.IMPORTANCE_DEFAULT)
+            else -> Triple("💬", NotificationCompat.PRIORITY_DEFAULT, NotificationManager.IMPORTANCE_DEFAULT)
+        }
+        
+        val title = "$emoji Chat Cercano"
+        val bodyText = "$chatTitle\n👤 $creatorName • 📍 ${distance}m"
+        
+        // Configurar vibración fuerte para emergencias
+        val vibrationPattern = when (category) {
+            "emergency" -> longArrayOf(0, 300, 200, 300, 200, 300)  // Patrón de emergencia
+            "alert" -> longArrayOf(0, 500, 300, 500)  // Patrón de alerta
+            else -> longArrayOf(0, 400, 200, 400)  // Patrón normal
+        }
+        
+        val notification = NotificationCompat.Builder(this, CHANNEL_EMERGENCY_ALERTS)
+            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setContentTitle(title)
+            .setContentText(bodyText)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(bodyText))
+            .setPriority(priority)
+            .setCategory(NotificationCompat.CATEGORY_MESSAGE)
+            .setAutoCancel(true)
+            .setContentIntent(pendingIntent)
+            // ⭐ SONIDO PREDETERMINADO DEL SISTEMA (fuerte)
+            .setDefaults(NotificationCompat.DEFAULT_SOUND)
+            // ⭐ VIBRACIÓN FUERTE
+            .setVibrate(vibrationPattern)
+            // ⭐ MOSTRAR EN PANTALLA BLOQUEADA
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            // ⭐ LUCES LED (si el dispositivo las tiene)
+            .setLights(0xFFFF0000.toInt(), 1000, 1000)
+            .build()
+        
+        showNotification(chatId.hashCode(), notification)
+        
+        Log.d(TAG, "✅ Notificación de chat mostrada con sonido y vibración")
+    }
 
     private fun showGeneralNotification(title: String, body: String) {
         val intent = Intent(this, MainActivity::class.java).apply {
@@ -299,16 +371,28 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
                 setShowBadge(true)
             }
             
-            // Canal para alertas de emergencia
+            // Canal para alertas de emergencia y chats por voz
             val emergencyChannel = NotificationChannel(
                 CHANNEL_EMERGENCY_ALERTS,
                 "Alertas de Emergencia",
-                NotificationManager.IMPORTANCE_MAX
+                NotificationManager.IMPORTANCE_HIGH
             ).apply {
-                description = "Alertas críticas y emergencias policiales"
+                description = "Alertas críticas, emergencias y chats creados por voz"
                 enableVibration(true)
-                vibrationPattern = longArrayOf(0, 100, 200, 100, 200, 100, 200)
+                vibrationPattern = longArrayOf(0, 300, 200, 300, 200, 300)
                 setShowBadge(true)
+                // ⭐ SONIDO FUERTE
+                setSound(
+                    android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_NOTIFICATION),
+                    android.media.AudioAttributes.Builder()
+                        .setUsage(android.media.AudioAttributes.USAGE_NOTIFICATION)
+                        .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                        .build()
+                )
+                // ⭐ MOSTRAR EN PANTALLA BLOQUEADA
+                lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
+                // ⭐ BYPASS "NO MOLESTAR" para emergencias
+                setBypassDnd(true)
             }
             
             // Canal para comandos de voz

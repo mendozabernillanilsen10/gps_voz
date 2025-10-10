@@ -1043,7 +1043,7 @@ class VoiceRecognitionService : Service() {
                 title = "🎤 Grabación Automática",
                 description = "Chat de grabación activado por voz",
                 radius = 2000, // 2km
-                pin = "0000",
+                pin = "1234",
                 category = "recording"
             )
             "CREATE_TRAFFIC_CHAT" -> ChatConfig(

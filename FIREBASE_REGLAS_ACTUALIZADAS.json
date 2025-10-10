@@ -1,0 +1,133 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    
+    "users": {
+      "$uid": {
+        ".read": "auth != null",
+        ".write": "$uid === auth.uid",
+        ".validate": "newData.hasChildren(['email', 'name', 'isActive']) || newData.hasChildren(['email', 'displayName', 'isActive'])"
+      }
+    },
+    
+    "proximity_chats": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      "$chatId": {
+        ".validate": "newData.hasChildren(['creatorId', 'title', 'latitude', 'longitude', 'pin'])"
+      }
+    },
+    
+    "chat_messages": {
+      "$chatId": {
+        ".read": "auth != null",
+        ".write": "auth != null"
+      }
+    },
+    
+    "chat_participants": {
+      "$chatId": {
+        "$uid": {
+          ".read": "auth != null",
+          ".write": "auth != null"
+        }
+      }
+    },
+    
+    "user_locations": {
+      "$uid": {
+        ".read": "auth != null",
+        ".write": "auth != null"
+      }
+    },
+    
+    "webrtc_calls": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    
+    "webrtc_signals": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    
+    "chat_notifications": {
+      "$chatId": {
+        ".read": "auth != null",
+        ".write": "auth != null"
+      }
+    },
+    
+    "fcm_tokens": {
+      "$uid": {
+        ".read": "auth != null && auth.uid == $uid",
+        ".write": "auth != null && auth.uid == $uid"
+      }
+    },
+    
+    "notification_logs": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    
+    "error_logs": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    
+    "voice_commands": {
+      "$uid": {
+        ".read": "auth != null && auth.uid == $uid",
+        ".write": "auth != null && auth.uid == $uid"
+      }
+    },
+    
+    "system_notifications": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    
+    "emergency_alerts": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    
+    "app_settings": {
+      "$uid": {
+        ".read": "auth != null && auth.uid == $uid",
+        ".write": "auth != null && auth.uid == $uid"
+      }
+    },
+    
+    "debug_logs": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    
+    "group_calls": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    
+    "calls": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      "$callId": {
+        ".read": "auth != null",
+        ".write": "auth != null"
+      }
+    },
+    
+    "media_recordings": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    
+    "surveillance_logs": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    }
+  }
+}
+

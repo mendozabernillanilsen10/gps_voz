@@ -28,6 +28,10 @@ class SimpleVoskEngine(private val context: Context) {
     private var isListening = false
     private var callback: ((String, Float) -> Unit)? = null
     private var commands: List<String> = emptyList()
+    
+    // ⭐ NUEVO: CommandAgent para matching inteligente
+    private val commandAgent = CommandAgent()
+    private var voiceCommands: List<VoiceCommand> = emptyList()
     private var sensitivity: Float = 0.7f
     
     // Configuración de audio optimizada para Vosk
@@ -231,12 +235,53 @@ class SimpleVoskEngine(private val context: Context) {
      */
     fun setCommands(commands: List<String>) {
         this.commands = commands
-        Log.d(TAG, "📝 Comandos configurados: $commands")
+        
+        // ⭐ NUEVO: Convertir a VoiceCommand para CommandAgent con sinónimos extendidos
+        this.voiceCommands = commands.map { keyword ->
+            // Detectar sinónimos basados en el comando
+            val synonyms = when {
+                keyword.contains("emergencia") -> listOf(
+                    "socorro", "ayuda", "auxilio", "sos", "apoyo",
+                    "emer", "emerg", "emerjencia"  // Variaciones de reconocimiento
+                )
+                keyword.contains("alerta") -> listOf(
+                    "aviso", "advertencia", "cuidado", "atención",
+                    "aler", "alart", "alli", "allí"  // Variaciones de reconocimiento
+                )
+                keyword.contains("audio") || keyword.contains("grabar") -> listOf(
+                    "grabar", "grabación", "audio", "graba", "grabando",
+                    "grava", "gravar", "aud", "audi"  // Variaciones de reconocimiento
+                )
+                keyword.contains("óyeme") || keyword.contains("oye") -> listOf(
+                    "oye", "oyeme", "escucha", "escúchame",
+                    "oy", "oym"  // Variaciones de reconocimiento
+                )
+                keyword.contains("refuerzo") -> listOf(
+                    "backup", "respaldo", "apoyo",
+                    "refuer", "refu"  // Variaciones de reconocimiento
+                )
+                keyword.contains("vigilancia") -> listOf(
+                    "vigilar", "observar", "monitorear", "controlar",
+                    "vigil", "vigi"  // Variaciones de reconocimiento
+                )
+                else -> emptyList()
+            }
+            
+            VoiceCommand(
+                keyword = keyword,
+                action = keyword.uppercase().replace(" ", "_"),
+                synonyms = synonyms,
+                description = keyword
+            )
+        }
+        
+        Log.d(TAG, "📝 Comandos configurados con CommandAgent: $commands")
         Log.d(TAG, "🎯 Total de comandos: ${commands.size}")
+        Log.d(TAG, "🤖 Usando CommandAgent con 5 estrategias de matching")
         
         // Log comandos específicos para debug
-        commands.forEachIndexed { index, command ->
-            Log.d(TAG, "   ${index + 1}. '$command'")
+        voiceCommands.forEachIndexed { index, cmd ->
+            Log.d(TAG, "   ${index + 1}. '${cmd.keyword}' (${cmd.synonyms.size} sinónimos)")
         }
         
         // Si tenemos un recognizer activo, reconfigurarlo
@@ -656,76 +701,25 @@ class SimpleVoskEngine(private val context: Context) {
             // Validar que el texto sea válido y tenga contenido real
             if (text.isNotBlank() && text.length >= 2) {
                 Log.d(TAG, "🎯 Texto extraído: '$text'")
-                Log.d(TAG, "📋 Comandos disponibles: $commands")
+                Log.d(TAG, "📋 Comandos disponibles: ${voiceCommands.map { it.keyword }}")
                 
-                // Normalizar el texto extraído
-                val normalizedText = normalizeSpanishText(text)
+                // ⭐ USAR COMMANDAGENT para matching inteligente
+                val match = commandAgent.interpret(text, voiceCommands)
                 
-                // Buscar comando en la lista con múltiples estrategias
-                var detectedCommand: String? = null
-                var matchType = ""
-                
-                // Estrategia 1: Coincidencia exacta
-                detectedCommand = commands.find { command ->
-                    normalizedText == normalizeSpanishText(command)
-                }
-                if (detectedCommand != null) matchType = "exacta"
-                
-                // Estrategia 2: Comando contiene el texto
-                if (detectedCommand == null) {
-                    detectedCommand = commands.find { command ->
-                        normalizedText.contains(normalizeSpanishText(command))
-                    }
-                    if (detectedCommand != null) matchType = "contenido"
-                }
-                
-                // Estrategia 3: PREFIJO - "al" → "alerta", "oy" → "oyeme"
-                if (detectedCommand == null && normalizedText.length >= 2) {
-                    detectedCommand = commands.find { command ->
-                        val normalizedCommand = normalizeSpanishText(command)
-                        // "al" inicia "alerta"
-                        normalizedCommand.startsWith(normalizedText)
-                    }
-                    if (detectedCommand != null) {
-                        matchType = "prefijo"
-                        Log.d(TAG, "🎯 MATCH PREFIJO: '$normalizedText' → '$detectedCommand'")
-                    }
-                }
-                
-                // Estrategia 4: Texto contiene el comando
-                if (detectedCommand == null) {
-                    detectedCommand = commands.find { command ->
-                        normalizeSpanishText(command).contains(normalizedText)
-                    }
-                    if (detectedCommand != null) matchType = "parcial"
-                }
-                
-                // Estrategia 5: Similitud con comandos comunes en español
-                if (detectedCommand == null) {
-                    detectedCommand = findSimilarSpanishCommand(normalizedText)
-                    if (detectedCommand != null) matchType = "similar"
-                }
-                
-                if (detectedCommand != null) {
-                    // UMBRAL MUY BAJO para audio desde bolsillo
-                    // Si es match de prefijo, aceptar con confianza mínima
-                    val minConfidence = if (matchType == "prefijo") 0.25f else 0.35f
-                    val adjustedSensitivity = sensitivity * 0.5f // 50% del umbral original
-                    val finalThreshold = minOf(adjustedSensitivity, minConfidence)
+                if (match != null) {
+                    Log.d(TAG, "✅ Comando detectado por CommandAgent: '${match.command.keyword}'")
+                    Log.d(TAG, "📊 Tipo de match: ${match.matchType}")
+                    Log.d(TAG, "📊 Matched por: '${match.matchedBy}'")
+                    Log.d(TAG, "📊 Confianza CommandAgent: ${match.confidence}")
                     
-                    val confidence = calculateConfidence(text, detectedCommand)
+                    // Invocar callback con el comando original
+                    callback?.invoke(match.command.keyword, match.confidence)
                     
-                    if (confidence >= finalThreshold || matchType == "prefijo") {
-                        Log.d(TAG, "✅ Comando confirmado ($matchType): '$detectedCommand' (confianza: $confidence, umbral: $finalThreshold)")
-                        callback?.invoke(detectedCommand, maxOf(confidence, 0.6f))
-                    } else {
-                        Log.d(TAG, "⚠️ Comando rechazado por baja confianza: $confidence < $finalThreshold")
-                        Log.d(TAG, "💡 Intenta hablar más fuerte o cerca del micrófono")
-                    }
                 } else {
                     // Solo loguear si el texto tiene contenido significativo
-                    if (text.length > 3) {
+                    if (text.length > 2) {
                         Log.d(TAG, "❌ No se encontró comando para: '$text'")
+                        Log.d(TAG, "💡 Comandos disponibles: ${voiceCommands.map { it.keyword }}")
                     }
                 }
             } else if (text.isNotEmpty()) {

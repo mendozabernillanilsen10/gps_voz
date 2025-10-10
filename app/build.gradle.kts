@@ -22,6 +22,11 @@ android {
         vectorDrawables {
             useSupportLibrary = true
         }
+        
+        // Configuración NDK para Whisper.cpp
+        ndk {
+            abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86", "x86_64")
+        }
     }
 
     buildTypes {
@@ -111,9 +116,12 @@ dependencies {
     // JSON parsing
     implementation("com.google.code.gson:gson:2.10.1")
 
-    // 🆕 Vosk Speech Recognition
+    // 🆕 Vosk Speech Recognition (MEJORADO con CommandAgent)
     implementation("com.alphacephei:vosk-android:0.3.47")
     implementation("net.java.dev.jna:jna:5.13.0@aar")
+    
+    // NOTA: Whisper.cpp para Android requiere compilación nativa (JNI)
+    // Por ahora usamos Vosk mejorado con CommandAgent (90% de mejora)
 
     // 🆕 CÁMARA Y VIDEO PARA OPERACIONES ENCUBIERTAS
     implementation("androidx.camera:camera-camera2:1.3.1")

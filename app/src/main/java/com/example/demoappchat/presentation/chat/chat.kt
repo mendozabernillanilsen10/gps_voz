@@ -67,7 +67,13 @@ import android.util.Log
 import java.io.File
 import java.io.IOException
 import android.media.MediaPlayer
+import com.example.demoappchat.utils.CallHelper
+import kotlinx.coroutines.launch
 
+/**
+ * 🎨 CHAT SCREEN MODERNO ESTILO iOS
+ * Diseño minimalista, profesional y elegante
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatScreen(
@@ -79,14 +85,13 @@ fun ChatScreen(
     val uiState by viewModel.uiState.collectAsState()
     val messages by viewModel.messages.collectAsState()
     val currentUser by viewModel.currentUser.collectAsState()
-    val recordingState by recordingViewModel.recordingState.collectAsState()
-    val isGroupCallActive by viewModel.isGroupCallActive.collectAsState()
-    val groupCallId by viewModel.groupCallId.collectAsState()
-
+    val context = LocalContext.current
+    val lifecycleScope = rememberCoroutineScope()
+    
     var messageText by remember { mutableStateOf("") }
     val listState = rememberLazyListState()
-    val context = LocalContext.current
-
+    
+    // Diálogos
     var showMediaOptions by remember { mutableStateOf(false) }
     var showVideoRecorder by remember { mutableStateOf(false) }
     var showAudioRecorder by remember { mutableStateOf(false) }
@@ -157,31 +162,39 @@ fun ChatScreen(
                     
                     // Botón de videollamada grupal
                     IconButton(
-                        onClick = { viewModel.startGroupCall(chatId, "VIDEO") },
-                        enabled = !isGroupCallActive
+                        onClick = {
+                            lifecycleScope.launch {
+                                CallHelper.startVideoCall(
+                                    context,
+                                    chatId,
+                                    "Chat Grupal"
+                                )
+                            }
+                        }
                     ) {
                         Icon(
                             Icons.Default.VideoCall,
                             contentDescription = "Videollamada grupal",
-                            tint = if (isGroupCallActive) 
-                                MaterialTheme.colorScheme.onSurfaceVariant 
-                            else 
-                                MaterialTheme.colorScheme.onSurface
+                            tint = MaterialTheme.colorScheme.onSurface
                         )
                     }
                     
                     // Botón de llamada de audio grupal
                     IconButton(
-                        onClick = { viewModel.startGroupCall(chatId, "AUDIO") },
-                        enabled = !isGroupCallActive
+                        onClick = {
+                            lifecycleScope.launch {
+                                CallHelper.startAudioCall(
+                                    context,
+                                    chatId,
+                                    "Chat Grupal"
+                                )
+                            }
+                        }
                     ) {
                         Icon(
                             Icons.Default.Call,
                             contentDescription = "Llamada de audio grupal",
-                            tint = if (isGroupCallActive) 
-                                MaterialTheme.colorScheme.onSurfaceVariant 
-                            else 
-                                MaterialTheme.colorScheme.onSurface
+                            tint = MaterialTheme.colorScheme.onSurface
                         )
                     }
                 },
@@ -200,14 +213,6 @@ fun ChatScreen(
                 .background(MaterialTheme.colorScheme.surface)
                 .padding(paddingValues)
         ) {
-            // Banner de llamada grupal activa
-            if (isGroupCallActive) {
-                GroupCallBanner(
-                    callId = groupCallId ?: "",
-                    onEndCall = { viewModel.endGroupCall() }
-                )
-            }
-            
             // Banner de comandos de voz activos
             Card(
                 modifier = Modifier

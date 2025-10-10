@@ -69,7 +69,7 @@ class BackgroundVoiceService : Service() {
             title = "🎤 Grabación Automática",
             description = "Chat de grabación activado por voz",
             radius = 2000,
-            pin = "0000",
+            pin = "1234",
             category = "recording"
         ),
         "traffic" to ChatConfig(

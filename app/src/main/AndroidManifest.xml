@@ -110,6 +110,17 @@
             android:configChanges="orientation|screenSize|keyboardHidden"
             android:showWhenLocked="true"
             android:turnScreenOn="true" />
+        
+        <!-- 📞 ACTIVIDAD DE LLAMADAS GRUPALES ESTILO iOS -->
+        <activity
+            android:name=".presentation.chat.GroupCallActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:theme="@style/Theme.DemoAppChat"
+            android:launchMode="singleTask"
+            android:configChanges="orientation|screenSize|keyboardHidden"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true" />
 
         <!-- 🎬 ACTIVIDAD DE REPRODUCTOR DE VIDEO -->
         <activity
