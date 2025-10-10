@@ -137,3 +137,5 @@ firebase-debug.log
 database-debug.log
 ui-debug.log
 .firebase/
+app/src/main/assets/ggml-base.bin
+app/src/main/assets/ggml-base.bin
